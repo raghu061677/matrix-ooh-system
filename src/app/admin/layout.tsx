@@ -40,11 +40,13 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const auth = getAuth(firebaseApp);
   const pathname = usePathname();
   const { theme } = useTheme();
-  const [mediaOpen, setMediaOpen] = useState(false);
-  const [reportsOpen, setReportsOpen] = useState(false);
-  const [expensesOpen, setExpensesOpen] = useState(false);
-  const [salesOpen, setSalesOpen] = useState(false);
-  const [operationsOpen, setOperationsOpen] = useState(false);
+  
+  // State for collapsible sidebar sections
+  const [mediaOpen, setMediaOpen] = useState(pathname.startsWith('/admin/media'));
+  const [reportsOpen, setReportsOpen] = useState(pathname.startsWith('/admin/reports'));
+  const [expensesOpen, setExpensesOpen] = useState(pathname.startsWith('/admin/expenses'));
+  const [salesOpen, setSalesOpen] = useState(pathname.startsWith('/admin/sales'));
+  const [operationsOpen, setOperationsOpen] = useState(pathname.startsWith('/admin/operations'));
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -307,46 +309,44 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
             </Collapsible>
 
 
-             <SidebarGroup>
-                <SidebarGroupLabel>Reports</SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <Collapsible open={reportsOpen} onOpenChange={setReportsOpen}>
+             <Collapsible open={reportsOpen} onOpenChange={setReportsOpen}>
+                <SidebarGroup>
+                    <SidebarGroupLabel>Reports</SidebarGroupLabel>
+                    <SidebarGroupContent>
                     <SidebarMenu>
                        <SidebarMenuItem>
                         <CollapsibleTrigger asChild>
                           <SidebarMenuButton>
                             <FilePieChart />
-                            <span className="whitespace-nowrap">Media Reports</span>
-                            <ChevronDown className={cn("ml-auto transition-transform", reportsOpen && "rotate-180")}/>
+                            <span className="whitespace-nowrap">Reports</span>
+                             <ChevronDown className={cn("ml-auto transition-transform", reportsOpen && "rotate-180")}/>
                           </SidebarMenuButton>
                         </CollapsibleTrigger>
                       </SidebarMenuItem>
                     </SidebarMenu>
-                    <CollapsibleContent>
-                       <SidebarMenuSub>
-                          <SidebarMenuSubItem>
-                            <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/reports/availability')}>
-                              <Link href="/admin/reports/availability">
-                                <Dot />
-                                <span>Availability Report</span>
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                       </SidebarMenuSub>
-                    </CollapsibleContent>
-                  </Collapsible>
-                  <SidebarMenu>
-                      <SidebarMenuItem>
-                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/reports/financial')} tooltip="Financial Reports">
-                           <Link href="/admin/reports/financial">
+                    </SidebarGroupContent>
+                </SidebarGroup>
+                <CollapsibleContent>
+                    <SidebarMenuSub>
+                        <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/reports/availability')}>
+                            <Link href="/admin/reports/availability">
+                            <Dot />
+                            <span>Availability Report</span>
+                            </Link>
+                        </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/reports/financial')}>
+                            <Link href="/admin/reports/financial">
                             <AreaChart />
                             <span className="whitespace-nowrap">Financial Reports</span>
-                           </Link>
-                         </SidebarMenuButton>
-                      </SidebarMenuItem>
-                  </SidebarMenu>
-                </SidebarGroupContent>
-             </SidebarGroup>
+                            </Link>
+                        </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                </CollapsibleContent>
+             </Collapsible>
 
           </SidebarContent>
           <SidebarFooter>
@@ -387,3 +387,5 @@ export default function AdminLayout({
     </ThemeProvider>
   );
 }
+
+    
