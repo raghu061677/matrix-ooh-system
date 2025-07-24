@@ -41,6 +41,9 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { theme } = useTheme();
   const [reportsOpen, setReportsOpen] = useState(false);
+  const [expensesOpen, setExpensesOpen] = useState(false);
+  const [salesOpen, setSalesOpen] = useState(false);
+  const [operationsOpen, setOperationsOpen] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -122,133 +125,170 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                 </SidebarGroupContent>
              </SidebarGroup>
 
-             <SidebarGroup>
-                <SidebarGroupLabel>Sales</SidebarGroupLabel>
-                 <SidebarGroupContent>
-                     <SidebarMenu>
-                       <SidebarMenuItem>
-                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/customers')} tooltip="Customers">
+            <Collapsible open={salesOpen} onOpenChange={setSalesOpen} className="w-full">
+              <SidebarGroup>
+                  <SidebarGroupLabel>Sales</SidebarGroupLabel>
+                  <SidebarGroupContent>
+                      <SidebarMenu>
+                        <SidebarMenuItem>
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuButton>
+                              <ReceiptText />
+                              <span className="whitespace-nowrap">Sales</span>
+                              <ChevronDown className={cn("ml-auto transition-transform", salesOpen && "rotate-180")}/>
+                            </SidebarMenuButton>
+                          </CollapsibleTrigger>
+                        </SidebarMenuItem>
+                      </SidebarMenu>
+                  </SidebarGroupContent>
+              </SidebarGroup>
+              <CollapsibleContent>
+                  <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/customers')}>
                            <Link href="/admin/customers">
                             <Users />
                             <span className="whitespace-nowrap">Customers</span>
                            </Link>
-                         </SidebarMenuButton>
-                      </SidebarMenuItem>
-                       <SidebarMenuItem>
-                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/sales-estimates')} tooltip="Sales Estimates">
+                         </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                       <SidebarMenuSubItem>
+                         <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/sales-estimates')}>
                            <Link href="/admin/sales-estimates">
                             <FilePieChart />
                             <span className="whitespace-nowrap">Sales Estimates</span>
                            </Link>
-                         </SidebarMenuButton>
-                      </SidebarMenuItem>
-                       <SidebarMenuItem>
-                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/purchase-orders')} tooltip="Purchase Orders">
+                         </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                       <SidebarMenuSubItem>
+                         <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/purchase-orders')}>
                            <Link href="/admin/purchase-orders">
                             <FileText />
                             <span className="whitespace-nowrap">Purchase Orders</span>
                            </Link>
-                         </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/quotations')} tooltip="Quotations">
-                           <Link href="#">
-                            <ReceiptText />
-                            <span className="whitespace-nowrap">Quotations</span>
-                           </Link>
-                         </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/invoices')} tooltip="Invoices">
+                         </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                       <SidebarMenuSubItem>
+                         <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/invoices')}>
                            <Link href="#">
                             <ReceiptText />
                             <span className="whitespace-nowrap">Invoices</span>
                            </Link>
-                         </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    </SidebarMenu>
-                 </SidebarGroupContent>
-             </SidebarGroup>
-
-             <SidebarGroup>
-                <SidebarGroupLabel>Operations</SidebarGroupLabel>
-                 <SidebarGroupContent>
-                     <SidebarMenu>
-                       <SidebarMenuItem>
-                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/operations/mounting-tasks')} tooltip="Mounting Tasks">
-                           <Link href="/admin/operations/mounting-tasks">
-                            <Wrench />
-                            <span className="whitespace-nowrap">Mounting Tasks</span>
-                           </Link>
-                         </SidebarMenuButton>
-                      </SidebarMenuItem>
-                       <SidebarMenuItem>
-                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/operations/flex-stock')} tooltip="Flex Stock">
-                           <Link href="/admin/operations/flex-stock">
-                            <Package />
-                            <span className="whitespace-nowrap">Flex Stock</span>
-                           </Link>
-                         </SidebarMenuButton>
-                      </SidebarMenuItem>
-                       <SidebarMenuItem>
-                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/operations/photo-library')} tooltip="Photo Library">
-                           <Link href="/admin/operations/photo-library">
-                            <ImageIcon />
-                            <span className="whitespace-nowrap">Photo Library</span>
-                           </Link>
-                         </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    </SidebarMenu>
-                 </SidebarGroupContent>
-             </SidebarGroup>
-
+                         </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+              </CollapsibleContent>
+            </Collapsible>
+            
+            <Collapsible open={operationsOpen} onOpenChange={setOperationsOpen} className="w-full">
+               <SidebarGroup>
+                  <SidebarGroupLabel>Operations</SidebarGroupLabel>
+                   <SidebarGroupContent>
+                       <SidebarMenu>
+                         <SidebarMenuItem>
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuButton>
+                              <Wrench />
+                              <span className="whitespace-nowrap">Operations</span>
+                              <ChevronDown className={cn("ml-auto transition-transform", operationsOpen && "rotate-180")}/>
+                            </SidebarMenuButton>
+                          </CollapsibleTrigger>
+                        </SidebarMenuItem>
+                      </SidebarMenu>
+                   </SidebarGroupContent>
+               </SidebarGroup>
+               <CollapsibleContent>
+                  <SidebarMenuSub>
+                     <SidebarMenuSubItem>
+                       <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/operations/mounting-tasks')}>
+                         <Link href="/admin/operations/mounting-tasks">
+                          <Wrench />
+                          <span className="whitespace-nowrap">Mounting Tasks</span>
+                         </Link>
+                       </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                     <SidebarMenuSubItem>
+                       <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/operations/flex-stock')}>
+                         <Link href="/admin/operations/flex-stock">
+                          <Package />
+                          <span className="whitespace-nowrap">Flex Stock</span>
+                         </Link>
+                       </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                     <SidebarMenuSubItem>
+                       <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/operations/photo-library')}>
+                         <Link href="/admin/operations/photo-library">
+                          <ImageIcon />
+                          <span className="whitespace-nowrap">Photo Library</span>
+                         </Link>
+                       </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  </SidebarMenuSub>
+               </CollapsibleContent>
+            </Collapsible>
+            
+            <Collapsible open={expensesOpen} onOpenChange={setExpensesOpen} className="w-full">
               <SidebarGroup>
-                <SidebarGroupLabel>Expenses</SidebarGroupLabel>
-                <SidebarGroupContent>
-                    <SidebarMenu>
-                       <SidebarMenuItem>
-                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/expenses/power-bills')} tooltip="Power Bills">
-                           <Link href="/admin/expenses/power-bills">
-                            <Zap />
-                            <span className="whitespace-nowrap">Power Bills</span>
-                           </Link>
-                         </SidebarMenuButton>
-                      </SidebarMenuItem>
-                       <SidebarMenuItem>
-                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/expenses/printing')} tooltip="Printing">
-                           <Link href="/admin/expenses/printing">
-                            <Printer />
-                            <span className="whitespace-nowrap">Printing</span>
-                           </Link>
-                         </SidebarMenuButton>
-                      </SidebarMenuItem>
-                       <SidebarMenuItem>
-                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/expenses/mounting')} tooltip="Mounting">
-                           <Link href="/admin/expenses/mounting">
-                            <Wrench />
-                            <span className="whitespace-nowrap">Mounting</span>
-                           </Link>
-                         </SidebarMenuButton>
-                      </SidebarMenuItem>
-                       <SidebarMenuItem>
-                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/expenses/travel')} tooltip="Travel">
-                           <Link href="/admin/expenses/travel">
-                            <Fuel />
-                            <span className="whitespace-nowrap">Travel</span>
-                           </Link>
-                         </SidebarMenuButton>
-                      </SidebarMenuItem>
-                       <SidebarMenuItem>
-                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/expenses/office')} tooltip="Office">
-                           <Link href="/admin/expenses/office">
-                            <Building />
-                            <span className="whitespace-nowrap">Office</span>
-                           </Link>
-                         </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    </SidebarMenu>
-                </SidebarGroupContent>
-             </SidebarGroup>
+                  <SidebarGroupLabel>Expenses</SidebarGroupLabel>
+                  <SidebarGroupContent>
+                      <SidebarMenu>
+                        <SidebarMenuItem>
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuButton>
+                              <ReceiptText />
+                              <span className="whitespace-nowrap">Expenses</span>
+                              <ChevronDown className={cn("ml-auto transition-transform", expensesOpen && "rotate-180")}/>
+                            </SidebarMenuButton>
+                          </CollapsibleTrigger>
+                        </SidebarMenuItem>
+                      </SidebarMenu>
+                  </SidebarGroupContent>
+              </SidebarGroup>
+               <CollapsibleContent>
+                   <SidebarMenuSub>
+                         <SidebarMenuSubItem>
+                           <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/expenses/power-bills')}>
+                             <Link href="/admin/expenses/power-bills">
+                              <Zap />
+                              <span className="whitespace-nowrap">Power Bills</span>
+                             </Link>
+                           </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                         <SidebarMenuSubItem>
+                           <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/expenses/printing')}>
+                             <Link href="/admin/expenses/printing">
+                              <Printer />
+                              <span className="whitespace-nowrap">Printing</span>
+                             </Link>
+                           </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                         <SidebarMenuSubItem>
+                           <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/expenses/mounting')}>
+                             <Link href="/admin/expenses/mounting">
+                              <Wrench />
+                              <span className="whitespace-nowrap">Mounting</span>
+                             </Link>
+                           </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                         <SidebarMenuSubItem>
+                           <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/expenses/travel')}>
+                             <Link href="/admin/expenses/travel">
+                              <Fuel />
+                              <span className="whitespace-nowrap">Travel</span>
+                             </Link>
+                           </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                         <SidebarMenuSubItem>
+                           <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/expenses/office')}>
+                             <Link href="/admin/expenses/office">
+                              <Building />
+                              <span className="whitespace-nowrap">Office</span>
+                             </Link>
+                           </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      </SidebarMenuSub>
+               </CollapsibleContent>
+            </Collapsible>
 
 
              <SidebarGroup>
