@@ -68,8 +68,9 @@ type Asset = {
   area?: string;
   location?: string;
   dimensions?: string;
-  width?: number;
-  height?: number;
+  structure?: 'single' | 'multi';
+  width1?: number;
+  height1?: number;
   width2?: number;
   height2?: number;
   sqft?: number;
@@ -95,10 +96,8 @@ export function MediaManager() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentAsset, setCurrentAsset] = useState<Asset | null>(null);
-  const [status, setStatus] = useState<string | undefined>(undefined);
-  const [ownership, setOwnership] = useState<string | undefined>(undefined);
-  const [light, setLight] = useState<'BackLit' | 'Non-Lit' | 'Front-Lit' | undefined>(undefined);
-  const [media, setMedia] = useState<string | undefined>(undefined);
+  const [formData, setFormData] = useState<Partial<Asset>>({});
+  
   const [imageFiles, setImageFiles] = useState<FileList | null>(null);
   const [filter, setFilter] = useState('');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
@@ -110,18 +109,14 @@ export function MediaManager() {
     area: true,
     location: true,
     dimensions: true,
-    dimensions2: false,
     sqft: true,
     light: true,
     status: true,
+    structure: true,
     ownership: false,
     media: false,
     state: false,
     city: false,
-    width: false,
-    height: false,
-    width2: false,
-    height2: false,
     supplierId: false,
   });
 
@@ -141,6 +136,28 @@ export function MediaManager() {
 
     getMediaAssets();
   }, []);
+  
+  useEffect(() => {
+    const { structure, width1, height1, width2, height2 } = formData;
+    let totalSqft = 0;
+    if (structure === 'single' && width1 && height1) {
+      totalSqft = width1 * height1;
+    } else if (structure === 'multi' && width1 && height1 && width2 && height2) {
+      totalSqft = (width1 * height1) + (width2 * height2);
+    } else if (structure === 'multi' && width1 && height1) {
+      totalSqft = width1 * height1;
+    }
+    setFormData(prev => ({ ...prev, sqft: totalSqft }));
+  }, [formData.structure, formData.width1, formData.height1, formData.width2, formData.height2]);
+
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type } = e.target;
+    setFormData(prev => ({ ...prev, [name]: type === 'number' ? parseFloat(value) || 0 : value }));
+  };
+
+  const handleSelectChange = (name: keyof Asset, value: string) => {
+    setFormData(prev => ({...prev, [name]: value}));
+  };
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -189,17 +206,8 @@ export function MediaManager() {
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-    const formData = new FormData(e.target as HTMLFormElement);
-    const assetData: any = Object.fromEntries(formData.entries());
     
-    // Manual handling for now, would be replaced by proper geo fields
-    // assetData.latitude = latitude;
-    // assetData.longitude = longitude;
-
-    if (status) assetData.status = status;
-    if (ownership) assetData.ownership = ownership;
-    if (light) assetData.light = light;
-    if (media) assetData.media = media;
+    const assetData: Partial<Asset> = { ...formData };
     
     const newImageUrls = await handleImageUpload();
     if (newImageUrls.length > 0) {
@@ -215,7 +223,7 @@ export function MediaManager() {
       toast({ title: 'Asset Updated!', description: 'The media asset has been successfully updated.' });
     } else {
       const docRef = await addDoc(mediaAssetsCollectionRef, assetData);
-      setMediaAssets([...mediaAssets, { ...assetData, id: docRef.id }]);
+      setMediaAssets([...mediaAssets, { ...assetData, id: docRef.id } as Asset]);
       toast({ title: 'Asset Added!', description: 'The new media asset has been added.' });
     }
     setLoading(false);
@@ -224,20 +232,14 @@ export function MediaManager() {
 
   const openDialog = (asset: Asset | null = null) => {
     setCurrentAsset(asset);
-    setStatus(asset?.status);
-    setOwnership(asset?.ownership);
-    setLight(asset?.light);
-    setMedia(asset?.media);
+    setFormData(asset || {});
     setIsDialogOpen(true);
   };
 
   const closeDialog = () => {
     setIsDialogOpen(false);
     setCurrentAsset(null);
-    setStatus(undefined);
-    setOwnership(undefined);
-    setLight(undefined);
-    setMedia(undefined);
+    setFormData({});
     setImageFiles(null);
     setLatitude('');
     setLongitude('');
@@ -301,25 +303,21 @@ export function MediaManager() {
     { key: 'area', label: 'Area', sortable: true },
     { key: 'location', label: 'Location', sortable: true },
     { key: 'dimensions', label: 'Dimensions' },
-    { key: 'dimensions2', label: 'Dimensions 2' },
     { key: 'sqft', label: 'Sqft' },
     { key: 'light', label: 'Lighting' },
     { key: 'status', label: 'Status', sortable: true },
+    { key: 'structure', label: 'Structure', sortable: true },
     { key: 'ownership', label: 'Ownership', sortable: true },
     { key: 'media', label: 'Media', sortable: true },
     { key: 'state', label: 'State', sortable: true },
     { key: 'city', label: 'City', sortable: true },
-    { key: 'width', label: 'Width' },
-    { key: 'height', label: 'Height' },
-    { key: 'width2', label: 'Width 2' },
-    { key: 'height2', label: 'Height 2' },
     { key: 'supplierId', label: 'Supplier ID' },
   ];
 
   const exportTemplateToExcel = () => {
     const headers = [
       'mid', 'ownership', 'media', 'state', 'district', 'city', 'area', 'location', 
-      'dimensions', 'width', 'height', 'width2', 'height2', 'sqft', 'light', 'status', 'supplierId'
+      'dimensions', 'structure', 'width1', 'height1', 'width2', 'height2', 'sqft', 'light', 'status', 'supplierId'
     ];
     const worksheet = XLSX.utils.aoa_to_sheet([headers]);
     const workbook = XLSX.utils.book_new();
@@ -341,9 +339,6 @@ export function MediaManager() {
       head: [columns.filter(c => c.key !== 'image').map(c => c.label)],
       body: sortedAndFilteredAssets.map(asset => 
         columns.filter(c => c.key !== 'image').map(col => {
-            if (col.key === 'dimensions2') {
-                return asset.width2 && asset.height2 ? `${asset.width2}' x ${asset.height2}'` : '';
-            }
             return asset[col.key as keyof Asset] ?? '';
         })
       ),
@@ -360,9 +355,6 @@ export function MediaManager() {
       columns.forEach(col => {
         if (col.key !== 'image' && asset[col.key as keyof Asset]) {
            let value = asset[col.key as keyof Asset];
-           if (col.key === 'dimensions2' && asset.width2 && asset.height2) {
-               value = `${asset.width2}' x ${asset.height2}'`;
-           }
            if (value) {
             slide.addText(`${col.label}: ${value}`, { x: 0.5, y, fontSize: 12 });
             y += 0.4;
@@ -550,18 +542,14 @@ export function MediaManager() {
                 {columnVisibility.area && <TableCell>{asset.area}</TableCell>}
                 {columnVisibility.location && <TableCell>{asset.location}</TableCell>}
                 {columnVisibility.dimensions && <TableCell>{asset.dimensions}</TableCell>}
-                {columnVisibility.dimensions2 && <TableCell>{asset.width2 && asset.height2 ? `${asset.width2}' x ${asset.height2}'` : ''}</TableCell>}
                 {columnVisibility.sqft && <TableCell>{asset.sqft}</TableCell>}
                 {columnVisibility.light && <TableCell>{asset.light}</TableCell>}
                 {columnVisibility.status && <TableCell>{asset.status}</TableCell>}
+                {columnVisibility.structure && <TableCell>{asset.structure}</TableCell>}
                 {columnVisibility.ownership && <TableCell>{asset.ownership}</TableCell>}
                 {columnVisibility.media && <TableCell>{asset.media}</TableCell>}
                 {columnVisibility.state && <TableCell>{asset.state}</TableCell>}
                 {columnVisibility.city && <TableCell>{asset.city}</TableCell>}
-                {columnVisibility.width && <TableCell>{asset.width}</TableCell>}
-                {columnVisibility.height && <TableCell>{asset.height}</TableCell>}
-                {columnVisibility.width2 && <TableCell>{asset.width2}</TableCell>}
-                {columnVisibility.height2 && <TableCell>{asset.height2}</TableCell>}
                 {columnVisibility.supplierId && <TableCell>{asset.supplierId}</TableCell>}
 
                 <TableCell className="text-right">
@@ -590,11 +578,11 @@ export function MediaManager() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 py-4">
               <div>
                 <Label htmlFor="mid">MID</Label>
-                <Input id="mid" name="mid" defaultValue={currentAsset?.mid} />
+                <Input id="mid" name="mid" value={formData.mid || ''} onChange={handleFormChange}/>
               </div>
               <div>
                 <Label htmlFor="ownership">Ownership</Label>
-                 <Select onValueChange={setOwnership} defaultValue={currentAsset?.ownership}>
+                 <Select onValueChange={(value) => handleSelectChange('ownership', value)} value={formData.ownership}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select ownership" />
                   </SelectTrigger>
@@ -606,7 +594,7 @@ export function MediaManager() {
               </div>
                <div>
                 <Label htmlFor="media">Media Type</Label>
-                 <Select onValueChange={setMedia} defaultValue={currentAsset?.media}>
+                 <Select onValueChange={(value) => handleSelectChange('media', value)} value={formData.media}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select media type" />
                   </SelectTrigger>
@@ -619,51 +607,84 @@ export function MediaManager() {
               </div>
               <div>
                 <Label htmlFor="state">State</Label>
-                <Input id="state" name="state" defaultValue={currentAsset?.state} />
+                <Input id="state" name="state" value={formData.state || ''} onChange={handleFormChange} />
               </div>
               <div>
                 <Label htmlFor="district">District</Label>
-                <Input id="district" name="district" defaultValue={currentAsset?.district} />
+                <Input id="district" name="district" value={formData.district || ''} onChange={handleFormChange} />
               </div>
               <div>
                 <Label htmlFor="city">City</Label>
-                <Input id="city" name="city" defaultValue={currentAsset?.city} />
+                <Input id="city" name="city" value={formData.city || ''} onChange={handleFormChange} />
               </div>
                <div>
                 <Label htmlFor="area">Area</Label>
-                <Input id="area" name="area" defaultValue={currentAsset?.area} />
+                <Input id="area" name="area" value={formData.area || ''} onChange={handleFormChange} />
               </div>
               <div className="md:col-span-3">
                 <Label htmlFor="location">Location</Label>
-                <Input id="location" name="location" defaultValue={currentAsset?.location} required />
+                <Input id="location" name="location" value={formData.location || ''} onChange={handleFormChange} required />
               </div>
-              <div>
+
+               <div className="md:col-span-2">
                 <Label htmlFor="dimensions">Dimensions (e.g. 14' x 48')</Label>
-                <Input id="dimensions" name="dimensions" defaultValue={currentAsset?.dimensions} />
+                <Input id="dimensions" name="dimensions" value={formData.dimensions || ''} onChange={handleFormChange} />
               </div>
-               <div>
-                <Label htmlFor="width">Width (ft)</Label>
-                <Input id="width" name="width" type="number" defaultValue={currentAsset?.width} />
-              </div>
+
               <div>
-                <Label htmlFor="height">Height (ft)</Label>
-                <Input id="height" name="height" type="number" defaultValue={currentAsset?.height} />
+                <Label htmlFor="structure">Structure</Label>
+                 <Select onValueChange={(value) => handleSelectChange('structure', value as 'single' | 'multi')} value={formData.structure}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Structure" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="single">Single Display</SelectItem>
+                    <SelectItem value="multi">Multi Display</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="sqft">Total Sqft</Label>
-                <Input id="sqft" name="sqft" type="number" defaultValue={currentAsset?.sqft} />
+                <Input id="sqft" name="sqft" type="number" value={formData.sqft || ''} readOnly className="bg-muted" />
               </div>
-              <div>
-                <Label htmlFor="width2">Width 2 (ft)</Label>
-                <Input id="width2" name="width2" type="number" defaultValue={currentAsset?.width2} />
-              </div>
-              <div>
-                <Label htmlFor="height2">Height 2 (ft)</Label>
-                <Input id="height2" name="height2" type="number" defaultValue={currentAsset?.height2} />
-              </div>
+              
+              {formData.structure === 'single' && (
+                <>
+                   <div>
+                    <Label htmlFor="width1">Width (ft)</Label>
+                    <Input id="width1" name="width1" type="number" value={formData.width1 || ''} onChange={handleFormChange} />
+                  </div>
+                  <div>
+                    <Label htmlFor="height1">Height (ft)</Label>
+                    <Input id="height1" name="height1" type="number" value={formData.height1 || ''} onChange={handleFormChange} />
+                  </div>
+                </>
+              )}
+              {formData.structure === 'multi' && (
+                 <>
+                   <div>
+                    <Label htmlFor="width1">Width 1 (ft)</Label>
+                    <Input id="width1" name="width1" type="number" value={formData.width1 || ''} onChange={handleFormChange} />
+                  </div>
+                  <div>
+                    <Label htmlFor="height1">Height 1 (ft)</Label>
+                    <Input id="height1" name="height1" type="number" value={formData.height1 || ''} onChange={handleFormChange} />
+                  </div>
+                  <div>
+                    <Label htmlFor="width2">Width 2 (ft)</Label>
+                    <Input id="width2" name="width2" type="number" value={formData.width2 || ''} onChange={handleFormChange} />
+                  </div>
+                  <div>
+                    <Label htmlFor="height2">Height 2 (ft)</Label>
+                    <Input id="height2" name="height2" type="number" value={formData.height2 || ''} onChange={handleFormChange} />
+                  </div>
+                </>
+              )}
+
+
               <div className="flex flex-col gap-2">
                 <Label htmlFor="light">Lighting</Label>
-                 <Select onValueChange={(value) => setLight(value as any)} defaultValue={currentAsset?.light}>
+                 <Select onValueChange={(value) => handleSelectChange('light', value as any)} value={formData.light}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select lighting type" />
                   </SelectTrigger>
@@ -676,7 +697,7 @@ export function MediaManager() {
               </div>
               <div>
                 <Label htmlFor="status">Status</Label>
-                 <Select onValueChange={setStatus} defaultValue={currentAsset?.status}>
+                 <Select onValueChange={(value) => handleSelectChange('status', value)} value={formData.status}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
@@ -688,7 +709,7 @@ export function MediaManager() {
               </div>
               <div>
                 <Label htmlFor="supplierId">Supplier ID</Label>
-                <Input id="supplierId" name="supplierId" defaultValue={currentAsset?.supplierId} />
+                <Input id="supplierId" name="supplierId" value={formData.supplierId || ''} onChange={handleFormChange} />
               </div>
                <div className="col-span-full">
                 <Label htmlFor="images">Asset Images</Label>
