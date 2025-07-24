@@ -19,6 +19,7 @@ import { Separator } from '../ui/separator';
 import { cn } from '@/lib/utils';
 import { MediaPlanFormDialog } from './media-plan-form-dialog';
 import { Customer, User } from '@/types/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 interface MediaPlanViewProps {
   plan: MediaPlan;
@@ -37,11 +38,21 @@ const InfoRow: React.FC<{ label: string; value?: string | number | null; childre
 export function MediaPlanView({ plan: initialPlan, customers, employees }: MediaPlanViewProps) {
   const [plan, setPlan] = React.useState<MediaPlan>(initialPlan);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+  const { toast } = useToast();
 
   const handlePlanUpdate = (updatedPlan: MediaPlan) => {
     // In a real app, this would also save to Firestore
     setPlan(updatedPlan);
-    // Optionally, show a toast notification
+    toast({ title: 'Plan Updated', description: 'The media plan has been successfully updated.' });
+  };
+  
+  const handleConvertToCampaign = () => {
+    // In a real app, this would involve creating a new campaign document in Firestore
+    console.log('Converting plan to campaign:', plan.id);
+    toast({
+        title: 'Plan Converted to Campaign',
+        description: `${plan.displayName} is now a campaign.`
+    });
   };
 
   const formatCurrency = (value?: number) => {
@@ -61,7 +72,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
             </h1>
         </div>
         <div className="flex items-center gap-2">
-            <Button>Convert to Campaign</Button>
+            <Button onClick={handleConvertToCampaign}>Convert to Campaign</Button>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon"><MoreVertical /></Button>
