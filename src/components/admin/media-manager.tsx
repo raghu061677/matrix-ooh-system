@@ -86,7 +86,7 @@ export function MediaManager() {
     sqft: true,
     light: true,
     status: true,
-    structure: true,
+    structure: false,
     ownership: false,
     media: false,
     state: false,
@@ -384,9 +384,9 @@ export function MediaManager() {
     const doc = new jsPDF();
     doc.text('Media Assets', 20, 10);
     (doc as any).autoTable({
-      head: [columns.filter(c => c.key !== 'image').map(c => c.label)],
+      head: [columns.filter(c => c.key !== 'image' && columnVisibility[c.key]).map(c => c.label)],
       body: sortedAndFilteredAssets.map(asset => 
-        columns.filter(c => c.key !== 'image').map(col => {
+        columns.filter(c => c.key !== 'image' && columnVisibility[c.key]).map(col => {
             return asset[col.key as keyof Asset] ?? '';
         })
       ),
@@ -401,7 +401,7 @@ export function MediaManager() {
       slide.addText(`Media Asset: ${asset.mid || 'N/A'}`, { x: 0.5, y: 0.5, fontSize: 18, bold: true });
       let y = 1.0;
       columns.forEach(col => {
-        if (col.key !== 'image' && asset[col.key as keyof Asset]) {
+        if (col.key !== 'image' && columnVisibility[col.key] && asset[col.key as keyof Asset]) {
            let value = asset[col.key as keyof Asset];
            if (value) {
             slide.addText(`${col.label}: ${value}`, { x: 0.5, y, fontSize: 12 });
@@ -700,7 +700,7 @@ export function MediaManager() {
                     <Input id="city" name="city" value={formData.city || ''} onChange={handleFormChange} />
                   </div>
                    
-                   <div className="grid gap-2">
+                   <div className="md:col-span-2">
                     <Label htmlFor="area">Area</Label>
                     <div className="flex gap-2">
                         <Select onValueChange={(value) => handleSelectChange('area', value)} value={formData.area}>
@@ -716,7 +716,7 @@ export function MediaManager() {
                         <Input id="area" name="area" placeholder="Or add new area" value={formData.area || ''} onChange={handleFormChange} />
                     </div>
                   </div>
-                  <div className="md:col-span-3">
+                  <div className="md:col-span-2">
                     <Label htmlFor="location">Location</Label>
                     <Input id="location" name="location" value={formData.location || ''} onChange={handleFormChange} required />
                   </div>

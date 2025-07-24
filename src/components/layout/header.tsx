@@ -26,7 +26,7 @@ export function Header() {
       <div className="container flex h-14 max-w-screen-2xl items-center">
         <Link href="/home" className="mr-6 flex items-center space-x-2">
           <Projector className="h-6 w-6 text-primary" />
-          <span className="font-bold font-headline text-lg">Matrix Network Solutions</span>
+          <span className="font-bold font-headline text-lg">MediaVenue</span>
         </Link>
         <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
           {navItems.map((item) => (
@@ -53,7 +53,7 @@ export function Header() {
                       <div className="flex items-center justify-between border-b pb-4">
                          <Link href="/home" className="flex items-center space-x-2" onClick={() => setIsMobileMenuOpen(false)}>
                           <Projector className="h-6 w-6 text-primary" />
-                          <span className="font-bold font-headline text-lg">Matrix Network Solutions</span>
+                          <span className="font-bold font-headline text-lg">MediaVenue</span>
                         </Link>
                       </div>
                       <nav className="flex flex-col gap-4 mt-6">

@@ -63,7 +63,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
     // Here you would add the logic to recalculate inventory summaries and costs.
     // For now, we just show a toast.
     toast({
-        title: 'Inventory Selected',
+        title: 'Media Assets Selected',
         description: `${selectedAssets.length} assets have been selected. Update logic to be implemented.`,
     });
     setIsAssetSelectorOpen(false);
@@ -126,8 +126,8 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                             <p className="text-sm font-semibold">{plan.employee?.name}</p>
                         </div>
                     </div>
-                    <InfoRow label="Start Date" value={format(new Date(plan.startDate), 'ddMMMyy')} />
-                    <InfoRow label="End Date" value={format(new Date(plan.endDate), 'ddMMMyy')} />
+                    <InfoRow label="Start Date" value={format(new Date(plan.startDate), 'dd MMM yy')} />
+                    <InfoRow label="End Date" value={format(new Date(plan.endDate), 'dd MMM yy')} />
                     <InfoRow label="Days" value={plan.days} />
                 </CardContent>
             </Card>

@@ -44,6 +44,7 @@ import 'jspdf-autotable';
 import PptxGenJS from 'pptxgenjs';
 import { MediaPlanFormDialog } from './media-plan-form-dialog';
 import { SelectAssetsDialog } from './select-assets-dialog';
+import { Asset } from './media-manager-types';
 
 type SortConfig = {
   key: keyof MediaPlan;
@@ -93,9 +94,9 @@ export function MediaPlansManager() {
         documents: { emailConfirmations: 0, purchaseOrders: 0, others: 0 },
         status: 'Draft'
       },
-      { id: '2', projectId: 'P00108', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-1', customerName: 'Matrix', displayName: 'Matrix ®', startDate: new Date('2025-07-24'), endDate: new Date('2025-08-22'), days: 30, status: 'Draft' },
+      { id: '2', projectId: 'P00108', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-1', customerName: 'MediaVenue', displayName: 'MediaVenue ®', startDate: new Date('2025-07-24'), endDate: new Date('2025-08-22'), days: 30, status: 'Draft' },
       { id: '3', projectId: 'P00107', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-2', customerName: 'Founding Years Learning Solutions Pvt Ltd', displayName: 'Education', startDate: new Date('2025-07-25'), endDate: new Date('2025-10-22'), days: 90, status: 'Confirmed' },
-      { id: '4', projectId: 'P00106', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-1', customerName: 'Matrix Network Solutions', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, status: 'Active' },
+      { id: '4', projectId: 'P00106', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-1', customerName: 'MediaVenue', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, status: 'Active' },
       { id: '5', projectId: 'P00094', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-3', customerName: 'ADMINDS', displayName: 'Sunil Reddy', startDate: new Date('2025-07-01'), endDate: new Date('2025-07-31'), days: 31, status: 'Draft' },
       { id: '6', projectId: 'P00105', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-4', customerName: 'LAQSHYA MEDIA LIMITED', displayName: 'Quick delivery food campaign', startDate: new Date('2025-07-10'), endDate: new Date('2025-08-08'), days: 30, status: 'Draft' },
   ];
@@ -145,7 +146,7 @@ export function MediaPlansManager() {
     setCurrentPlan(null);
   };
 
-  const handleAssetsSelected = (selectedAssets: any[]) => {
+  const handleAssetsSelected = (selectedAssets: Asset[]) => {
     console.log("Selected assets:", selectedAssets);
     setIsAssetSelectorOpen(false);
     openPlanForm();
@@ -427,8 +428,8 @@ export function MediaPlansManager() {
                         {plan.displayName}
                     </Link>
                 </TableCell>}
-                {columnVisibility.from && <TableCell>{format(new Date(plan.startDate), 'ddMMMyy')}</TableCell>}
-                {columnVisibility.to && <TableCell>{format(new Date(plan.endDate), 'ddMMMyy')}</TableCell>}
+                {columnVisibility.from && <TableCell>{format(new Date(plan.startDate), 'dd MMM yy')}</TableCell>}
+                {columnVisibility.to && <TableCell>{format(new Date(plan.endDate), 'dd MMM yy')}</TableCell>}
                 {columnVisibility.days && <TableCell>{plan.days}</TableCell>}
                 {columnVisibility.sqft && <TableCell>{plan.inventorySummary?.totalSqft}</TableCell>}
                 {columnVisibility.amount && <TableCell>{plan.costSummary?.grandTotal?.toLocaleString('en-IN')}</TableCell>}

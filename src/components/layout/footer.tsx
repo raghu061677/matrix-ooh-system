@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import { Projector, Twitter, Linkedin, Facebook } from 'lucide-react';
 
@@ -10,10 +11,10 @@ export function Footer() {
         <div className="flex flex-col items-center gap-4 px-8 md:flex-row md:gap-2 md:px-0">
           <Link href="/home" className="flex items-center space-x-2">
             <Projector className="h-6 w-6 text-primary" />
-            <span className="font-bold font-headline text-lg">Matrix Network Solutions</span>
+            <span className="font-bold font-headline text-lg">MediaVenue</span>
           </Link>
           <p className="text-center text-sm leading-loose text-muted-foreground md:text-left">
-            © {year} Matrix Network Solutions, Inc. All rights reserved.
+            © {year} MediaVenue, Inc. All rights reserved.
           </p>
         </div>
         <div className="flex items-center gap-4">

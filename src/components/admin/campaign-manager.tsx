@@ -26,7 +26,7 @@ import { MoreHorizontal, Search } from 'lucide-react';
 import { Campaign } from '@/types/media-plan';
 
 const sampleCampaigns: Campaign[] = [
-    { id: '4', projectId: 'P00106', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerName: 'Matrix Network Solutions', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, inventorySummary: { totalSqft: 1280 }, costSummary: { grandTotal: 224200 }, statistics: { qos: '42.5%' }, status: 'Active' },
+    { id: '4', projectId: 'P00106', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerName: 'MediaVenue', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, inventorySummary: { totalSqft: 1280 }, costSummary: { grandTotal: 224200 }, statistics: { qos: '42.5%' }, status: 'Active' },
 ];
 
 export function CampaignManager() {
