@@ -33,6 +33,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { mediavenueLogo } from '@/lib/logo';
+import { ExportDownloadLinks } from './export-download-links';
 
 interface MediaPlanViewProps {
   plan: MediaPlan;
@@ -124,36 +125,45 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
     ppt.author = "OOH Media App";
 
     const planId = plan.id;
-    // const planSnap = await getDoc(doc(db, "plans", planId));
-    // if (!planSnap.exists()) {
-    //   alert("Plan not found");
-    //   return;
-    // }
-    const planData = plan; // Use local state
+    const planSnap = await getDoc(doc(db, "plans", planId));
+    if (!planSnap.exists()) {
+      toast({variant: "destructive", title: "Plan not found"});
+      return;
+    }
+    const planData = planSnap.data();
     const assets = (planData as any).mediaAssets || sampleAssets.slice(0, 5);
 
-    for (let i = 0; i < assets.length; i++) {
-        const asset = assets[i];
+    for (const asset of assets) {
         const slide = ppt.addSlide();
 
-        slide.addText(`${i + 1}. ${asset.area} - ${asset.city}`, { x: 0.5, y: 0.3, fontSize: 14, bold: true });
-        slide.addText(`Size: ${asset.width1 || asset.width}ft x ${asset.height1 || asset.height}ft`, { x: 0.5, y: 0.7, fontSize: 12 });
-        
-        const photos = asset.imageUrls || []; // Using imageUrls from sample data
-        if (photos[0]) {
-            const imageBase64 = await imageToBase64(photos[0]);
-            if (imageBase64) slide.addImage({ data: imageBase64, x: 0.5, y: 1.2, w: 4, h: 3 });
-        }
-        if (photos[1]) {
-            const imageBase64 = await imageToBase64(photos[1]);
-            if(imageBase64) slide.addImage({ data: imageBase64, x: 5, y: 1.2, w: 4, h: 3 });
+        slide.addText(`Asset ID: ${asset.iid}`, { x: 0.5, y: 0.2, fontSize: 14, bold: true });
+        slide.addText(`${asset.area}, ${asset.city}`, { x: 0.5, y: 0.5, fontSize: 12 });
+        slide.addText(`Size: ${asset.width}ft x ${asset.height}ft`, { x: 0.5, y: 0.8, fontSize: 12 });
+
+
+        const q = query(collection(db, "photoLibrary/photos"), where("iid", "==", asset.iid));
+        const photoSnap = await getDocs(q);
+        const urls: string[] = [];
+
+        photoSnap.forEach(doc => {
+          const d = doc.data();
+          if (d.storagePath) urls.push(d.storagePath);
+        });
+
+        for (let i = 0; i < Math.min(2, urls.length); i++) {
+          try {
+            const url = await getDownloadURL(ref(storage, urls[i]));
+             slide.addImage({ data: url, x: 0.5 + i * 4.5, y: 1.2, w: 4, h: 3 });
+          } catch (err) {
+            console.warn("Image load error:", err);
+          }
         }
     }
 
-    const buffer = await ppt.write("arraybuffer");
+    const buffer = await ppt.write({ outputType: "arraybuffer" });
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
     
-    const filename = `${planData.displayName || 'MediaPlan'}_${planId}.pptx`;
+    const filename = `preview.pptx`;
 
     try {
         const downloadURL = await uploadFileAndGetURL(planId, blob, filename);
@@ -174,12 +184,12 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   
   const exportPlanToExcel = async () => {
       const planId = plan.id;
-      // const planDoc = await getDoc(doc(db, "plans", planId));
-      // if (!planDoc.exists()) {
-      //   alert("Plan not found");
-      //   return;
-      // }
-      const planData = plan; // Use local state
+      const planDoc = await getDoc(doc(db, "plans", planId));
+      if (!planDoc.exists()) {
+        toast({variant: "destructive", title: "Plan not found"});
+        return;
+      }
+      const planData = planDoc.data();
       const assets = (planData as any).mediaAssets || sampleAssets.slice(0, 5);
 
       const worksheetData: (string | number)[][] = [
@@ -188,20 +198,20 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
         ],
       ];
 
-      assets.forEach((asset: Asset, index: number) => {
-        const rate = (asset as any).rate || asset.baseRate || 0;
-        const printing = (asset as any).printing || 0;
-        const mounting = (asset as any).mounting || 3500;
+      assets.forEach((asset: any, index: number) => {
+        const rate = asset.rate || 0;
+        const printing = asset.printing || 0;
+        const mounting = asset.mounting || 0;
         const total = rate + printing + mounting;
         const gst = total * 0.18;
         const grandTotal = total + gst;
 
         worksheetData.push([
           index + 1,
-          asset.area || '',
-          asset.city || '',
-          `${asset.width1} x ${asset.height1}`,
-          (asset as any).quantity || 1,
+          asset.area,
+          asset.city,
+          `${asset.width} x ${asset.height}`,
+          asset.quantity || 1,
           rate,
           printing,
           mounting,
@@ -214,7 +224,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
       const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Media Plan");
-      const filename = `${planData.displayName || 'MediaPlan'}_${planId}.xlsx`;
+      const filename = `plan.xlsx`;
 
       // Write to Blob
       const excelBlob = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
@@ -240,94 +250,82 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   const exportPlanToPDF = async (templateStyle = 'classic') => {
      toast({ title: 'Generating PDF...', description: 'Please wait while we prepare your work order.' });
      const planId = plan.id;
-     // const planDocRef = await getDoc(doc(db, "plans", planId));
-     // if (!planDocRef.exists()) {
-     //    toast({ variant: 'destructive', title: 'Error', description: 'Plan not found.' });
-     //    return;
-     // }
-     // const planData = planDocRef.data() as MediaPlan;
-     const planData = plan;
+     const planDocRef = await getDoc(doc(db, "plans", planId));
+     if (!planDocRef.exists()) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Plan not found.' });
+        return;
+     }
+     const planData = planDocRef.data() as MediaPlan;
      const assets = (planData as any).mediaAssets || sampleAssets.slice(0, 7);
      const customer = customers.find(c => c.id === plan.customerId);
 
      const pdf = new jsPDF();
       
-      // Header
-      pdf.addImage(mediavenueLogo, 'PNG', 14, 12, 50, 15);
-      pdf.setFontSize(22);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Quote', 195, 20, { align: 'right' });
-      pdf.line(14, 30, 196, 30);
+      const companyName = "Matrix Network Solutions";
+      const companyAddress = "H.No: 7-1-19/5/201, Jyothi Bhopal Apartments, Near Begumpet Metro Station, Opp Country Club, Begumpet, Hyderabad 500016, Telangana, India";
+      const gstin = "GSTIN: 36AATFM4107H2Z3";
+      const pan = "PAN: AATFM4107H";
 
-      // Billing Info
-      pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Bill To:', 14, 40);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(customer?.name || 'N/A', 14, 45);
-      const address = customer?.addresses?.[0];
-      if (address) {
-          pdf.text(`${address.street}, ${address.city}`, 14, 50);
-          pdf.text(`${address.state} - ${address.postalCode}`, 14, 55);
+      if (templateStyle === 'classic') {
+        pdf.setFontSize(16);
+        pdf.text(companyName, 14, 20);
+        pdf.setFontSize(10);
+        pdf.text(companyAddress, 14, 26);
+        pdf.text(gstin, 14, 31);
+        pdf.text(pan, 14, 36);
       }
 
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Ship To:', 110, 40);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(customer?.name || 'N/A', 110, 45);
-       if (address) {
-          pdf.text(`${address.street}, ${address.city}`, 110, 50);
-          pdf.text(`${address.state} - ${address.postalCode}`, 110, 55);
+      pdf.setFontSize(12);
+      pdf.text(`Quotation: ${planData.displayName || planId}`, 14, 46);
+      pdf.text(`Client: ${planData.customerName || 'Client Name'}`, 14, 52);
+      if (planData.startDate) {
+        pdf.text(`Start Date: ${new Date((planData.startDate as any).seconds * 1000).toLocaleDateString()}`, 14, 58);
+      }
+       if (planData.endDate) {
+        pdf.text(`End Date: ${new Date((planData.endDate as any).seconds * 1000).toLocaleDateString()}`, 14, 64);
       }
 
 
       // Table setup
       const body = assets.map((asset: any, index: number) => {
-        const rate = (asset as any).rate || asset.baseRate || 0;
-        const total = rate; // Simplified for this example
+        const rate = asset.rate || 0;
+        const printing = asset.printing || 0;
+        const mounting = asset.mounting || 0;
+        const total = rate + printing + mounting;
+        const gst = total * 0.18;
+        const grandTotal = total + gst;
 
         return [
           index + 1,
-          `${asset.location}\n${asset.area}, ${asset.city}`,
-          `${plan.days} days`,
-          formatCurrency(rate),
-          formatCurrency(total)
+          asset.area,
+          asset.city,
+          `${asset.width} x ${asset.height}`,
+          asset.quantity || 1,
+          rate.toFixed(2),
+          printing.toFixed(2),
+          mounting.toFixed(2),
+          total.toFixed(2),
+          gst.toFixed(2),
+          grandTotal.toFixed(2)
         ];
       });
-
-      const totalAmount = assets.reduce((sum: number, asset: any) => sum + ((asset as any).rate || asset.baseRate || 0), 0);
-      const cgst = totalAmount * 0.09;
-      const sgst = totalAmount * 0.09;
-      const grandTotal = totalAmount + cgst + sgst;
 
 
       autoTable(pdf, {
         startY: 70,
-        head: [['#', 'Location & Description', 'Duration', 'Rate', 'Amount']],
+        head: [[
+          "S.No", "Location", "City", "Size", "Qty", "Rate", "Printing", "Mounting", "Total", "GST", "Grand Total"
+        ]],
         body,
-        theme: 'striped',
-        headStyles: { fillColor: [40, 40, 40] },
-        didDrawPage: (data) => {
-            // Totals
-            const finalY = data.cursor?.y ? data.cursor.y + 10 : 150;
-            pdf.setFontSize(10);
-            pdf.text('Sub Total:', 150, finalY, { align: 'right' });
-            pdf.text(formatCurrency(totalAmount)!, 195, finalY, { align: 'right' });
-            pdf.text('CGST (9%):', 150, finalY + 5, { align: 'right' });
-            pdf.text(formatCurrency(cgst)!, 195, finalY + 5, { align: 'right' });
-            pdf.text('SGST (9%):', 150, finalY + 10, { align: 'right' });
-            pdf.text(formatCurrency(sgst)!, 195, finalY + 10, { align: 'right' });
-            pdf.setFont('helvetica', 'bold');
-            pdf.text('Grand Total:', 150, finalY + 15, { align: 'right' });
-            pdf.text(formatCurrency(grandTotal)!, 195, finalY + 15, { align: 'right' });
-
-            // Footer
-            const pageHeight = pdf.internal.pageSize.getHeight();
-            pdf.setFontSize(8);
-            pdf.text('This is a computer-generated document.', 14, pageHeight - 10);
-            pdf.text('Authorized Signature', 195, pageHeight - 15, { align: 'right' });
-        }
+        theme: templateStyle === 'modern' ? 'grid' : 'striped',
+        headStyles: { fillColor: templateStyle === 'modern' ? [41, 128, 185] : [0, 0, 0] }
       });
+      
+      const finalY = (pdf as any).lastAutoTable.finalY;
+
+      // Footer
+      pdf.setFontSize(10);
+      pdf.text("Thank you for considering our services!", 14, finalY + 10);
 
      const blob = pdf.output('blob');
      try {
@@ -425,7 +423,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                             <AvatarFallback>{plan.employee?.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div>
-                            <p className="text-sm font-medium text-muted-foreground">Employee</p>
+                            <p className="text-sm text-muted-foreground">Employee</p>
                             <p className="text-sm font-semibold">{plan.employee?.name}</p>
                         </div>
                     </div>
@@ -497,19 +495,6 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                 </CardContent>
             </Card>
 
-            {/* Documents Card */}
-             <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="text-base">Documents</CardTitle>
-                    <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
-                </CardHeader>
-                <CardContent>
-                    <InfoRow label="Email Confirmation" value={plan.documents?.emailConfirmations} />
-                    <InfoRow label="Purchase Orders" value={plan.documents?.purchaseOrders} />
-                    <InfoRow label="Others" value={plan.documents?.others} />
-                </CardContent>
-            </Card>
-
             {/* Export Card */}
              <Card>
                 <CardHeader>
@@ -541,6 +526,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                     </div>
                 </CardContent>
             </Card>
+            <ExportDownloadLinks planId={plan.id} />
         </div>
       </main>
       
