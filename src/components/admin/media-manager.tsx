@@ -55,6 +55,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import PptxGenJS from 'pptxgenjs';
+import { statesAndDistricts } from '@/lib/india-states';
 
 
 type Asset = {
@@ -157,6 +158,10 @@ export function MediaManager() {
 
   const handleSelectChange = (name: keyof Asset, value: string) => {
     setFormData(prev => ({...prev, [name]: value}));
+  };
+  
+  const handleStateChange = (value: string) => {
+    setFormData(prev => ({...prev, state: value, district: undefined }));
   };
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -606,12 +611,34 @@ export function MediaManager() {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="state">State</Label>
-                <Input id="state" name="state" value={formData.state || ''} onChange={handleFormChange} />
+                 <Label htmlFor="state">State</Label>
+                <Select onValueChange={handleStateChange} value={formData.state}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select state" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statesAndDistricts.states.map(state => (
+                      <SelectItem key={state.name} value={state.name}>{state.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="district">District</Label>
-                <Input id="district" name="district" value={formData.district || ''} onChange={handleFormChange} />
+                <Select
+                  onValueChange={(value) => handleSelectChange('district', value)}
+                  value={formData.district}
+                  disabled={!formData.state}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select district" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {formData.state && statesAndDistricts.states.find(s => s.name === formData.state)?.districts.map(district => (
+                      <SelectItem key={district} value={district}>{district}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="city">City</Label>
@@ -742,5 +769,3 @@ export function MediaManager() {
     </TooltipProvider>
   );
 }
-
-    
