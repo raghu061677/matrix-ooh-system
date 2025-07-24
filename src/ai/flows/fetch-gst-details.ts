@@ -10,12 +10,12 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const GstDetailsInputSchema = z.object({
+const GstDetailsInputSchema = z.object({
   gstNumber: z.string().describe('The GST number of the business.'),
 });
-export type GstDetailsInput = z.infer<typeof GstDetailsInputSchema>;
+type GstDetailsInput = z.infer<typeof GstDetailsInputSchema>;
 
-export const GstDetailsOutputSchema = z.object({
+const GstDetailsOutputSchema = z.object({
     legalName: z.string().describe('The legal name of the business.'),
     tradeName: z.string().describe('The trade name of the business.'),
     address: z.string().describe('The principal place of business.'),
@@ -23,7 +23,7 @@ export const GstDetailsOutputSchema = z.object({
     state: z.string().describe('The state of the business address.'),
     pincode: z.string().describe('The pincode of the business address.'),
 });
-export type GstDetailsOutput = z.infer<typeof GstDetailsOutputSchema>;
+type GstDetailsOutput = z.infer<typeof GstDetailsOutputSchema>;
 
 // This is a mock function. In a real scenario, this would call a GST API.
 async function getGstDataFromApi(gstNumber: string): Promise<GstDetailsOutput> {
