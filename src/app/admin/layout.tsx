@@ -24,7 +24,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem
 } from '@/components/ui/sidebar';
-import { Projector, LayoutGrid, ListChecks, FileText, LogOut, Loader2, Home, Users, ReceiptText, FilePieChart, AreaChart, Dot, ChevronDown, Wrench, Package, Image as ImageIcon, Zap, Printer, Fuel, Building } from 'lucide-react';
+import { Projector, LayoutGrid, ListChecks, FileText, LogOut, Loader2, Home, Users, ReceiptText, FilePieChart, AreaChart, Dot, ChevronDown, Wrench, Package, Image as ImageIcon, Zap, Printer, Fuel, Building, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -47,6 +47,8 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const [expensesOpen, setExpensesOpen] = useState(pathname.startsWith('/admin/expenses'));
   const [salesOpen, setSalesOpen] = useState(pathname.startsWith('/admin/sales'));
   const [operationsOpen, setOperationsOpen] = useState(pathname.startsWith('/admin/operations'));
+  const [settingsOpen, setSettingsOpen] = useState(pathname.startsWith('/admin/users'));
+
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -348,6 +350,38 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                 </CollapsibleContent>
              </Collapsible>
 
+             <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
+                <SidebarGroup>
+                    <SidebarGroupLabel>Settings</SidebarGroupLabel>
+                    <SidebarGroupContent>
+                    <SidebarMenu>
+                       <SidebarMenuItem>
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton>
+                            <Settings />
+                            <span className="whitespace-nowrap">Settings</span>
+                             <ChevronDown className={cn("ml-auto transition-transform", settingsOpen && "rotate-180")}/>
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                      </SidebarMenuItem>
+                    </SidebarMenu>
+                    </SidebarGroupContent>
+                </SidebarGroup>
+                <CollapsibleContent>
+                    <SidebarMenuSub>
+                        <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/users')}>
+                            <Link href="/admin/users">
+                            <Users />
+                            <span>Users</span>
+                            </Link>
+                        </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                </CollapsibleContent>
+             </Collapsible>
+
+
           </SidebarContent>
           <SidebarFooter>
              <div className="flex items-center justify-between">
@@ -387,5 +421,3 @@ export default function AdminLayout({
     </ThemeProvider>
   );
 }
-
-    
