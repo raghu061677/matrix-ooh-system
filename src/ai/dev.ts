@@ -9,3 +9,4 @@ import '@/ai/flows/assign-invoice-number.ts';
 import '@/ai/flows/manage-approvals.ts';
 import '@/ai/flows/manage-operations.ts';
 import '@/ai/flows/generate-monthly-sales-summary.ts';
+import '@/ai/flows/generate-campaign-ppt.ts';
