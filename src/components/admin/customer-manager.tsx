@@ -157,7 +157,7 @@ export function CustomerManager() {
             }));
             toast({
                 title: 'Details Fetched!',
-                description: 'Business name and address have been populated.',
+                description: 'Business Name and address have been populated.',
             });
         }
     });
@@ -624,6 +624,3 @@ export function CustomerManager() {
     </TooltipProvider>
   );
 }
-
-    
-    
