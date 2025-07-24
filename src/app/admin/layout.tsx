@@ -24,7 +24,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem
 } from '@/components/ui/sidebar';
-import { Projector, LayoutGrid, ListChecks, FileText, LogOut, Loader2, Home, Users, ReceiptText, FilePieChart, AreaChart, Dot, ChevronDown, Wrench, Package, Image as ImageIcon } from 'lucide-react';
+import { Projector, LayoutGrid, ListChecks, FileText, LogOut, Loader2, Home, Users, ReceiptText, FilePieChart, AreaChart, Dot, ChevronDown, Wrench, Package, Image as ImageIcon, Zap, Printer, Fuel, Building } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -201,6 +201,55 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                     </SidebarMenu>
                  </SidebarGroupContent>
              </SidebarGroup>
+
+              <SidebarGroup>
+                <SidebarGroupLabel>Expenses</SidebarGroupLabel>
+                <SidebarGroupContent>
+                    <SidebarMenu>
+                       <SidebarMenuItem>
+                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/expenses/power-bills')} tooltip="Power Bills">
+                           <Link href="/admin/expenses/power-bills">
+                            <Zap />
+                            <span className="whitespace-nowrap">Power Bills</span>
+                           </Link>
+                         </SidebarMenuButton>
+                      </SidebarMenuItem>
+                       <SidebarMenuItem>
+                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/expenses/printing')} tooltip="Printing">
+                           <Link href="/admin/expenses/printing">
+                            <Printer />
+                            <span className="whitespace-nowrap">Printing</span>
+                           </Link>
+                         </SidebarMenuButton>
+                      </SidebarMenuItem>
+                       <SidebarMenuItem>
+                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/expenses/mounting')} tooltip="Mounting">
+                           <Link href="/admin/expenses/mounting">
+                            <Wrench />
+                            <span className="whitespace-nowrap">Mounting</span>
+                           </Link>
+                         </SidebarMenuButton>
+                      </SidebarMenuItem>
+                       <SidebarMenuItem>
+                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/expenses/travel')} tooltip="Travel">
+                           <Link href="/admin/expenses/travel">
+                            <Fuel />
+                            <span className="whitespace-nowrap">Travel</span>
+                           </Link>
+                         </SidebarMenuButton>
+                      </SidebarMenuItem>
+                       <SidebarMenuItem>
+                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/expenses/office')} tooltip="Office">
+                           <Link href="/admin/expenses/office">
+                            <Building />
+                            <span className="whitespace-nowrap">Office</span>
+                           </Link>
+                         </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    </SidebarMenu>
+                </SidebarGroupContent>
+             </SidebarGroup>
+
 
              <SidebarGroup>
                 <SidebarGroupLabel>Reports</SidebarGroupLabel>
