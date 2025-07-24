@@ -55,6 +55,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import PptxGenJS from 'pptxgenjs';
+import { Switch } from '@/components/ui/switch';
 
 
 type Asset = {
@@ -95,6 +96,8 @@ export function MediaManager() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentAsset, setCurrentAsset] = useState<Asset | null>(null);
   const [status, setStatus] = useState<string | undefined>(undefined);
+  const [ownership, setOwnership] = useState<string | undefined>(undefined);
+  const [light, setLight] = useState<boolean | undefined>(undefined);
   const [imageFiles, setImageFiles] = useState<FileList | null>(null);
   const [filter, setFilter] = useState('');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
@@ -190,9 +193,9 @@ export function MediaManager() {
     // assetData.latitude = latitude;
     // assetData.longitude = longitude;
 
-    if (status) {
-      assetData.status = status;
-    }
+    if (status) assetData.status = status;
+    if (ownership) assetData.ownership = ownership;
+    assetData.light = light;
     
     const newImageUrls = await handleImageUpload();
     if (newImageUrls.length > 0) {
@@ -218,6 +221,8 @@ export function MediaManager() {
   const openDialog = (asset: Asset | null = null) => {
     setCurrentAsset(asset);
     setStatus(asset?.status);
+    setOwnership(asset?.ownership);
+    setLight(asset?.light);
     setIsDialogOpen(true);
   };
 
@@ -225,6 +230,8 @@ export function MediaManager() {
     setIsDialogOpen(false);
     setCurrentAsset(null);
     setStatus(undefined);
+    setOwnership(undefined);
+    setLight(undefined);
     setImageFiles(null);
     setLatitude('');
     setLongitude('');
@@ -551,7 +558,7 @@ export function MediaManager() {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>{currentAsset ? 'Edit Media Asset' : 'Add New Media Asset'}</DialogTitle>
             <DialogDescription>
@@ -559,20 +566,44 @@ export function MediaManager() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSave}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4">
               <div>
                 <Label htmlFor="iid">IID</Label>
                 <Input id="iid" name="iid" defaultValue={currentAsset?.iid} />
               </div>
               <div>
+                <Label htmlFor="ownership">Ownership</Label>
+                 <Select onValueChange={setOwnership} defaultValue={currentAsset?.ownership}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select ownership" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="own">Own</SelectItem>
+                    <SelectItem value="rented">Rented</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+               <div>
+                <Label htmlFor="media">Media Type</Label>
+                <Input id="media" name="media" defaultValue={currentAsset?.media} />
+              </div>
+              <div>
+                <Label htmlFor="state">State</Label>
+                <Input id="state" name="state" defaultValue={currentAsset?.state} />
+              </div>
+              <div>
                 <Label htmlFor="district">District</Label>
                 <Input id="district" name="district" defaultValue={currentAsset?.district} />
+              </div>
+              <div>
+                <Label htmlFor="city">City</Label>
+                <Input id="city" name="city" defaultValue={currentAsset?.city} />
               </div>
                <div>
                 <Label htmlFor="area">Area</Label>
                 <Input id="area" name="area" defaultValue={currentAsset?.area} />
               </div>
-              <div>
+              <div className="md:col-span-2">
                 <Label htmlFor="location">Location</Label>
                 <Input id="location" name="location" defaultValue={currentAsset?.location} required />
               </div>
@@ -580,9 +611,28 @@ export function MediaManager() {
                 <Label htmlFor="dimensions">Dimensions (e.g. 14' x 48')</Label>
                 <Input id="dimensions" name="dimensions" defaultValue={currentAsset?.dimensions} />
               </div>
+               <div>
+                <Label htmlFor="width">Width (ft)</Label>
+                <Input id="width" name="width" type="number" defaultValue={currentAsset?.width} />
+              </div>
+              <div>
+                <Label htmlFor="height">Height (ft)</Label>
+                <Input id="height" name="height" type="number" defaultValue={currentAsset?.height} />
+              </div>
               <div>
                 <Label htmlFor="sqft">Total Sqft</Label>
                 <Input id="sqft" name="sqft" type="number" defaultValue={currentAsset?.sqft} />
+              </div>
+              <div>
+                <Label htmlFor="quantity">Quantity</Label>
+                <Input id="quantity" name="quantity" type="number" defaultValue={currentAsset?.quantity} />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="light">Lighting</Label>
+                <div className="flex items-center gap-2">
+                  <Switch id="light" name="light" checked={light} onCheckedChange={setLight} />
+                  <span>{light ? 'Yes' : 'No'}</span>
+                </div>
               </div>
               <div>
                 <Label htmlFor="status">Status</Label>
@@ -595,6 +645,10 @@ export function MediaManager() {
                     <SelectItem value="deleted">Deleted</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <Label htmlFor="supplierId">Supplier ID</Label>
+                <Input id="supplierId" name="supplierId" defaultValue={currentAsset?.supplierId} />
               </div>
                <div className="col-span-full">
                 <Label htmlFor="images">Asset Images</Label>
@@ -627,3 +681,5 @@ export function MediaManager() {
     </TooltipProvider>
   );
 }
+
+    
