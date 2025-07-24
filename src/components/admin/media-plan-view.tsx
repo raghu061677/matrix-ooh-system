@@ -20,6 +20,8 @@ import { cn } from '@/lib/utils';
 import { MediaPlanFormDialog } from './media-plan-form-dialog';
 import { Customer, User } from '@/types/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { SelectAssetsDialog } from './select-assets-dialog';
+import { Asset } from './media-manager-types';
 
 interface MediaPlanViewProps {
   plan: MediaPlan;
@@ -38,6 +40,7 @@ const InfoRow: React.FC<{ label: string; value?: string | number | null; childre
 export function MediaPlanView({ plan: initialPlan, customers, employees }: MediaPlanViewProps) {
   const [plan, setPlan] = React.useState<MediaPlan>(initialPlan);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+  const [isAssetSelectorOpen, setIsAssetSelectorOpen] = React.useState(false);
   const { toast } = useToast();
 
   const handlePlanUpdate = (updatedPlan: MediaPlan) => {
@@ -53,6 +56,17 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
         title: 'Plan Converted to Campaign',
         description: `${plan.displayName} is now a campaign.`
     });
+  };
+
+  const handleInventoryUpdate = (selectedAssets: Asset[]) => {
+    console.log("Updating inventory for plan:", plan.id, "with assets:", selectedAssets);
+    // Here you would add the logic to recalculate inventory summaries and costs.
+    // For now, we just show a toast.
+    toast({
+        title: 'Inventory Selected',
+        description: `${selectedAssets.length} assets have been selected. Update logic to be implemented.`,
+    });
+    setIsAssetSelectorOpen(false);
   };
 
   const formatCurrency = (value?: number) => {
@@ -143,7 +157,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle className="text-base">Inventory</CardTitle>
-                    <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => setIsAssetSelectorOpen(true)}><Edit className="h-4 w-4" /></Button>
                 </CardHeader>
                 <CardContent>
                     <InfoRow label="Home Inventory" value={plan.inventorySummary?.homeCount} />
@@ -214,6 +228,12 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
             handlePlanUpdate(updatedPlan);
             setIsDialogOpen(false);
         }}
+      />
+
+      <SelectAssetsDialog
+        isOpen={isAssetSelectorOpen}
+        onOpenChange={setIsAssetSelectorOpen}
+        onAddToPlan={handleInventoryUpdate}
       />
     </div>
   );
