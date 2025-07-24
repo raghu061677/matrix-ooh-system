@@ -13,6 +13,8 @@ export type MediaPlan = {
   startDate: Date | Timestamp;
   endDate: Date | Timestamp;
   days?: number;
+  isRotational: boolean;
+  notes?: string;
   statistics?: {
     haMarkupPercentage?: number;
     taMarkupPercentage?: number;
@@ -50,3 +52,5 @@ export type MediaPlan = {
 
 // Campaigns have an identical structure to plans.
 export type Campaign = MediaPlan;
+
+    

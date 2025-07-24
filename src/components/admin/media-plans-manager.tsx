@@ -37,6 +37,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { 
@@ -46,10 +51,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import { Calendar } from '@/components/ui/calendar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2, Loader2, FileText, SlidersHorizontal, ArrowUpDown, Upload, Download } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, FileText, SlidersHorizontal, ArrowUpDown, Upload, Download, CalendarIcon } from 'lucide-react';
 import { MediaPlan, MediaPlanStatus } from '@/types/media-plan';
-import { format } from 'date-fns';
+import { Customer } from '@/types/firestore';
+import { format, differenceInDays } from 'date-fns';
+import { DateRange } from 'react-day-picker';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -60,12 +71,20 @@ type SortConfig = {
   direction: 'ascending' | 'descending';
 } | null;
 
+// Mock data until real data fetching is implemented
+const mockEmployees = [
+    { id: 'user-001', name: 'Admin User' },
+    { id: 'user-002', name: 'Sales Rep' },
+];
+
 export function MediaPlansManager() {
   const [mediaPlans, setMediaPlans] = useState<MediaPlan[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<MediaPlan | null>(null);
   const [formData, setFormData] = useState<Partial<MediaPlan>>({});
+  const [dateRange, setDateRange] = React.useState<DateRange | undefined>(undefined);
   
   const [filter, setFilter] = useState('');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
@@ -81,8 +100,8 @@ export function MediaPlansManager() {
 
   const { toast } = useToast();
   const mediaPlansCollectionRef = collection(db, 'media_plans');
+  const customersCollectionRef = collection(db, 'customers');
 
-  // Sample data to be replaced with Firestore fetching
   const sampleData: MediaPlan[] = [
     {
         id: 'plan-001',
@@ -92,6 +111,8 @@ export function MediaPlansManager() {
         status: 'Draft',
         startDate: new Date('2024-07-01'),
         endDate: new Date('2024-07-31'),
+        isRotational: false,
+        notes: ''
     },
     {
         id: 'plan-002',
@@ -101,26 +122,45 @@ export function MediaPlansManager() {
         status: 'Confirmed',
         startDate: new Date('2024-08-01'),
         endDate: new Date('2024-08-31'),
+        isRotational: true,
+        notes: 'High priority'
     }
   ];
 
   useEffect(() => {
-    // In a real app, you would fetch from Firestore here.
-    // For now, we are using sample data.
-    // const getMediaPlans = async () => {
-    //   setLoading(true);
-    //   const data = await getDocs(mediaPlansCollectionRef);
-    //   setMediaPlans(data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as MediaPlan)));
-    //   setLoading(false);
-    // };
-    // getMediaPlans();
-    
-    setMediaPlans(sampleData);
-    setLoading(false);
-
+    const getData = async () => {
+        setLoading(true);
+        try {
+            // const plansData = await getDocs(mediaPlansCollectionRef);
+            // setMediaPlans(plansData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as MediaPlan)));
+            setMediaPlans(sampleData);
+            
+            const customersData = await getDocs(customersCollectionRef);
+            setCustomers(customersData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Customer)));
+        } catch (error) {
+            console.error("Error fetching data:", error);
+            toast({ variant: 'destructive', title: 'Failed to fetch data' });
+        } finally {
+            setLoading(false);
+        }
+    };
+    getData();
   }, []);
 
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    if (dateRange?.from && dateRange?.to) {
+        setFormData(prev => ({
+            ...prev,
+            startDate: dateRange.from,
+            endDate: dateRange.to,
+            days: differenceInDays(dateRange.to!, dateRange.from!) + 1
+        }));
+    } else {
+        setFormData(prev => ({ ...prev, days: undefined }));
+    }
+  }, [dateRange]);
+
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -129,17 +169,24 @@ export function MediaPlansManager() {
     setFormData(prev => ({...prev, [name]: value}));
   };
 
+  const handleSwitchChange = (name: keyof MediaPlan, checked: boolean) => {
+    setFormData(prev => ({ ...prev, [name]: checked }));
+  };
+
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
 
     if (currentPlan) {
-      // Update logic (currently mocked)
       setMediaPlans(mediaPlans.map(plan => plan.id === currentPlan.id ? { ...plan, ...formData, id: currentPlan.id } as MediaPlan : plan));
       toast({ title: 'Plan Updated!', description: 'The media plan has been successfully updated.' });
     } else {
-      // Add logic (currently mocked)
-      const newPlan = { ...formData, id: `plan-${Math.random()}`, startDate: new Date(), endDate: new Date() } as MediaPlan;
+      const newPlan = { 
+        ...formData, 
+        id: `plan-${Math.random()}`, 
+        planId: formData.planId || `P-${Date.now()}`,
+        isRotational: formData.isRotational || false,
+      } as MediaPlan;
       setMediaPlans([...mediaPlans, newPlan]);
       toast({ title: 'Plan Added!', description: 'The new media plan has been added.' });
     }
@@ -149,7 +196,13 @@ export function MediaPlansManager() {
 
   const openDialog = (plan: MediaPlan | null = null) => {
     setCurrentPlan(plan);
-    setFormData(plan || { planId: `P-${Date.now()}`});
+    if (plan) {
+        setFormData(plan);
+        setDateRange({ from: new Date(plan.startDate), to: new Date(plan.endDate) });
+    } else {
+        setFormData({ planId: `P-${Date.now()}`});
+        setDateRange(undefined);
+    }
     setIsDialogOpen(true);
   };
 
@@ -157,11 +210,10 @@ export function MediaPlansManager() {
     setIsDialogOpen(false);
     setCurrentPlan(null);
     setFormData({});
+    setDateRange(undefined);
   };
   
   const handleDelete = async (plan: MediaPlan) => {
-     // const planDoc = doc(db, 'media_plans', plan.id);
-     // await deleteDoc(planDoc);
      setMediaPlans(mediaPlans.filter(p => p.id !== plan.id));
      toast({ title: 'Plan Deleted', description: `${plan.displayName} has been removed.` });
   };
@@ -247,9 +299,10 @@ export function MediaPlansManager() {
         .filter(c => columnVisibility[c.key])
         .map(col => {
             if (col.key === 'startDate' || col.key === 'endDate') {
-                return format(new Date(plan[col.key]), 'PPP');
+                return format(new Date(plan[col.key as 'startDate' | 'endDate']), 'PPP');
             }
-            return plan[col.key as keyof MediaPlan] ?? '';
+            const value = plan[col.key as keyof MediaPlan];
+            return value !== null && value !== undefined ? String(value) : '';
         })
     );
     (doc as any).autoTable({ head: [head], body });
@@ -266,13 +319,13 @@ export function MediaPlansManager() {
         if (columnVisibility[col.key]) {
             let value;
             if (col.key === 'startDate' || col.key === 'endDate') {
-                value = format(new Date(plan[col.key]), 'PPP');
+                value = format(new Date(plan[col.key  as 'startDate' | 'endDate']), 'PPP');
             } else {
                 value = plan[col.key as keyof MediaPlan];
             }
 
            if (value) {
-            slide.addText(`${col.label}: ${value}`, { x: 0.5, y, fontSize: 12 });
+            slide.addText(`${col.label}: ${String(value)}`, { x: 0.5, y, fontSize: 12 });
             y += 0.4;
            }
         }
@@ -297,13 +350,13 @@ export function MediaPlansManager() {
         const worksheet = workbook.Sheets[sheetName];
         const json: any[] = XLSX.utils.sheet_to_json(worksheet);
 
-        // This is a mock implementation. In a real app, you would add to Firestore.
         setLoading(true);
         const newPlans: MediaPlan[] = json.map(item => ({
             ...item,
             id: `imported-${Math.random()}`,
             startDate: new Date(item.startDate),
             endDate: new Date(item.endDate),
+            isRotational: item.isRotational === 'true' || item.isRotational === true,
         }));
         
         setMediaPlans(prev => [...prev, ...newPlans]);
@@ -461,53 +514,118 @@ export function MediaPlansManager() {
         </Table>
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{currentPlan ? 'Edit Media Plan' : 'Add New Media Plan'}</DialogTitle>
-            <DialogDescription>
-              {currentPlan ? 'Update the details for this media plan.' : 'Fill in the details for the new media plan.'}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSave}>
-            <div className="grid gap-4 py-4">
-              <div>
-                <Label htmlFor="planId">Plan ID</Label>
-                <Input id="planId" name="planId" value={formData.planId || ''} onChange={handleFormChange} required />
-              </div>
-              <div>
-                <Label htmlFor="displayName">Display Name</Label>
-                <Input id="displayName" name="displayName" value={formData.displayName || ''} onChange={handleFormChange} required />
-              </div>
-               <div>
-                <Label htmlFor="customer">Customer</Label>
-                <Input id="customer" name="customer" value={formData.customer || ''} onChange={handleFormChange} />
-              </div>
-              <div>
-                <Label htmlFor="status">Status</Label>
-                 <Select onValueChange={(value) => handleSelectChange('status', value)} value={formData.status}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Draft">Draft</SelectItem>
-                    <SelectItem value="Confirmed">Confirmed</SelectItem>
-                    <SelectItem value="Cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="secondary" onClick={closeDialog}>Cancel</Button>
-              </DialogClose>
-              <Button type="submit" disabled={loading}>
-                {loading ? <Loader2 className="animate-spin" /> : 'Save'}
-              </Button>
-            </DialogFooter>
-          </form>
+      <Dialog open={isDialogOpen} onOpenChange={closeDialog}>
+        <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+                <DialogTitle>{currentPlan ? 'Edit Plan' : 'Add to Plan'}</DialogTitle>
+            </DialogHeader>
+            <Tabs defaultValue="new-plan">
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="new-plan">New Plan</TabsTrigger>
+                    <TabsTrigger value="existing-plan">Existing Plan</TabsTrigger>
+                </TabsList>
+                <TabsContent value="new-plan">
+                    <form onSubmit={handleSave}>
+                        <div className="space-y-4 py-4">
+                            <div className="grid grid-cols-1 gap-4">
+                                <div>
+                                    <Label htmlFor="displayName">Display Name <span className="text-red-500">*</span></Label>
+                                    <Input id="displayName" name="displayName" value={formData.displayName || ''} onChange={handleFormChange} required />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                     <div>
+                                        <Label htmlFor="employeeId">Employee</Label>
+                                        <Select onValueChange={(value) => handleSelectChange('employeeId', value)} value={formData.employeeId}>
+                                            <SelectTrigger><SelectValue placeholder="Select user" /></SelectTrigger>
+                                            <SelectContent>
+                                                {mockEmployees.map(emp => (
+                                                    <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="customer">Customer</Label>
+                                        <Select onValueChange={(value) => handleSelectChange('customer', value)} value={formData.customer}>
+                                            <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
+                                            <SelectContent>
+                                                 {customers.map(cust => (
+                                                    <SelectItem key={cust.id} value={cust.name}>{cust.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 items-center gap-2">
+                                    <Label htmlFor="dates">Dates <span className="text-red-500">*</span></Label>
+                                    <div className="grid grid-cols-[1fr_auto] gap-2">
+                                        <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                            id="date"
+                                            variant={"outline"}
+                                            className="w-full justify-start text-left font-normal"
+                                            >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {dateRange?.from ? (
+                                                dateRange.to ? (
+                                                <>
+                                                    {format(dateRange.from, "LLL dd, y")} -{" "}
+                                                    {format(dateRange.to, "LLL dd, y")}
+                                                </>
+                                                ) : (
+                                                format(dateRange.from, "LLL dd, y")
+                                                )
+                                            ) : (
+                                                <span>Pick a date range</span>
+                                            )}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                initialFocus
+                                                mode="range"
+                                                defaultMonth={dateRange?.from}
+                                                selected={dateRange}
+                                                onSelect={setDateRange}
+                                                numberOfMonths={2}
+                                            />
+                                        </PopoverContent>
+                                        </Popover>
+                                        <Input id="days" name="days" value={formData.days || ''} placeholder="Days" readOnly className="w-20" />
+                                    </div>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <Switch id="isRotational" checked={formData.isRotational} onCheckedChange={(checked) => handleSwitchChange('isRotational', checked)} />
+                                    <Label htmlFor="isRotational">Is Rotational</Label>
+                                </div>
+                                <div>
+                                    <Label htmlFor="notes">Notes</Label>
+                                    <Textarea id="notes" name="notes" value={formData.notes || ''} onChange={handleFormChange} />
+                                </div>
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+                            <Button type="submit" disabled={loading}>
+                                {loading ? <Loader2 className="animate-spin" /> : (currentPlan ? 'Save Changes' : 'Create Plan')}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </TabsContent>
+                 <TabsContent value="existing-plan">
+                    <div className="py-4">
+                        <p className="text-muted-foreground">Select an existing plan to add assets to. This feature is coming soon.</p>
+                    </div>
+                     <DialogFooter>
+                        <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+                    </DialogFooter>
+                </TabsContent>
+            </Tabs>
         </DialogContent>
       </Dialog>
     </TooltipProvider>
   );
 }
+
+    
