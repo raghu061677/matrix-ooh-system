@@ -55,12 +55,11 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import PptxGenJS from 'pptxgenjs';
-import { Switch } from '@/components/ui/switch';
 
 
 type Asset = {
   id: string; // Document ID from Firestore
-  iid?: string;
+  mid?: string;
   ownership?: 'own' | 'rented';
   media?: string;
   state?: string;
@@ -72,8 +71,7 @@ type Asset = {
   width?: number;
   height?: number;
   sqft?: number;
-  light?: boolean;
-  quantity?: number;
+  light?: 'BackLit' | 'Non-Lit' | 'Front-Lit';
   status?: 'active' | 'deleted';
   supplierId?: string; // Reference to suppliers collection
   contractDetails?: {
@@ -97,14 +95,15 @@ export function MediaManager() {
   const [currentAsset, setCurrentAsset] = useState<Asset | null>(null);
   const [status, setStatus] = useState<string | undefined>(undefined);
   const [ownership, setOwnership] = useState<string | undefined>(undefined);
-  const [light, setLight] = useState<boolean | undefined>(undefined);
+  const [light, setLight] = useState<'BackLit' | 'Non-Lit' | 'Front-Lit' | undefined>(undefined);
+  const [media, setMedia] = useState<string | undefined>(undefined);
   const [imageFiles, setImageFiles] = useState<FileList | null>(null);
   const [filter, setFilter] = useState('');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [columnVisibility, setColumnVisibility] = useState({
     image: true,
-    iid: true,
+    mid: true,
     district: true,
     area: true,
     location: true,
@@ -118,7 +117,6 @@ export function MediaManager() {
     city: false,
     width: false,
     height: false,
-    quantity: false,
     supplierId: false,
   });
 
@@ -195,7 +193,8 @@ export function MediaManager() {
 
     if (status) assetData.status = status;
     if (ownership) assetData.ownership = ownership;
-    assetData.light = light;
+    if (light) assetData.light = light;
+    if (media) assetData.media = media;
     
     const newImageUrls = await handleImageUpload();
     if (newImageUrls.length > 0) {
@@ -223,6 +222,7 @@ export function MediaManager() {
     setStatus(asset?.status);
     setOwnership(asset?.ownership);
     setLight(asset?.light);
+    setMedia(asset?.media);
     setIsDialogOpen(true);
   };
 
@@ -232,6 +232,7 @@ export function MediaManager() {
     setStatus(undefined);
     setOwnership(undefined);
     setLight(undefined);
+    setMedia(undefined);
     setImageFiles(null);
     setLatitude('');
     setLongitude('');
@@ -290,7 +291,7 @@ export function MediaManager() {
   
   const columns: { key: keyof typeof columnVisibility, label: string, sortable?: boolean }[] = [
     { key: 'image', label: 'Image' },
-    { key: 'iid', label: 'IID', sortable: true },
+    { key: 'mid', label: 'MID', sortable: true },
     { key: 'district', label: 'District', sortable: true },
     { key: 'area', label: 'Area', sortable: true },
     { key: 'location', label: 'Location', sortable: true },
@@ -304,14 +305,13 @@ export function MediaManager() {
     { key: 'city', label: 'City', sortable: true },
     { key: 'width', label: 'Width' },
     { key: 'height', label: 'Height' },
-    { key: 'quantity', label: 'Quantity' },
     { key: 'supplierId', label: 'Supplier ID' },
   ];
 
   const exportTemplateToExcel = () => {
     const headers = [
-      'iid', 'ownership', 'media', 'state', 'district', 'city', 'area', 'location', 
-      'dimensions', 'width', 'height', 'sqft', 'light', 'quantity', 'status', 'supplierId'
+      'mid', 'ownership', 'media', 'state', 'district', 'city', 'area', 'location', 
+      'dimensions', 'width', 'height', 'sqft', 'light', 'status', 'supplierId'
     ];
     const worksheet = XLSX.utils.aoa_to_sheet([headers]);
     const workbook = XLSX.utils.book_new();
@@ -342,7 +342,7 @@ export function MediaManager() {
     const pptx = new PptxGenJS();
     sortedAndFilteredAssets.forEach(asset => {
       const slide = pptx.addSlide();
-      slide.addText(`Media Asset: ${asset.iid || 'N/A'}`, { x: 0.5, y: 0.5, fontSize: 18, bold: true });
+      slide.addText(`Media Asset: ${asset.mid || 'N/A'}`, { x: 0.5, y: 0.5, fontSize: 18, bold: true });
       let y = 1.0;
       columns.forEach(col => {
         if (col.key !== 'image' && asset[col.key as keyof Asset]) {
@@ -526,13 +526,13 @@ export function MediaManager() {
                     </div>
                   )}
                 </TableCell>}
-                {columnVisibility.iid && <TableCell className="font-medium">{asset.iid}</TableCell>}
+                {columnVisibility.mid && <TableCell className="font-medium">{asset.mid}</TableCell>}
                 {columnVisibility.district && <TableCell>{asset.district}</TableCell>}
                 {columnVisibility.area && <TableCell>{asset.area}</TableCell>}
                 {columnVisibility.location && <TableCell>{asset.location}</TableCell>}
                 {columnVisibility.dimensions && <TableCell>{asset.dimensions}</TableCell>}
                 {columnVisibility.sqft && <TableCell>{asset.sqft}</TableCell>}
-                {columnVisibility.light && <TableCell>{asset.light ? 'Yes' : 'No'}</TableCell>}
+                {columnVisibility.light && <TableCell>{asset.light}</TableCell>}
                 {columnVisibility.status && <TableCell>{asset.status}</TableCell>}
                 {columnVisibility.ownership && <TableCell>{asset.ownership}</TableCell>}
                 {columnVisibility.media && <TableCell>{asset.media}</TableCell>}
@@ -540,7 +540,6 @@ export function MediaManager() {
                 {columnVisibility.city && <TableCell>{asset.city}</TableCell>}
                 {columnVisibility.width && <TableCell>{asset.width}</TableCell>}
                 {columnVisibility.height && <TableCell>{asset.height}</TableCell>}
-                {columnVisibility.quantity && <TableCell>{asset.quantity}</TableCell>}
                 {columnVisibility.supplierId && <TableCell>{asset.supplierId}</TableCell>}
 
                 <TableCell className="text-right">
@@ -568,8 +567,8 @@ export function MediaManager() {
           <form onSubmit={handleSave}>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4">
               <div>
-                <Label htmlFor="iid">IID</Label>
-                <Input id="iid" name="iid" defaultValue={currentAsset?.iid} />
+                <Label htmlFor="mid">MID</Label>
+                <Input id="mid" name="mid" defaultValue={currentAsset?.mid} />
               </div>
               <div>
                 <Label htmlFor="ownership">Ownership</Label>
@@ -585,7 +584,16 @@ export function MediaManager() {
               </div>
                <div>
                 <Label htmlFor="media">Media Type</Label>
-                <Input id="media" name="media" defaultValue={currentAsset?.media} />
+                 <Select onValueChange={setMedia} defaultValue={currentAsset?.media}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select media type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Bus Shelter">Bus Shelter</SelectItem>
+                    <SelectItem value="Center Median">Center Median</SelectItem>
+                    <SelectItem value="Cantilever">Cantilever</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="state">State</Label>
@@ -623,16 +631,18 @@ export function MediaManager() {
                 <Label htmlFor="sqft">Total Sqft</Label>
                 <Input id="sqft" name="sqft" type="number" defaultValue={currentAsset?.sqft} />
               </div>
-              <div>
-                <Label htmlFor="quantity">Quantity</Label>
-                <Input id="quantity" name="quantity" type="number" defaultValue={currentAsset?.quantity} />
-              </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="light">Lighting</Label>
-                <div className="flex items-center gap-2">
-                  <Switch id="light" name="light" checked={light} onCheckedChange={setLight} />
-                  <span>{light ? 'Yes' : 'No'}</span>
-                </div>
+                 <Select onValueChange={(value) => setLight(value as any)} defaultValue={currentAsset?.light}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select lighting type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BackLit">Back-Lit</SelectItem>
+                    <SelectItem value="Non-Lit">Non-Lit</SelectItem>
+                    <SelectItem value="Front-Lit">Front-Lit</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="status">Status</Label>
@@ -681,5 +691,3 @@ export function MediaManager() {
     </TooltipProvider>
   );
 }
-
-    
