@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -27,7 +28,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { db, storage } from '@/lib/firebase';
-import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -110,7 +111,6 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   }
 
   const exportPlanToPPT = async () => {
-      const { toast } = useToast();
       toast({ title: 'Generating PPTX...', description: 'Please wait, fetching data...' });
       const pptx = new PptxGenJS();
       pptx.author = "MediaVenue App";
@@ -163,6 +163,12 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
       const blob = await pptx.write({ outputType: 'blob' });
       try {
         const downloadURL = await uploadFileAndGetURL(planId, blob, "preview.pptx");
+        
+        await updateDoc(planDocRef, {
+            'exports.pptUrl': downloadURL,
+            'exports.lastGeneratedAt': new Date()
+        });
+
         toast({
           title: 'PPTX Exported Successfully!',
           description: 'The presentation has been saved to Firebase Storage.',
@@ -177,7 +183,8 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   const exportPlanToExcel = async () => {
     toast({ title: 'Generating Excel...', description: 'Please wait, fetching data...' });
     const planId = plan.id;
-    const planDoc = await getDoc(doc(db, "plans", planId));
+    const planDocRef = doc(db, "plans", planId);
+    const planDoc = await getDoc(planDocRef);
 
     if (!planDoc.exists()) {
       toast({ variant: 'destructive', title: 'Error', description: 'Plan not found.' });
@@ -225,6 +232,12 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
 
     try {
         const downloadURL = await uploadFileAndGetURL(planId, blob, "plan.xlsx");
+        
+        await updateDoc(planDocRef, {
+            'exports.excelUrl': downloadURL,
+            'exports.lastGeneratedAt': new Date()
+        });
+
         toast({
           title: 'Excel Exported Successfully!',
           description: 'The spreadsheet has been saved to Firebase Storage.',
@@ -239,12 +252,12 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   const exportPlanToPDF = async (templateStyle = 'classic') => {
      toast({ title: 'Generating PDF...', description: 'Please wait while we prepare your work order.' });
      const planId = plan.id;
-     const docRef = await getDoc(doc(db, "plans", planId));
-     if (!docRef.exists()) {
+     const planDocRef = await getDoc(doc(db, "plans", planId));
+     if (!planDocRef.exists()) {
         toast({ variant: 'destructive', title: 'Error', description: 'Plan not found.' });
         return;
      }
-     const planData = docRef.data() as MediaPlan;
+     const planData = planDocRef.data() as MediaPlan;
      const assets = (planData as any).mediaAssets || sampleAssets.slice(0, 7);
      const customer = customers.find(c => c.id === plan.customerId);
 
@@ -334,6 +347,12 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
      const blob = pdf.output('blob');
      try {
         const downloadURL = await uploadFileAndGetURL(planId, blob, "quotation.pdf");
+        
+        await updateDoc(doc(db, "plans", planId), {
+            'exports.pdfUrl': downloadURL,
+            'exports.lastGeneratedAt': new Date()
+        });
+
         toast({
           title: 'PDF Exported Successfully!',
           description: 'The work order has been saved to Firebase Storage.',
@@ -561,3 +580,5 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   );
 
 }
+
+    
