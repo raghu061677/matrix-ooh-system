@@ -14,8 +14,9 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MediaPlan } from '@/types/media-plan';
 import { format } from 'date-fns';
-import { ChevronLeft, MoreVertical, Edit, Trash2, Block, Copy, Share, List, Link as LinkIcon, Download, FileText } from 'lucide-react';
+import { ChevronLeft, MoreVertical, Edit, Trash2, Ban, Copy, Share, List, Link as LinkIcon, Download, FileText } from 'lucide-react';
 import { Separator } from '../ui/separator';
+import { cn } from '@/lib/utils';
 
 interface MediaPlanViewProps {
   plan: MediaPlan;
@@ -55,7 +56,7 @@ export function MediaPlanView({ plan }: MediaPlanViewProps) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                     <DropdownMenuItem><Trash2 className="mr-2" /> Delete</DropdownMenuItem>
-                    <DropdownMenuItem><Block className="mr-2" /> Block</DropdownMenuItem>
+                    <DropdownMenuItem><Ban className="mr-2" /> Block</DropdownMenuItem>
                     <DropdownMenuItem><Copy className="mr-2" /> Copy</DropdownMenuItem>
                     <DropdownMenuItem><Share className="mr-2" /> Share</DropdownMenuItem>
                     <DropdownMenuItem><List className="mr-2" /> Activity</DropdownMenuItem>
