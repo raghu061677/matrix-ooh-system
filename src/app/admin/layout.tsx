@@ -16,6 +16,7 @@ import {
   SidebarInset,
   SidebarTrigger,
   SidebarFooter,
+  SidebarRail,
 } from '@/components/ui/sidebar';
 import { Projector, LayoutGrid, ListChecks, FileText, LogOut, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -60,18 +61,19 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <div className={cn('flex min-h-screen', theme === 'dark' && 'dark')}>
-        <Sidebar>
+      <div className={cn('flex min-h-screen', theme !== 'light' && theme)}>
+        <Sidebar collapsible="icon">
+         <SidebarRail />
           <SidebarHeader>
             <div className="flex items-center gap-2">
                <Projector className="h-6 w-6 text-primary" />
-               <h2 className="text-lg font-bold font-headline">Matrix Network</h2>
+               <h2 className="text-lg font-bold font-headline whitespace-nowrap">Matrix Network</h2>
             </div>
           </SidebarHeader>
           <SidebarContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                 <SidebarMenuButton asChild isActive={pathname === '/admin/media-assets'}>
+                 <SidebarMenuButton asChild isActive={pathname === '/admin/media-assets'} tooltip="Media Assets">
                    <Link href="/admin/media-assets">
                     <LayoutGrid />
                     <span className="whitespace-nowrap">Media Assets</span>
@@ -79,7 +81,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                  </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                 <SidebarMenuButton asChild isActive={pathname === '/admin/media-plans'}>
+                 <SidebarMenuButton asChild isActive={pathname === '/admin/media-plans'} tooltip="Media Plans">
                    <Link href="/admin/media-plans">
                     <FileText />
                     <span className="whitespace-nowrap">Media Plans</span>
@@ -87,7 +89,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                  </SidebarMenuButton>
               </SidebarMenuItem>
                <SidebarMenuItem>
-                 <SidebarMenuButton asChild isActive={pathname === '/admin/campaigns'}>
+                 <SidebarMenuButton asChild isActive={pathname === '/admin/campaigns'} tooltip="Campaigns">
                    <Link href="/admin/campaigns">
                     <ListChecks />
                     <span className="whitespace-nowrap">Campaigns</span>
