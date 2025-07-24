@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -113,6 +112,7 @@ export function SelectAssetsDialog({
                   <TableHead padding="checkbox">
                     <Checkbox
                         checked={isAllSelected}
+                        indeterminate={isSomeSelected}
                         onCheckedChange={(checked) => handleSelectAll(Boolean(checked))}
                         aria-label="Select all"
                     />
@@ -121,6 +121,8 @@ export function SelectAssetsDialog({
                   <TableHead>MID</TableHead>
                   <TableHead>Location</TableHead>
                   <TableHead>Area</TableHead>
+                  <TableHead>Width</TableHead>
+                  <TableHead>Height</TableHead>
                   <TableHead>Dimensions</TableHead>
                   <TableHead>Lighting</TableHead>
                   <TableHead>Card Rate</TableHead>
@@ -154,6 +156,8 @@ export function SelectAssetsDialog({
                     <TableCell className="font-medium">{asset.mid}</TableCell>
                     <TableCell>{asset.location}</TableCell>
                     <TableCell>{asset.area}</TableCell>
+                    <TableCell>{asset.width1}</TableCell>
+                    <TableCell>{asset.height1}</TableCell>
                     <TableCell>{asset.dimensions}</TableCell>
                     <TableCell>{asset.light}</TableCell>
                     <TableCell>{asset.cardRate?.toLocaleString('en-IN')}</TableCell>
