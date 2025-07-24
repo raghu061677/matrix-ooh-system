@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
@@ -24,6 +24,14 @@ import {
   DialogTitle,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { 
@@ -34,16 +42,59 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2, Loader2, Image as ImageIcon } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, Image as ImageIcon, SlidersHorizontal, ArrowUpDown } from 'lucide-react';
 import exifParser from 'exif-parser';
 
+type Asset = {
+  id: string;
+  mediaId?: string;
+  district?: string;
+  area?: string;
+  location?: string;
+  trafficDirection?: string;
+  dimensions?: string;
+  totalSqft?: number;
+  lighting?: string;
+  basePrice?: number;
+  cardRate?: number;
+  latitude?: number;
+  longitude?: number;
+  status?: 'Available' | 'Booked' | 'Blocked' | 'Inactive';
+  imageUrls?: string[];
+};
+
+type SortConfig = {
+  key: keyof Asset;
+  direction: 'ascending' | 'descending';
+} | null;
+
+
 export function MediaManager() {
-  const [mediaAssets, setMediaAssets] = useState<any[]>([]);
+  const [mediaAssets, setMediaAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [currentAsset, setCurrentAsset] = useState<any>(null);
+  const [currentAsset, setCurrentAsset] = useState<Asset | null>(null);
   const [status, setStatus] = useState<string | undefined>(undefined);
   const [imageFiles, setImageFiles] = useState<FileList | null>(null);
+  const [filter, setFilter] = useState('');
+  const [sortConfig, setSortConfig] = useState<SortConfig>(null);
+  const [columnVisibility, setColumnVisibility] = useState({
+    image: true,
+    mediaId: true,
+    district: true,
+    area: true,
+    location: true,
+    trafficDirection: false,
+    dimensions: true,
+    totalSqft: false,
+    lighting: true,
+    basePrice: false,
+    cardRate: false,
+    latitude: false,
+    longitude: false,
+    status: true,
+  });
+
   const { toast } = useToast();
   const mediaAssetsCollectionRef = collection(db, 'media_assets');
 
@@ -55,7 +106,7 @@ export function MediaManager() {
     const getMediaAssets = async () => {
       setLoading(true);
       const data = await getDocs(mediaAssetsCollectionRef);
-      setMediaAssets(data.docs.map((doc) => ({ ...doc.data(), id: doc.id })));
+      setMediaAssets(data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Asset)));
       setLoading(false);
     };
 
@@ -68,7 +119,6 @@ export function MediaManager() {
 
     setImageFiles(files);
 
-    // Read EXIF data from the first image
     const file = files[0];
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -113,7 +163,6 @@ export function MediaManager() {
     const formData = new FormData(e.target as HTMLFormElement);
     const assetData: any = Object.fromEntries(formData.entries());
     
-    // Use the state for lat/lng
     assetData.latitude = latitude;
     assetData.longitude = longitude;
 
@@ -129,13 +178,11 @@ export function MediaManager() {
     }
 
     if (currentAsset) {
-      // Edit existing asset
       const assetDoc = doc(db, 'media_assets', currentAsset.id);
       await updateDoc(assetDoc, assetData);
       setMediaAssets(mediaAssets.map(asset => asset.id === currentAsset.id ? { ...asset, ...assetData, id: currentAsset.id } : asset));
       toast({ title: 'Asset Updated!', description: 'The media asset has been successfully updated.' });
     } else {
-      // Add new asset
       const docRef = await addDoc(mediaAssetsCollectionRef, assetData);
       setMediaAssets([...mediaAssets, { ...assetData, id: docRef.id }]);
       toast({ title: 'Asset Added!', description: 'The new media asset has been added.' });
@@ -144,11 +191,11 @@ export function MediaManager() {
     closeDialog();
   };
 
-  const openDialog = (asset: any = null) => {
+  const openDialog = (asset: Asset | null = null) => {
     setCurrentAsset(asset);
     setStatus(asset?.status);
-    setLatitude(asset?.latitude || '');
-    setLongitude(asset?.longitude || '');
+    setLatitude(asset?.latitude?.toString() || '');
+    setLongitude(asset?.longitude?.toString() || '');
     setIsDialogOpen(true);
   };
 
@@ -161,12 +208,71 @@ export function MediaManager() {
     setLongitude('');
   };
   
-  const handleDelete = async (asset: any) => {
+  const handleDelete = async (asset: Asset) => {
      const assetDoc = doc(db, 'media_assets', asset.id);
      await deleteDoc(assetDoc);
      setMediaAssets(mediaAssets.filter(a => a.id !== asset.id));
      toast({ title: 'Asset Deleted', description: `${asset.location} has been removed.` });
   };
+  
+  const requestSort = (key: keyof Asset) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedAndFilteredAssets = useMemo(() => {
+    let sortableAssets = [...mediaAssets];
+    if (filter) {
+      sortableAssets = sortableAssets.filter(asset =>
+        asset.location?.toLowerCase().includes(filter.toLowerCase())
+      );
+    }
+    if (sortConfig !== null) {
+      sortableAssets.sort((a, b) => {
+        const aValue = a[sortConfig.key] || '';
+        const bValue = b[sortConfig.key] || '';
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableAssets;
+  }, [mediaAssets, filter, sortConfig]);
+
+  const getSortIcon = (key: keyof Asset) => {
+    if (!sortConfig || sortConfig.key !== key) {
+      return <ArrowUpDown className="ml-2 h-4 w-4" />;
+    }
+    if (sortConfig.direction === 'ascending') {
+      return <ArrowUpDown className="ml-2 h-4 w-4" />; // Or a dedicated up arrow
+    }
+    return <ArrowUpDown className="ml-2 h-4 w-4" />; // Or a dedicated down arrow
+  };
+  
+  const columns: { key: keyof typeof columnVisibility, label: string, sortable?: boolean }[] = [
+    { key: 'image', label: 'Image' },
+    { key: 'mediaId', label: 'Media ID', sortable: true },
+    { key: 'district', label: 'District', sortable: true },
+    { key: 'area', label: 'Area', sortable: true },
+    { key: 'location', label: 'Location', sortable: true },
+    { key: 'trafficDirection', label: 'Traffic Direction' },
+    { key: 'dimensions', label: 'Dimensions' },
+    { key: 'totalSqft', label: 'Total Sqft' },
+    { key: 'lighting', label: 'Lighting', sortable: true },
+    { key: 'basePrice', label: 'Base Price' },
+    { key: 'cardRate', label: 'Card Rate' },
+    { key: 'latitude', label: 'Latitude' },
+    { key: 'longitude', label: 'Longitude' },
+    { key: 'status', label: 'Status', sortable: true },
+  ];
   
   if (loading && !isDialogOpen) {
     return (
@@ -178,8 +284,39 @@ export function MediaManager() {
 
   return (
     <>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Media Asset Manager</h1>
+      <div className="flex justify-between items-center mb-6 gap-4">
+        <div className="flex items-center gap-2">
+           <Input
+            placeholder="Filter by location..."
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="max-w-sm"
+          />
+           <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <SlidersHorizontal className="h-4 w-4" />
+                <span className="sr-only">Toggle columns</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {columns.map((column) => (
+                 <DropdownMenuCheckboxItem
+                  key={column.key}
+                  className="capitalize"
+                  checked={columnVisibility[column.key]}
+                  onCheckedChange={(value) =>
+                    setColumnVisibility((prev) => ({ ...prev, [column.key]: !!value }))
+                  }
+                >
+                  {column.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         <Button onClick={() => openDialog()}>
           <PlusCircle className="mr-2" />
           Add New Asset
@@ -189,25 +326,29 @@ export function MediaManager() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Image</TableHead>
-              <TableHead>Media ID</TableHead>
-              <TableHead>District</TableHead>
-              <TableHead>Area</TableHead>
-              <TableHead>Location</TableHead>
-              <TableHead>Traffic Direction</TableHead>
-              <TableHead>Dimensions</TableHead>
-              <TableHead>Status</TableHead>
+              {columns.map(col => columnVisibility[col.key] && (
+                 <TableHead key={col.key}>
+                   {col.sortable ? (
+                     <Button variant="ghost" onClick={() => requestSort(col.key as keyof Asset)}>
+                       {col.label}
+                       {getSortIcon(col.key as keyof Asset)}
+                     </Button>
+                   ) : (
+                     col.label
+                   )}
+                 </TableHead>
+              ))}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {mediaAssets.map(asset => (
+            {sortedAndFilteredAssets.map(asset => (
               <TableRow key={asset.id}>
-                <TableCell>
+                 {columnVisibility.image && <TableCell>
                   {asset.imageUrls && asset.imageUrls.length > 0 ? (
                     <Image
                       src={asset.imageUrls[0]}
-                      alt={asset.location}
+                      alt={asset.location || 'Asset image'}
                       width={64}
                       height={64}
                       className="rounded-md object-cover h-16 w-16"
@@ -217,14 +358,20 @@ export function MediaManager() {
                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
                     </div>
                   )}
-                </TableCell>
-                <TableCell className="font-medium">{asset.mediaId}</TableCell>
-                <TableCell>{asset.district}</TableCell>
-                <TableCell>{asset.area}</TableCell>
-                <TableCell>{asset.location}</TableCell>
-                <TableCell>{asset.trafficDirection}</TableCell>
-                <TableCell>{asset.dimensions}</TableCell>
-                <TableCell>{asset.status}</TableCell>
+                </TableCell>}
+                {columnVisibility.mediaId && <TableCell className="font-medium">{asset.mediaId}</TableCell>}
+                {columnVisibility.district && <TableCell>{asset.district}</TableCell>}
+                {columnVisibility.area && <TableCell>{asset.area}</TableCell>}
+                {columnVisibility.location && <TableCell>{asset.location}</TableCell>}
+                {columnVisibility.trafficDirection && <TableCell>{asset.trafficDirection}</TableCell>}
+                {columnVisibility.dimensions && <TableCell>{asset.dimensions}</TableCell>}
+                {columnVisibility.totalSqft && <TableCell>{asset.totalSqft}</TableCell>}
+                {columnVisibility.lighting && <TableCell>{asset.lighting}</TableCell>}
+                {columnVisibility.basePrice && <TableCell>{asset.basePrice}</TableCell>}
+                {columnVisibility.cardRate && <TableCell>{asset.cardRate}</TableCell>}
+                {columnVisibility.latitude && <TableCell>{asset.latitude}</TableCell>}
+                {columnVisibility.longitude && <TableCell>{asset.longitude}</TableCell>}
+                {columnVisibility.status && <TableCell>{asset.status}</TableCell>}
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" onClick={() => openDialog(asset)}>
                     <Edit className="h-4 w-4" />
