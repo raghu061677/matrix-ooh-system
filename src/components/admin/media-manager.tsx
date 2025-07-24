@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Edit, Trash2, Loader2, Image as ImageIcon } from 'lucide-react';
+import exifParser from 'exif-parser';
 
 export function MediaManager() {
   const [mediaAssets, setMediaAssets] = useState<any[]>([]);
@@ -46,6 +47,10 @@ export function MediaManager() {
   const { toast } = useToast();
   const mediaAssetsCollectionRef = collection(db, 'media_assets');
 
+  // Controlled form states for geo-coordinates
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
+
   useEffect(() => {
     const getMediaAssets = async () => {
       setLoading(true);
@@ -56,6 +61,38 @@ export function MediaManager() {
 
     getMediaAssets();
   }, []);
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setImageFiles(files);
+
+    // Read EXIF data from the first image
+    const file = files[0];
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const buffer = event.target?.result;
+        if (buffer instanceof ArrayBuffer) {
+            try {
+                const parser = exifParser.create(buffer);
+                const result = parser.parse();
+                if (result.tags.GPSLatitude && result.tags.GPSLongitude) {
+                    setLatitude(result.tags.GPSLatitude.toString());
+                    setLongitude(result.tags.GPSLongitude.toString());
+                    toast({
+                        title: 'Coordinates Found!',
+                        description: 'GPS data extracted from image.',
+                    });
+                }
+            } catch (error) {
+                console.warn('Could not parse EXIF data:', error);
+            }
+        }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
 
   const handleImageUpload = async () => {
     if (!imageFiles) return [];
@@ -75,6 +112,11 @@ export function MediaManager() {
     setLoading(true);
     const formData = new FormData(e.target as HTMLFormElement);
     const assetData: any = Object.fromEntries(formData.entries());
+    
+    // Use the state for lat/lng
+    assetData.latitude = latitude;
+    assetData.longitude = longitude;
+
     if (status) {
       assetData.status = status;
     }
@@ -105,6 +147,8 @@ export function MediaManager() {
   const openDialog = (asset: any = null) => {
     setCurrentAsset(asset);
     setStatus(asset?.status);
+    setLatitude(asset?.latitude || '');
+    setLongitude(asset?.longitude || '');
     setIsDialogOpen(true);
   };
 
@@ -113,6 +157,8 @@ export function MediaManager() {
     setCurrentAsset(null);
     setStatus(undefined);
     setImageFiles(null);
+    setLatitude('');
+    setLongitude('');
   };
   
   const handleDelete = async (asset: any) => {
@@ -245,11 +291,11 @@ export function MediaManager() {
               </div>
               <div>
                 <Label htmlFor="latitude">Latitude</Label>
-                <Input id="latitude" name="latitude" type="number" step="any" defaultValue={currentAsset?.latitude} />
+                <Input id="latitude" name="latitude" type="number" step="any" value={latitude} onChange={(e) => setLatitude(e.target.value)} />
               </div>
               <div>
                 <Label htmlFor="longitude">Longitude</Label>
-                <Input id="longitude" name="longitude" type="number" step="any" defaultValue={currentAsset?.longitude} />
+                <Input id="longitude" name="longitude" type="number" step="any" value={longitude} onChange={(e) => setLongitude(e.target.value)} />
               </div>
               <div>
                 <Label htmlFor="status">Status</Label>
@@ -267,9 +313,9 @@ export function MediaManager() {
               </div>
                <div className="col-span-full">
                 <Label htmlFor="images">Asset Images</Label>
-                <Input id="images" type="file" multiple onChange={(e) => setImageFiles(e.target.files)} />
+                <Input id="images" type="file" multiple onChange={handleImageChange} />
                  <p className="text-sm text-muted-foreground mt-1">
-                  Upload one or more images. New images will be added to the existing ones.
+                   Select an image with GPS data to automatically fill coordinates. New images will be added to existing ones.
                 </p>
                 {currentAsset?.imageUrls && (
                   <div className="mt-2 flex flex-wrap gap-2">
