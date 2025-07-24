@@ -145,7 +145,16 @@ export function MediaManager() {
 
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || files.length === 0 || !currentAsset) return;
+    if (!files || files.length === 0) return;
+
+    if (!currentAsset) {
+        toast({
+            variant: 'destructive',
+            title: 'No Asset Selected',
+            description: 'Please save the asset details before uploading images.',
+        });
+        return;
+    }
 
     setIsUploading(true);
     toast({ title: 'Uploading image...', description: 'Please wait.' });
@@ -160,14 +169,19 @@ export function MediaManager() {
           const parser = exifParser.create(buffer);
           const result = parser.parse();
           if (result.tags.GPSLatitude && result.tags.GPSLongitude) {
-            setFormData(prev => ({
+            setCurrentAsset(prev => prev ? ({
+                ...prev,
+                latitude: result.tags.GPSLatitude,
+                longitude: result.tags.GPSLongitude,
+            }) : null);
+             setFormData(prev => ({
               ...prev,
               latitude: result.tags.GPSLatitude,
               longitude: result.tags.GPSLongitude,
             }));
             toast({
               title: 'Coordinates Found!',
-              description: 'GPS data will be saved with the asset.',
+              description: 'GPS data has been extracted and pre-filled.',
             });
           }
         } catch (error) {
@@ -233,15 +247,16 @@ export function MediaManager() {
     e.preventDefault();
     setIsSaving(true);
     
-    const assetData: Partial<Asset> = { ...formData };
+    const assetData: Partial<Asset> = { ...formData, imageUrls: currentAsset?.imageUrls || formData.imageUrls || [] };
     
     if (currentAsset) {
       const assetId = currentAsset.id;
       const assetDoc = doc(db, 'media_assets', assetId);
-      await updateDoc(assetDoc, assetData);
+      // We only update the form data, image URLs are handled separately
+      await updateDoc(assetDoc, formData);
 
       setMediaAssets(mediaAssets.map(asset => 
-        asset.id === assetId ? { ...asset, ...assetData, id: assetId } as Asset : asset
+        asset.id === assetId ? { ...asset, ...formData, id: assetId } as Asset : asset
       ));
       toast({ title: 'Asset Updated!', description: 'The media asset details have been saved.' });
     } else {
@@ -255,8 +270,6 @@ export function MediaManager() {
     }
     
     setIsSaving(false);
-    // Don't close the dialog on save, so user can manage images
-    // closeDialog();
   };
 
   const openDialog = (asset: Asset | null = null) => {
@@ -813,9 +826,9 @@ export function MediaManager() {
                        New images will be added to existing ones. GPS data will be extracted from the first image if available.
                     </p>
                     {isUploading && <Loader2 className="animate-spin mt-2" />}
-                    {currentAsset?.imageUrls && (
+                    {(currentAsset?.imageUrls || formData.imageUrls) && (
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {currentAsset.imageUrls.map((url: string) => (
+                        {(currentAsset?.imageUrls || formData.imageUrls)?.map((url: string) => (
                           <div key={url} className="relative h-20 w-20 group">
                             <Image src={url} alt="Asset image" layout="fill" className="rounded-md object-cover" />
                              <Button
@@ -849,5 +862,3 @@ export function MediaManager() {
     </TooltipProvider>
   );
 }
-
-    
