@@ -40,6 +40,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const auth = getAuth(firebaseApp);
   const pathname = usePathname();
   const { theme } = useTheme();
+  const [mediaOpen, setMediaOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [expensesOpen, setExpensesOpen] = useState(false);
   const [salesOpen, setSalesOpen] = useState(false);
@@ -93,37 +94,52 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
               </SidebarMenuItem>
             </SidebarMenu>
 
-             <SidebarGroup>
-                <SidebarGroupLabel>Media</SidebarGroupLabel>
-                <SidebarGroupContent>
-                    <SidebarMenu>
-                       <SidebarMenuItem>
-                         <SidebarMenuButton asChild isActive={pathname === '/admin/media-assets'} tooltip="Media Assets">
+             <Collapsible open={mediaOpen} onOpenChange={setMediaOpen} className="w-full">
+                <SidebarGroup>
+                  <SidebarGroupLabel>Media</SidebarGroupLabel>
+                  <SidebarGroupContent>
+                      <SidebarMenu>
+                         <SidebarMenuItem>
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuButton>
+                              <LayoutGrid />
+                              <span className="whitespace-nowrap">Media</span>
+                              <ChevronDown className={cn("ml-auto transition-transform", mediaOpen && "rotate-180")}/>
+                            </SidebarMenuButton>
+                          </CollapsibleTrigger>
+                        </SidebarMenuItem>
+                      </SidebarMenu>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+                <CollapsibleContent>
+                    <SidebarMenuSub>
+                       <SidebarMenuSubItem>
+                         <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/media-assets')}>
                            <Link href="/admin/media-assets">
                             <LayoutGrid />
                             <span className="whitespace-nowrap">Media Assets</span>
                            </Link>
-                         </SidebarMenuButton>
-                      </SidebarMenuItem>
-                      <SidebarMenuItem>
-                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/media-plans')} tooltip="Media Plans">
+                         </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                         <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/media-plans')}>
                            <Link href="/admin/media-plans">
                             <FileText />
                             <span className="whitespace-nowrap">Media Plans</span>
                            </Link>
-                         </SidebarMenuButton>
-                      </SidebarMenuItem>
-                       <SidebarMenuItem>
-                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/campaigns')} tooltip="Campaigns">
+                         </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                       <SidebarMenuSubItem>
+                         <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/campaigns')}>
                            <Link href="/admin/campaigns">
                             <ListChecks />
                             <span className="whitespace-nowrap">Campaigns</span>
                            </Link>
-                         </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    </SidebarMenu>
-                </SidebarGroupContent>
-             </SidebarGroup>
+                         </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                </CollapsibleContent>
+             </Collapsible>
 
             <Collapsible open={salesOpen} onOpenChange={setSalesOpen} className="w-full">
               <SidebarGroup>
@@ -170,7 +186,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                       </SidebarMenuSubItem>
                        <SidebarMenuSubItem>
                          <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/invoices')}>
-                           <Link href="#">
+                           <Link href="/admin/invoices">
                             <ReceiptText />
                             <span className="whitespace-nowrap">Invoices</span>
                            </Link>
@@ -309,8 +325,8 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                     <CollapsibleContent>
                        <SidebarMenuSub>
                           <SidebarMenuSubItem>
-                            <SidebarMenuSubButton asChild>
-                              <Link href="#">
+                            <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/reports/availability')}>
+                              <Link href="/admin/reports/availability">
                                 <Dot />
                                 <span>Availability Report</span>
                               </Link>
@@ -322,7 +338,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                   <SidebarMenu>
                       <SidebarMenuItem>
                          <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/reports/financial')} tooltip="Financial Reports">
-                           <Link href="#">
+                           <Link href="/admin/reports/financial">
                             <AreaChart />
                             <span className="whitespace-nowrap">Financial Reports</span>
                            </Link>
