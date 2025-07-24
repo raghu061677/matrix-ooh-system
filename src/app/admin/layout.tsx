@@ -21,6 +21,7 @@ import { Projector, LayoutGrid, ListChecks, FileText, LogOut, Loader2 } from 'lu
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
 export default function AdminLayout({
   children,
@@ -52,7 +53,7 @@ export default function AdminLayout({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-screen dark bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
@@ -60,7 +61,7 @@ export default function AdminLayout({
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen">
+      <div className={cn("flex min-h-screen", "dark bg-background")}>
         <Sidebar>
           <SidebarHeader>
             <div className="flex items-center gap-2">
