@@ -62,6 +62,7 @@ export function MediaManager() {
       assetData.status = status;
     }
     
+    setLoading(true);
     if (currentAsset) {
       // Edit existing asset
       const assetDoc = doc(db, 'media_assets', currentAsset.id);
@@ -74,7 +75,7 @@ export function MediaManager() {
       setMediaAssets([...mediaAssets, { ...assetData, id: docRef.id }]);
       toast({ title: 'Asset Added!', description: 'The new media asset has been added.' });
     }
-
+    setLoading(false);
     closeDialog();
   };
 
@@ -97,7 +98,7 @@ export function MediaManager() {
      toast({ title: 'Asset Deleted', description: `${asset.title} has been removed.` });
   };
   
-  if (loading) {
+  if (loading && !isDialogOpen) {
     return (
         <div className="flex items-center justify-center h-48">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -221,7 +222,9 @@ export function MediaManager() {
               <DialogClose asChild>
                 <Button type="button" variant="secondary">Cancel</Button>
               </DialogClose>
-              <Button type="submit">Save</Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? <Loader2 className="animate-spin" /> : 'Save'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -229,5 +232,3 @@ export function MediaManager() {
     </>
   );
 }
-
-    
