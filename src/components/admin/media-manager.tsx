@@ -68,6 +68,7 @@ export function MediaManager() {
   const [mediaAssets, setMediaAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [currentAsset, setCurrentAsset] = useState<Asset | null>(null);
   const [formData, setFormData] = useState<Partial<Asset>>({});
   
@@ -175,45 +176,64 @@ export function MediaManager() {
     reader.readAsArrayBuffer(file);
   };
 
-
-  const handleImageUpload = async () => {
-    if (!imageFiles) return [];
-    
+  const uploadAndLinkImages = async (assetId: string, files: FileList) => {
     const imageUrls: string[] = [];
-    for (const file of Array.from(imageFiles)) {
-      const imageRef = ref(storage, `media-assets/${file.name}_${Date.now()}`);
-      await uploadBytes(imageRef, file);
-      const downloadURL = await getDownloadURL(imageRef);
-      imageUrls.push(downloadURL);
+    for (const file of Array.from(files)) {
+        const imageRef = ref(storage, `media-assets/${file.name}_${Date.now()}`);
+        await uploadBytes(imageRef, file);
+        const downloadURL = await getDownloadURL(imageRef);
+        imageUrls.push(downloadURL);
     }
-    return imageUrls;
+    
+    const assetDoc = doc(db, 'media_assets', assetId);
+    const existingAsset = mediaAssets.find(a => a.id === assetId);
+    const updatedImageUrls = [...(existingAsset?.imageUrls || []), ...imageUrls];
+    await updateDoc(assetDoc, { imageUrls: updatedImageUrls });
+
+    setMediaAssets(prevAssets =>
+      prevAssets.map(asset =>
+        asset.id === assetId ? { ...asset, imageUrls: updatedImageUrls } : asset
+      )
+    );
+    toast({ title: 'Image Uploaded!', description: 'The asset image has been updated.' });
   };
+
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoading(true);
+    setIsSaving(true);
     
     const assetData: Partial<Asset> = { ...formData };
+    const filesToUpload = imageFiles;
     
-    const newImageUrls = await handleImageUpload();
-    if (newImageUrls.length > 0) {
-      assetData.imageUrls = [...(currentAsset?.imageUrls || []), ...newImageUrls];
-    } else {
-      assetData.imageUrls = currentAsset?.imageUrls || [];
-    }
+    closeDialog(); // Close dialog immediately for better UX
 
     if (currentAsset) {
-      const assetDoc = doc(db, 'media_assets', currentAsset.id);
+      const assetId = currentAsset.id;
+      const assetDoc = doc(db, 'media_assets', assetId);
       await updateDoc(assetDoc, assetData);
-      setMediaAssets(mediaAssets.map(asset => asset.id === currentAsset.id ? { ...asset, ...assetData, id: currentAsset.id } : asset));
+
+      setMediaAssets(mediaAssets.map(asset => 
+        asset.id === assetId ? { ...asset, ...assetData, id: assetId } as Asset : asset
+      ));
       toast({ title: 'Asset Updated!', description: 'The media asset has been successfully updated.' });
+      
+      if (filesToUpload) {
+        await uploadAndLinkImages(assetId, filesToUpload);
+      }
+
     } else {
       const docRef = await addDoc(mediaAssetsCollectionRef, assetData);
-      setMediaAssets([...mediaAssets, { ...assetData, id: docRef.id } as Asset]);
+      const newAsset = { ...assetData, id: docRef.id } as Asset;
+      setMediaAssets([...mediaAssets, newAsset]);
       toast({ title: 'Asset Added!', description: 'The new media asset has been added.' });
+      
+      if (filesToUpload) {
+        await uploadAndLinkImages(docRef.id, filesToUpload);
+      }
     }
-    setLoading(false);
-    closeDialog();
+    
+    setIsSaving(false);
   };
 
   const openDialog = (asset: Asset | null = null) => {
@@ -227,6 +247,7 @@ export function MediaManager() {
     setCurrentAsset(null);
     setFormData({});
     setImageFiles(null);
+    setIsSaving(false);
   };
   
   const handleDelete = async (asset: Asset) => {
@@ -785,8 +806,8 @@ export function MediaManager() {
               <DialogClose asChild>
                 <Button type="button" variant="secondary" onClick={closeDialog}>Cancel</Button>
               </DialogClose>
-              <Button type="submit" disabled={loading}>
-                {loading ? <Loader2 className="animate-spin" /> : 'Save'}
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? <Loader2 className="animate-spin" /> : 'Save'}
               </Button>
             </DialogFooter>
           </form>
@@ -795,5 +816,3 @@ export function MediaManager() {
     </TooltipProvider>
   );
 }
-
-    
