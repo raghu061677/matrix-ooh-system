@@ -8,7 +8,7 @@ export default function AdminPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace('/admin/media-assets');
+    router.replace('/admin/dashboard');
   }, [router]);
 
   return null;

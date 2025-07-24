@@ -18,7 +18,7 @@ import {
   SidebarFooter,
   SidebarRail,
 } from '@/components/ui/sidebar';
-import { Projector, LayoutGrid, ListChecks, FileText, LogOut, Loader2 } from 'lucide-react';
+import { Projector, LayoutGrid, ListChecks, FileText, LogOut, Loader2, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -72,6 +72,14 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
           </SidebarHeader>
           <SidebarContent>
             <SidebarMenu>
+              <SidebarMenuItem>
+                 <SidebarMenuButton asChild isActive={pathname === '/admin/dashboard'} tooltip="Dashboard">
+                   <Link href="/admin/dashboard">
+                    <Home />
+                    <span className="whitespace-nowrap">Dashboard</span>
+                   </Link>
+                 </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                  <SidebarMenuButton asChild isActive={pathname === '/admin/media-assets'} tooltip="Media Assets">
                    <Link href="/admin/media-assets">
