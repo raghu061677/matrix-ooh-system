@@ -134,6 +134,14 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                            </Link>
                          </SidebarMenuButton>
                       </SidebarMenuItem>
+                       <SidebarMenuItem>
+                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/sales-estimates')} tooltip="Sales Estimates">
+                           <Link href="/admin/sales-estimates">
+                            <FilePieChart />
+                            <span className="whitespace-nowrap">Sales Estimates</span>
+                           </Link>
+                         </SidebarMenuButton>
+                      </SidebarMenuItem>
                       <SidebarMenuItem>
                          <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/quotations')} tooltip="Quotations">
                            <Link href="#">

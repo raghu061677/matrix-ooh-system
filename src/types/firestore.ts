@@ -38,7 +38,7 @@ export interface Customer {
   postalCode?: string;
 }
 
-// /salesEstimates/pendingInvoices/{id} | ...
+// /salesEstimates/pendingInvoices/{id} | etc.
 export interface Invoice {
     id: string;
     projectId?: string; // Reference
@@ -110,7 +110,3 @@ export interface Photo {
     arrivalTimestamp?: Timestamp;
     storagePath?: string;
 }
-
-    
-
-    
