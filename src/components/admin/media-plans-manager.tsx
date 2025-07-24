@@ -59,7 +59,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2, Loader2, FileText, SlidersHorizontal, ArrowUpDown, Upload, Download, CalendarIcon, MoreHorizontal, Sparkles } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, FileText, SlidersHorizontal, ArrowUpDown, Upload, Download, CalendarIcon, MoreHorizontal, Sparkles, Search } from 'lucide-react';
 import { MediaPlan, MediaPlanStatus } from '@/types/media-plan';
 import { Customer, User } from '@/types/firestore';
 import { format, differenceInDays } from 'date-fns';
@@ -624,5 +624,3 @@ export function MediaPlansManager() {
     </TooltipProvider>
   );
 }
-
-    
