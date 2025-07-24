@@ -16,7 +16,7 @@ const navItems = [
   { href: '#portfolio', label: 'Portfolio' },
   { href: '#map', label: 'Our Locations' },
   { href: '#contact', label: 'Contact Us' },
-  { href: '/admin', label: 'Admin Panel' },
+  { href: '/login', label: 'Login' },
 ];
 
 export function Header() {
