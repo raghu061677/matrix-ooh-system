@@ -52,7 +52,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen dark bg-background">
+      <div className="flex items-center justify-center h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
@@ -60,7 +60,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <div className={cn('flex min-h-screen', theme)}>
+      <div className={cn('flex min-h-screen', theme === 'dark' && 'dark')}>
         <Sidebar>
           <SidebarHeader>
             <div className="flex items-center gap-2">
