@@ -27,6 +27,9 @@ import PptxGenJS from 'pptxgenjs';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import { db, storage } from '@/lib/firebase';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import { ref, getDownloadURL } from 'firebase/storage';
 
 interface MediaPlanViewProps {
   plan: MediaPlan;
@@ -99,44 +102,45 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
 
   const exportPlanToPPT = async () => {
     toast({ title: 'Generating PPTX...', description: 'Please wait while we prepare your presentation.' });
-    // In a real app, you would fetch assets for the plan.
-    const planAssets = sampleAssets.slice(0, 5);
     const pptx = new PptxGenJS();
-    pptx.layout = 'LAYOUT_16x9';
+    pptx.author = "MediaVenue App";
 
-    // Title slide
-    const titleSlide = pptx.addSlide();
-    titleSlide.addText(plan.displayName, { x: 0.5, y: 2.0, w: '90%', h: 1, align: 'center', fontSize: 36, bold: true });
-    titleSlide.addText(`For: ${plan.customerName}`, { x: 0.5, y: 3.0, w: '90%', h: 0.5, align: 'center', fontSize: 18 });
-    titleSlide.addText(`Dates: ${format(new Date(plan.startDate), 'dd MMM yyyy')} - ${format(new Date(plan.endDate), 'dd MMM yyyy')}`, { x: 0.5, y: 3.5, w: '90%', h: 0.5, align: 'center', fontSize: 14 });
-    titleSlide.addText(`Prepared by: ${plan.employee?.name}`, { x: '5%', y: '90%', w: '90%', h: '5%', align: 'left', fontSize: 10, color: '666666' });
-    
-    // Asset slides (2 per slide)
-    for (let i = 0; i < planAssets.length; i += 2) {
-      const asset1 = planAssets[i];
-      const asset2 = planAssets[i + 1];
-      const slide = pptx.addSlide();
+    // In a real app, the plan would have a list of asset IDs.
+    // For this example, we'll use a few assets from the sample data.
+    const planAssets = sampleAssets.slice(0, 5); // Assuming these assets are in the plan
 
-      if (asset1 && asset1.imageUrls?.[0]) {
-        slide.addImage({ data: await imageToBase64(asset1.imageUrls[0]), x: 0.5, y: 0.5, w: 4.5, h: 2.53 });
-        slide.addText(`• ${asset1.location}\n• ${asset1.media} | ${asset1.dimensions}`, { x: 0.5, y: 3.2, w: 4.5, h: 0.5, fontSize: 11 });
-      }
-      
-      if (asset2 && asset2.imageUrls?.[0]) {
-        slide.addImage({ data: await imageToBase64(asset2.imageUrls[0]), x: 5.5, y: 0.5, w: 4.5, h: 2.53 });
-        slide.addText(`• ${asset2.location}\n• ${asset2.media} | ${asset2.dimensions}`, { x: 5.5, y: 3.2, w: 4.5, h: 0.5, fontSize: 11 });
-      }
+    for (const asset of planAssets) {
+        const slide = pptx.addSlide();
 
-      // Geo-location Map slide (placeholder)
-      if (asset1 && asset1.imageUrls?.[0]) {
-          const mapImg = 'https://placehold.co/600x400.png';
-          slide.addImage({ data: await imageToBase64(mapImg), x: 0.5, y: 4.0, w: 4.5, h: 2.53, sizing: { type: 'cover', w: 4.5, h: 2.53 } });
-          slide.addText('Geo-tagged Location', { x: 0.5, y: 6.6, w:4.5, h: 0.3, fontSize: 10, align: 'center' });
-      }
+        // Add asset details to the slide
+        slide.addText(`Asset ID: ${asset.mid || 'N/A'}`, { x: 0.5, y: 0.25, fontSize: 14, bold: true });
+        slide.addText(`Location: ${asset.location || 'N/A'}`, { x: 0.5, y: 0.5, fontSize: 12 });
+        slide.addText(`Size: ${asset.dimensions || 'N/A'}`, { x: 0.5, y: 0.75, fontSize: 12 });
+        
+        // In a real implementation, you would query Firestore for images related to the asset.
+        // For demonstration, we'll use the placeholder URLs from sampleAssets.
+        const imageUrls = asset.imageUrls || [];
+
+        // Add up to 2 images to the slide
+        for (let i = 0; i < Math.min(2, imageUrls.length); i++) {
+            const imageUrl = imageUrls[i];
+            try {
+                // We need to fetch the image and convert it to base64 to embed it in the PPTX
+                const imageBase64 = await imageToBase64(imageUrl);
+                if (imageBase64) {
+                    slide.addImage({ data: imageBase64, x: 0.5 + i * 5.0, y: 1.2, w: 4.5, h: 2.53 });
+                }
+            } catch (err) {
+                console.warn(`Could not load image for asset ${asset.mid}:`, err);
+                // Optionally add a placeholder for failed images
+                slide.addText('Image not available', { x: 0.5 + i * 5.0, y: 1.2, w: 4.5, h: 2.53, align: 'center', fill: { color: 'F1F1F1' } });
+            }
+        }
     }
-    
-    pptx.writeFile({ fileName: `Plan-${plan.displayName}.pptx` });
-  };
+
+    const filename = `${plan.displayName || 'MediaPlan'}_${plan.id}.pptx`;
+    pptx.writeFile({ fileName: filename });
+};
   
   const exportPlanToExcel = () => {
     toast({ title: 'Generating Excel...', description: 'Please wait while we prepare your spreadsheet.' });
