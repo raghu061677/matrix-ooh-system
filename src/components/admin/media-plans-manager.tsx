@@ -6,6 +6,7 @@ import { useState, useMemo, useRef } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 import {
   Table,
   TableBody,
@@ -478,7 +479,11 @@ export function MediaPlansManager() {
                     </div>
                 </TableCell>}
                 {columnVisibility.customer && <TableCell>{plan.customer}</TableCell>}
-                {columnVisibility.display && <TableCell className="text-blue-600">{plan.displayName}</TableCell>}
+                {columnVisibility.display && <TableCell>
+                    <Link href={`/admin/media-plans/${plan.id}`} className="text-blue-600 hover:underline">
+                        {plan.displayName}
+                    </Link>
+                </TableCell>}
                 {columnVisibility.from && <TableCell>{format(new Date(plan.startDate), 'ddMMMyy')}</TableCell>}
                 {columnVisibility.to && <TableCell>{format(new Date(plan.endDate), 'ddMMMyy')}</TableCell>}
                 {columnVisibility.days && <TableCell>{plan.days}</TableCell>}
@@ -494,9 +499,11 @@ export function MediaPlansManager() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
-                      <DropdownMenuItem onClick={() => openDialog(plan)}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit
+                      <DropdownMenuItem asChild>
+                        <Link href={`/admin/media-plans/${plan.id}`}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                        </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleDelete(plan)} className="text-destructive">
                         <Trash2 className="mr-2 h-4 w-4" />

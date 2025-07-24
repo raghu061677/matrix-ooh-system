@@ -1,4 +1,5 @@
 
+
 import type { Timestamp } from 'firebase/firestore';
 import type { User } from './firestore';
 
@@ -24,7 +25,9 @@ export type MediaPlan = {
   isRotational?: boolean;
   notes?: string;
   statistics?: {
+    haMarkup?: number;
     haMarkupPercentage?: number;
+    taMarkup?: number;
     taMarkupPercentage?: number;
     occupancyPercentage?: number;
     roiPercentage?: number;
@@ -35,6 +38,7 @@ export type MediaPlan = {
     totalSites?: number;
     pricePerSqft?: number;
     pricePerSqftPerMonth?: number;
+    totalSqft?: number;
   };
   clientGrade?: {
     unbilledSales?: number;
@@ -60,7 +64,3 @@ export type MediaPlan = {
 
 // Campaigns have an identical structure to plans.
 export type Campaign = MediaPlan;
-
-    
-
-    
