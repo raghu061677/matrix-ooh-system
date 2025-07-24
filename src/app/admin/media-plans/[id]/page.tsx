@@ -8,34 +8,52 @@ import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft } from 'lucide-react';
+import { Customer, User } from '@/types/firestore';
+import { db } from '@/lib/firebase';
+import { collection, getDocs } from 'firebase/firestore';
+
 
 // Mock data fetching
 const sampleData: MediaPlan[] = [
-    { id: '1', projectId: 'P00109', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'Matrix Network Solutions', displayName: 'CRI', startDate: new Date('2025-07-26'), endDate: new Date('2025-08-24'), days: 30, sqft: 1048.5, amount: 460790, qos: '10.14%', status: 'Draft',
+    { id: '1', projectId: 'P00109', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'Matrix Network Solutions', displayName: 'CRI', startDate: new Date('2025-07-26'), endDate: new Date('2025-08-24'), days: 30, sqft: 1048.5, amount: 460790, qos: '10.14%', status: 'Draft',
         statistics: { haMarkupPercentage: 10.14, taMarkupPercentage: 0, roiPercentage: 0, occupancyPercentage: 0, haMarkup: 35000, taMarkup: 0 },
         inventorySummary: { homeCount: 7, rentedCount: 0, totalSites: 7, pricePerSqft: 362.42, pricePerSqftPerMonth: 362.42, totalSqft: 1048.5 },
         clientGrade: { unbilledSales: 0, effectiveSales: 0, paymentReceived: 0, outstandingSales: 0 },
         costSummary: { displayCost: 380000, printingCost: 0, installationCost: 10500, totalBeforeTax: 390500, gst: 70290, grandTotal: 460790 },
         documents: { emailConfirmations: 0, purchaseOrders: 0, others: 0 }
     },
-    { id: '2', projectId: 'P00108', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'Matrix', displayName: 'Matrix ®', startDate: new Date('2025-07-24'), endDate: new Date('2025-08-22'), days: 30, sqft: 1936.5, amount: 800040, qos: '10%', status: 'Draft' },
-    { id: '3', projectId: 'P00107', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'Founding Years Learning Solutions Pvt Ltd', displayName: 'Education', startDate: new Date('2025-07-25'), endDate: new Date('2025-10-22'), days: 90, sqft: 161, amount: 194700, qos: '10%', status: 'Confirmed' },
-    { id: '4', projectId: 'P00106', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'Matrix Network Solutions', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, sqft: 1280, amount: 224200, qos: '42.5%', status: 'Active' },
-    { id: '5', projectId: 'P00094', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'ADMINDS', displayName: 'Sunil Reddy', startDate: new Date('2025-07-01'), endDate: new Date('2025-07-31'), days: 31, sqft: 793, amount: 310929, qos: '6.25%', status: 'Draft' },
-    { id: '6', projectId: 'P00105', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'LAQSHYA MEDIA LIMITED', displayName: 'Quick delivery food campaign', startDate: new Date('2025-07-10'), endDate: new Date('2025-08-08'), days: 30, sqft: 2119.5, amount: 790600, qos: '5.51%', status: 'Draft' },
+    { id: '2', projectId: 'P00108', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'Matrix', displayName: 'Matrix ®', startDate: new Date('2025-07-24'), endDate: new Date('2025-08-22'), days: 30, sqft: 1936.5, amount: 800040, qos: '10%', status: 'Draft' },
+    { id: '3', projectId: 'P00107', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'Founding Years Learning Solutions Pvt Ltd', displayName: 'Education', startDate: new Date('2025-07-25'), endDate: new Date('2025-10-22'), days: 90, sqft: 161, amount: 194700, qos: '10%', status: 'Confirmed' },
+    { id: '4', projectId: 'P00106', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'Matrix Network Solutions', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, sqft: 1280, amount: 224200, qos: '42.5%', status: 'Active' },
+    { id: '5', projectId: 'P00094', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'ADMINDS', displayName: 'Sunil Reddy', startDate: new Date('2025-07-01'), endDate: new Date('2025-07-31'), days: 31, sqft: 793, amount: 310929, qos: '6.25%', status: 'Draft' },
+    { id: '6', projectId: 'P00105', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'LAQSHYA MEDIA LIMITED', displayName: 'Quick delivery food campaign', startDate: new Date('2025-07-10'), endDate: new Date('2025-08-08'), days: 30, sqft: 2119.5, amount: 790600, qos: '5.51%', status: 'Draft' },
+];
+
+const mockEmployees: User[] = [
+    { id: 'user-001', uid: 'user-001', name: 'Raghu Gajula', email: 'raghu@example.com', role: 'admin', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' },
+    { id: 'user-002', uid: 'user-002', name: 'Sunil Reddy', email: 'sunil@example.com', role: 'sales', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026705d' },
 ];
 
 export default function MediaPlanPage({ params }: { params: { id: string } }) {
   const [plan, setPlan] = React.useState<MediaPlan | null>(null);
+  const [customers, setCustomers] = React.useState<Customer[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    // In a real app, you would fetch this from Firestore
-    const foundPlan = sampleData.find(p => p.id === params.id);
-    if (foundPlan) {
-      setPlan(foundPlan);
+    const fetchData = async () => {
+        // In a real app, you would fetch all these from Firestore
+        const foundPlan = sampleData.find(p => p.id === params.id);
+        if (foundPlan) {
+            setPlan(foundPlan);
+        }
+        
+        const customersCollectionRef = collection(db, 'customers');
+        const customersData = await getDocs(customersCollectionRef);
+        setCustomers(customersData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Customer)));
+
+        setLoading(false);
     }
-    setLoading(false);
+    fetchData();
   }, [params.id]);
 
   if (loading) {
@@ -61,5 +79,5 @@ export default function MediaPlanPage({ params }: { params: { id: string } }) {
     );
   }
 
-  return <MediaPlanView plan={plan} />;
+  return <MediaPlanView plan={plan} customers={customers} employees={mockEmployees} />;
 }

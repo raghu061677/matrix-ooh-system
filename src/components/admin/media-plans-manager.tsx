@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useState, useMemo, useRef } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -15,15 +15,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -39,36 +30,19 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
-import { Calendar } from '@/components/ui/calendar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2, Loader2, FileText, SlidersHorizontal, ArrowUpDown, Upload, Download, CalendarIcon, MoreHorizontal, Sparkles, Search } from 'lucide-react';
-import { MediaPlan, MediaPlanStatus } from '@/types/media-plan';
+import { PlusCircle, Edit, Trash2, Loader2, FileText, SlidersHorizontal, ArrowUpDown, Sparkles, Search, MoreHorizontal } from 'lucide-react';
+import { MediaPlan } from '@/types/media-plan';
 import { Customer, User } from '@/types/firestore';
-import { format, differenceInDays } from 'date-fns';
-import { DateRange } from 'react-day-picker';
+import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import PptxGenJS from 'pptxgenjs';
+import { MediaPlanFormDialog } from './media-plan-form-dialog';
 
 type SortConfig = {
   key: keyof MediaPlan;
@@ -87,8 +61,6 @@ export function MediaPlansManager() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<MediaPlan | null>(null);
-  const [formData, setFormData] = useState<Partial<MediaPlan>>({});
-  const [dateRange, setDateRange] = React.useState<DateRange | undefined>(undefined);
   
   const [filter, setFilter] = useState('');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
@@ -108,7 +80,6 @@ export function MediaPlansManager() {
   });
 
   const { toast } = useToast();
-  const mediaPlansCollectionRef = collection(db, 'media_plans');
   const customersCollectionRef = collection(db, 'customers');
 
   const sampleData: MediaPlan[] = [
@@ -124,8 +95,7 @@ export function MediaPlansManager() {
     const getData = async () => {
         setLoading(true);
         try {
-            // const plansData = await getDocs(mediaPlansCollectionRef);
-            // setMediaPlans(plansData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as MediaPlan)));
+            // In a real app, you would fetch plans from firestore.
             setMediaPlans(sampleData);
             
             const customersData = await getDocs(customersCollectionRef);
@@ -140,57 +110,15 @@ export function MediaPlansManager() {
     getData();
   }, [toast]);
 
-  React.useEffect(() => {
-    if (dateRange?.from && dateRange?.to) {
-        setFormData(prev => ({
-            ...prev,
-            startDate: dateRange.from,
-            endDate: dateRange.to,
-            days: differenceInDays(dateRange.to!, dateRange.from!) + 1
-        }));
-    } else {
-        setFormData(prev => ({ ...prev, days: undefined }));
-    }
-  }, [dateRange]);
-
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSelectChange = (name: keyof MediaPlan, value: string) => {
-    if (name === 'employeeId') {
-        const employee = mockEmployees.find(e => e.id === value);
-        if (employee) {
-            setFormData(prev => ({
-                ...prev,
-                employeeId: value,
-                employee: { id: employee.id, name: employee.name, avatar: employee.avatar }
-            }));
-        }
-    } else {
-        setFormData(prev => ({...prev, [name]: value}));
-    }
-  };
-
-  const handleSwitchChange = (name: keyof MediaPlan, checked: boolean) => {
-    setFormData(prev => ({ ...prev, [name]: checked }));
-  };
-
-  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSave = (planToSave: MediaPlan) => {
     setLoading(true);
-
     if (currentPlan) {
-      setMediaPlans(mediaPlans.map(plan => plan.id === currentPlan.id ? { ...plan, ...formData, id: currentPlan.id } as MediaPlan : plan));
+      // Update logic
+      setMediaPlans(mediaPlans.map(plan => plan.id === currentPlan.id ? planToSave : plan));
       toast({ title: 'Plan Updated!', description: 'The media plan has been successfully updated.' });
     } else {
-      const newPlan = { 
-        ...formData, 
-        id: `plan-${Math.random()}`, 
-        projectId: `P-${Date.now().toString().slice(-5)}`,
-        isRotational: formData.isRotational || false,
-      } as MediaPlan;
+      // Add new logic
+      const newPlan = { ...planToSave, id: `plan-${Math.random()}` };
       setMediaPlans([...mediaPlans, newPlan]);
       toast({ title: 'Plan Added!', description: 'The new media plan has been added.' });
     }
@@ -200,21 +128,12 @@ export function MediaPlansManager() {
 
   const openDialog = (plan: MediaPlan | null = null) => {
     setCurrentPlan(plan);
-    if (plan) {
-        setFormData(plan);
-        setDateRange({ from: new Date(plan.startDate), to: new Date(plan.endDate) });
-    } else {
-        setFormData({ projectId: `P-${Date.now().toString().slice(-5)}`});
-        setDateRange(undefined);
-    }
     setIsDialogOpen(true);
   };
 
   const closeDialog = () => {
     setIsDialogOpen(false);
     setCurrentPlan(null);
-    setFormData({});
-    setDateRange(undefined);
   };
   
   const handleDelete = async (plan: MediaPlan) => {
@@ -499,11 +418,9 @@ export function MediaPlansManager() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
-                      <DropdownMenuItem asChild>
-                        <Link href={`/admin/media-plans/${plan.id}`}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit
-                        </Link>
+                      <DropdownMenuItem onClick={() => openDialog(plan)}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleDelete(plan)} className="text-destructive">
                         <Trash2 className="mr-2 h-4 w-4" />
@@ -518,116 +435,14 @@ export function MediaPlansManager() {
         </Table>
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={closeDialog}>
-        <DialogContent className="sm:max-w-2xl">
-            <DialogHeader>
-                <DialogTitle>{currentPlan ? 'Edit Plan' : 'Add to Plan'}</DialogTitle>
-            </DialogHeader>
-            <Tabs defaultValue="new-plan">
-                <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="new-plan">New Plan</TabsTrigger>
-                    <TabsTrigger value="existing-plan">Existing Plan</TabsTrigger>
-                </TabsList>
-                <TabsContent value="new-plan">
-                    <form onSubmit={handleSave}>
-                        <div className="space-y-4 py-4">
-                            <div className="grid grid-cols-1 gap-4">
-                                <div>
-                                    <Label htmlFor="displayName">Display Name <span className="text-red-500">*</span></Label>
-                                    <Input id="displayName" name="displayName" value={formData.displayName || ''} onChange={handleFormChange} required />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                     <div>
-                                        <Label htmlFor="employee">Employee</Label>
-                                        <Select onValueChange={(value) => handleSelectChange('employeeId', value)} value={formData.employeeId}>
-                                            <SelectTrigger><SelectValue placeholder="Select user" /></SelectTrigger>
-                                            <SelectContent>
-                                                {mockEmployees.map(emp => (
-                                                    <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="customer">Customer</Label>
-                                        <Select onValueChange={(value) => handleSelectChange('customer', value)} value={formData.customer}>
-                                            <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
-                                            <SelectContent>
-                                                 {customers.map(cust => (
-                                                    <SelectItem key={cust.id} value={cust.name}>{cust.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-1 items-center gap-2">
-                                    <Label htmlFor="dates">Dates <span className="text-red-500">*</span></Label>
-                                    <div className="grid grid-cols-[1fr_auto] gap-2">
-                                        <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                            id="date"
-                                            variant={"outline"}
-                                            className="w-full justify-start text-left font-normal"
-                                            >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {dateRange?.from ? (
-                                                dateRange.to ? (
-                                                <>
-                                                    {format(dateRange.from, "LLL dd, y")} -{" "}
-                                                    {format(dateRange.to, "LLL dd, y")}
-                                                </>
-                                                ) : (
-                                                format(dateRange.from, "LLL dd, y")
-                                                )
-                                            ) : (
-                                                <span>Pick a date range</span>
-                                            )}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar
-                                                initialFocus
-                                                mode="range"
-                                                defaultMonth={dateRange?.from}
-                                                selected={dateRange}
-                                                onSelect={setDateRange}
-                                                numberOfMonths={2}
-                                            />
-                                        </PopoverContent>
-                                        </Popover>
-                                        <Input id="days" name="days" value={formData.days || ''} placeholder="Days" readOnly className="w-20" />
-                                    </div>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <Switch id="isRotational" checked={formData.isRotational} onCheckedChange={(checked) => handleSwitchChange('isRotational', checked)} />
-                                    <Label htmlFor="isRotational">Is Rotational</Label>
-                                </div>
-                                <div>
-                                    <Label htmlFor="notes">Notes</Label>
-                                    <Textarea id="notes" name="notes" value={formData.notes || ''} onChange={handleFormChange} />
-                                </div>
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-                            <Button type="submit" disabled={loading}>
-                                {loading ? <Loader2 className="animate-spin" /> : (currentPlan ? 'Save Changes' : 'Create Plan')}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </TabsContent>
-                 <TabsContent value="existing-plan">
-                    <div className="py-4">
-                        <p className="text-muted-foreground">Select an existing plan to add assets to. This feature is coming soon.</p>
-                    </div>
-                     <DialogFooter>
-                        <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-                    </DialogFooter>
-                </TabsContent>
-            </Tabs>
-        </DialogContent>
-      </Dialog>
+      <MediaPlanFormDialog 
+        isOpen={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        plan={currentPlan}
+        customers={customers}
+        employees={mockEmployees}
+        onSave={handleSave}
+      />
     </TooltipProvider>
   );
 }

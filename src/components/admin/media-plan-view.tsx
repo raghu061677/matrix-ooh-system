@@ -17,9 +17,13 @@ import { format } from 'date-fns';
 import { ChevronLeft, MoreVertical, Edit, Trash2, Ban, Copy, Share, List, Link as LinkIcon, Download, FileText } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { cn } from '@/lib/utils';
+import { MediaPlanFormDialog } from './media-plan-form-dialog';
+import { Customer, User } from '@/types/firestore';
 
 interface MediaPlanViewProps {
   plan: MediaPlan;
+  customers: Customer[];
+  employees: User[];
 }
 
 const InfoRow: React.FC<{ label: string; value?: string | number | null; children?: React.ReactNode; className?: string }> = ({ label, value, children, className }) => (
@@ -30,7 +34,15 @@ const InfoRow: React.FC<{ label: string; value?: string | number | null; childre
 );
 
 
-export function MediaPlanView({ plan }: MediaPlanViewProps) {
+export function MediaPlanView({ plan: initialPlan, customers, employees }: MediaPlanViewProps) {
+  const [plan, setPlan] = React.useState<MediaPlan>(initialPlan);
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+
+  const handlePlanUpdate = (updatedPlan: MediaPlan) => {
+    // In a real app, this would also save to Firestore
+    setPlan(updatedPlan);
+    // Optionally, show a toast notification
+  };
 
   const formatCurrency = (value?: number) => {
     if (value === undefined || value === null) return 'N/A';
@@ -76,7 +88,7 @@ export function MediaPlanView({ plan }: MediaPlanViewProps) {
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle className="text-base">Business</CardTitle>
-                    <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => setIsDialogOpen(true)}><Edit className="h-4 w-4" /></Button>
                 </CardHeader>
                 <CardContent>
                     <div className="flex items-center gap-2 mb-4">
@@ -180,6 +192,18 @@ export function MediaPlanView({ plan }: MediaPlanViewProps) {
             </Card>
         </div>
       </main>
+      
+      <MediaPlanFormDialog
+        isOpen={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        plan={plan}
+        customers={customers}
+        employees={employees}
+        onSave={(updatedPlan) => {
+            handlePlanUpdate(updatedPlan);
+            setIsDialogOpen(false);
+        }}
+      />
     </div>
   );
 }
