@@ -101,87 +101,113 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   }
 
   const exportPlanToPPT = async () => {
-    toast({ title: 'Generating PPTX...', description: 'Please wait while we prepare your presentation.' });
-    const pptx = new PptxGenJS();
-    pptx.author = "MediaVenue App";
+      toast({ title: 'Generating PPTX...', description: 'Please wait, fetching data...' });
+      const pptx = new PptxGenJS();
+      pptx.author = "MediaVenue App";
 
-    // In a real app, the plan would have a list of asset IDs.
-    // For this example, we'll use a few assets from the sample data.
-    const planAssets = sampleAssets.slice(0, 5); // Assuming these assets are in the plan
+      const planId = plan.id;
+      const planDocRef = doc(db, "plans", planId);
+      const planDocSnap = await getDoc(planDocRef);
 
-    for (const asset of planAssets) {
-        const slide = pptx.addSlide();
+      if (!planDocSnap.exists()) {
+          toast({ variant: 'destructive', title: 'Error', description: 'Plan not found.' });
+          return;
+      }
+      const planData = planDocSnap.data();
+      
+      // In a real app, you would have a list of asset IDs in the plan document.
+      // Here, we'll continue using sample assets for demonstration.
+      const planAssets = sampleAssets.slice(0, 5); 
 
-        // Add asset details to the slide
-        slide.addText(`Asset ID: ${asset.mid || 'N/A'}`, { x: 0.5, y: 0.25, fontSize: 14, bold: true });
-        slide.addText(`Location: ${asset.location || 'N/A'}`, { x: 0.5, y: 0.5, fontSize: 12 });
-        slide.addText(`Size: ${asset.dimensions || 'N/A'}`, { x: 0.5, y: 0.75, fontSize: 12 });
-        
-        // In a real implementation, you would query Firestore for images related to the asset.
-        // For demonstration, we'll use the placeholder URLs from sampleAssets.
-        const imageUrls = asset.imageUrls || [];
+      for (const asset of planAssets) {
+          const slide = pptx.addSlide();
+          slide.addText(`Asset ID: ${asset.mid || 'N/A'}`, { x: 0.5, y: 0.25, fontSize: 14, bold: true });
+          slide.addText(`Location: ${asset.location || 'N/A'}`, { x: 0.5, y: 0.5, fontSize: 12 });
+          slide.addText(`Size: ${asset.dimensions || 'N/A'}`, { x: 0.5, y: 0.75, fontSize: 12 });
 
-        // Add up to 2 images to the slide
-        for (let i = 0; i < Math.min(2, imageUrls.length); i++) {
-            const imageUrl = imageUrls[i];
-            try {
-                // We need to fetch the image and convert it to base64 to embed it in the PPTX
-                const imageBase64 = await imageToBase64(imageUrl);
-                if (imageBase64) {
-                    slide.addImage({ data: imageBase64, x: 0.5 + i * 5.0, y: 1.2, w: 4.5, h: 2.53 });
-                }
-            } catch (err) {
-                console.warn(`Could not load image for asset ${asset.mid}:`, err);
-                // Optionally add a placeholder for failed images
-                slide.addText('Image not available', { x: 0.5 + i * 5.0, y: 1.2, w: 4.5, h: 2.53, align: 'center', fill: { color: 'F1F1F1' } });
-            }
-        }
-    }
+          const q = query(collection(db, "photoLibrary/photos"), where("iid", "==", asset.mid));
+          const photoSnap = await getDocs(q);
+          const photoUrls: string[] = [];
 
-    const filename = `${plan.displayName || 'MediaPlan'}_${plan.id}.pptx`;
-    pptx.writeFile({ fileName: filename });
-};
+          photoSnap.forEach(photoDoc => {
+              const photoData = photoDoc.data();
+              if (photoData.storagePath) {
+                  photoUrls.push(photoData.storagePath);
+              }
+          });
+          
+          const urlsToProcess = photoUrls.length > 0 ? photoUrls : asset.imageUrls || [];
+
+          for (let i = 0; i < Math.min(2, urlsToProcess.length); i++) {
+              const imageUrl = urlsToProcess[i];
+              try {
+                  const imageBase64 = await imageToBase64(imageUrl);
+                  if (imageBase64) {
+                      slide.addImage({ data: imageBase64, x: 0.5 + i * 5.0, y: 1.2, w: 4.5, h: 2.53 });
+                  }
+              } catch (err) {
+                  console.warn(`Could not load image for asset ${asset.mid}:`, err);
+                  slide.addText('Image not available', { x: 0.5 + i * 5.0, y: 1.2, w: 4.5, h: 2.53, align: 'center', fill: { color: 'F1F1F1' } });
+              }
+          }
+      }
+
+      const filename = `${planData.displayName || 'MediaPlan'}_${planId}.pptx`;
+      pptx.writeFile({ fileName: filename });
+  };
   
-  const exportPlanToExcel = () => {
-    toast({ title: 'Generating Excel...', description: 'Please wait while we prepare your spreadsheet.' });
-    const planAssets = sampleAssets.slice(0, 5);
-    let totalAmount = 0;
+  const exportPlanToExcel = async () => {
+    toast({ title: 'Generating Excel...', description: 'Please wait, fetching data...' });
+    const planId = plan.id;
+    const planDoc = await getDoc(doc(db, "plans", planId));
 
-    const data = planAssets.map((asset, index) => {
-        const displayCost = asset.baseRate || 0;
-        const printingCost = plan.costSummary?.printingCost && planAssets.length > 0 ? plan.costSummary.printingCost / planAssets.length : 0;
-        const installationCost = plan.costSummary?.installationCost && planAssets.length > 0 ? plan.costSummary.installationCost / planAssets.length : 0;
-        const subTotal = displayCost + printingCost + installationCost;
-        const gst = subTotal * 0.18;
-        const grandTotal = subTotal + gst;
-        totalAmount += grandTotal;
-
-        return {
-            'S.No': index + 1,
-            'Location': asset.location,
-            'City': asset.city,
-            'Size': asset.dimensions,
-            'Qty': 1,
-            'Rate': displayCost,
-            'Printing': printingCost,
-            'Mounting': installationCost,
-            'Total': subTotal,
-            'GST': gst,
-            'Grand Total': grandTotal,
-        };
-    });
+    if (!planDoc.exists()) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Plan not found.' });
+      return;
+    }
+    const planData = planDoc.data();
     
-    // Add total row
-    data.push({
-        'S.No': 'Total',
-        'Location': '', 'City': '', 'Size': '', 'Qty': '', 'Rate': '', 'Printing': '', 'Mounting': '', 'Total': '', 'GST': '',
-        'Grand Total': totalAmount,
+    // NOTE: Using sampleAssets because planData.mediaAssets is not yet implemented in the data structure.
+    // In a real implementation, you would use:
+    // const assets = planData.mediaAssets || []; 
+    const assets = sampleAssets.slice(0, 5);
+
+    const worksheetData: (string | number)[][] = [
+      [
+        "S.No", "Location", "City", "Size (ft)", "Qty", "Rate", "Printing", "Mounting", "Total", "GST (18%)", "Grand Total"
+      ],
+    ];
+
+    assets.forEach((asset, index) => {
+      // These costs would ideally come from the asset object within the plan
+      const rate = asset.baseRate || 0;
+      const printing = 0; // Replace with actual printing cost for the asset in the plan
+      const mounting = 3500; // Replace with actual mounting cost for the asset in the plan
+      const total = rate + printing + mounting;
+      const gst = total * 0.18;
+      const grandTotal = total + gst;
+
+      worksheetData.push([
+        index + 1,
+        asset.area || '',
+        asset.city || '',
+        `${asset.width1} x ${asset.height1}`,
+        1, // Replace with actual quantity if applicable
+        rate,
+        printing,
+        mounting,
+        total,
+        gst,
+        grandTotal
+      ]);
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(data);
+    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Media Plan');
-    XLSX.writeFile(workbook, `Plan-${plan.displayName}.xlsx`);
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Media Plan");
+
+    const filename = `${planData.displayName || 'MediaPlan'}_${planId}.xlsx`;
+    XLSX.writeFile(workbook, filename);
   };
 
   const exportPlanToPDF = () => {
