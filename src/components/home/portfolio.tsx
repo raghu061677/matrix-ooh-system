@@ -1,6 +1,6 @@
 import { LocationCard } from './location-card';
 
-const mediaLocations = [
+export const mediaLocations = [
   {
     id: 1,
     title: 'Downtown Digital Billboard',

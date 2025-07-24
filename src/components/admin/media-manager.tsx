@@ -30,15 +30,15 @@ import { mediaLocations as initialMediaLocations } from '@/components/home/portf
 export function MediaManager() {
   const [mediaAssets, setMediaAssets] = useState(initialMediaLocations);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [currentAsset, setCurrentAsset] = useState(null);
+  const [currentAsset, setCurrentAsset] = useState<any>(null);
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
-  const [assetToDelete, setAssetToDelete] = useState(null);
+  const [assetToDelete, setAssetToDelete] = useState<any>(null);
   const { toast } = useToast();
 
-  const handleSave = (e) => {
+  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.target);
-    const assetData = Object.fromEntries(formData.entries());
+    const formData = new FormData(e.target as HTMLFormElement);
+    const assetData: any = Object.fromEntries(formData.entries());
     
     if (currentAsset) {
       // Edit existing asset
@@ -54,7 +54,7 @@ export function MediaManager() {
     closeDialog();
   };
 
-  const openDialog = (asset = null) => {
+  const openDialog = (asset: any = null) => {
     setCurrentAsset(asset);
     setIsDialogOpen(true);
   };
@@ -64,7 +64,7 @@ export function MediaManager() {
     setCurrentAsset(null);
   };
   
-  const handleDelete = (asset) => {
+  const handleDelete = (asset: any) => {
      setMediaAssets(mediaAssets.filter(a => a.id !== asset.id));
      toast({ title: 'Asset Deleted', description: `${asset.title} has been removed.` });
   };
