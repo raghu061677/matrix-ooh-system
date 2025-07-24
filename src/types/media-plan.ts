@@ -1,19 +1,27 @@
 
 import type { Timestamp } from 'firebase/firestore';
+import type { User } from './firestore';
 
 export type MediaPlanStatus = 'Draft' | 'Confirmed' | 'Cancelled' | 'Active' | 'Pending' | 'Converted';
 
 export type MediaPlan = {
   id: string; // Firestore document ID
-  planId: string;
-  projectId?: string;
+  projectId: string;
   employeeId?: string; // Reference to users collection
+  employee?: {
+    id: string;
+    name: string;
+    avatar?: string;
+  };
   customer?: string; // Reference to customers collection
   displayName: string;
   startDate: Date | Timestamp;
   endDate: Date | Timestamp;
   days?: number;
-  isRotational: boolean;
+  sqft?: number;
+  amount?: number;
+  qos?: string;
+  isRotational?: boolean;
   notes?: string;
   statistics?: {
     haMarkupPercentage?: number;
@@ -52,5 +60,7 @@ export type MediaPlan = {
 
 // Campaigns have an identical structure to plans.
 export type Campaign = MediaPlan;
+
+    
 
     

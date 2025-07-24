@@ -3,10 +3,12 @@ import type { Timestamp } from 'firebase/firestore';
 
 // /users/{uid}
 export interface User {
+  id: string;
   uid: string;
   name: string;
   email: string;
   role: 'admin' | 'sales' | 'operations' | 'viewer';
+  avatar?: string;
 }
 
 // /customers/{id}
@@ -108,5 +110,7 @@ export interface Photo {
     arrivalTimestamp?: Timestamp;
     storagePath?: string;
 }
+
+    
 
     

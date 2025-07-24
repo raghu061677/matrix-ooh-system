@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -56,10 +56,12 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2, Loader2, FileText, SlidersHorizontal, ArrowUpDown, Upload, Download, CalendarIcon } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, FileText, SlidersHorizontal, ArrowUpDown, Upload, Download, CalendarIcon, MoreHorizontal, Sparkles } from 'lucide-react';
 import { MediaPlan, MediaPlanStatus } from '@/types/media-plan';
-import { Customer } from '@/types/firestore';
+import { Customer, User } from '@/types/firestore';
 import { format, differenceInDays } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import * as XLSX from 'xlsx';
@@ -73,9 +75,9 @@ type SortConfig = {
 } | null;
 
 // Mock data until real data fetching is implemented
-const mockEmployees = [
-    { id: 'user-001', name: 'Admin User' },
-    { id: 'user-002', name: 'Sales Rep' },
+const mockEmployees: User[] = [
+    { id: 'user-001', uid: 'user-001', name: 'Raghu Gajula', email: 'raghu@example.com', role: 'admin', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' },
+    { id: 'user-002', uid: 'user-002', name: 'Sunil Reddy', email: 'sunil@example.com', role: 'sales', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026705d' },
 ];
 
 export function MediaPlansManager() {
@@ -91,12 +93,17 @@ export function MediaPlansManager() {
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [columnVisibility, setColumnVisibility] = useState({
-    planId: true,
-    displayName: true,
+    projectId: true,
+    employee: true,
     customer: true,
+    display: true,
+    from: true,
+    to: true,
+    days: true,
+    sqft: true,
+    amount: true,
+    qos: true,
     status: true,
-    startDate: true,
-    endDate: true,
   });
 
   const { toast } = useToast();
@@ -104,31 +111,15 @@ export function MediaPlansManager() {
   const customersCollectionRef = collection(db, 'customers');
 
   const sampleData: MediaPlan[] = [
-    {
-        id: 'plan-001',
-        planId: 'P-2024-001',
-        displayName: 'Summer Sale Campaign',
-        customer: 'Nike',
-        status: 'Draft',
-        startDate: new Date('2024-07-01'),
-        endDate: new Date('2024-07-31'),
-        isRotational: false,
-        notes: ''
-    },
-    {
-        id: 'plan-002',
-        planId: 'P-2024-002',
-        displayName: 'New Product Launch',
-        customer: 'Apple',
-        status: 'Confirmed',
-        startDate: new Date('2024-08-01'),
-        endDate: new Date('2024-08-31'),
-        isRotational: true,
-        notes: 'High priority'
-    }
+      { id: '1', projectId: 'P00109', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'Matrix Network Solutions', displayName: 'CRI', startDate: new Date('2025-07-26'), endDate: new Date('2025-08-24'), days: 30, sqft: 1048.5, amount: 460790, qos: '10.14%', status: 'Draft' },
+      { id: '2', projectId: 'P00108', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'Matrix', displayName: 'Matrix ®', startDate: new Date('2025-07-24'), endDate: new Date('2025-08-22'), days: 30, sqft: 1936.5, amount: 800040, qos: '10%', status: 'Draft' },
+      { id: '3', projectId: 'P00107', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'Founding Years Learning Solutions Pvt Ltd', displayName: 'Education', startDate: new Date('2025-07-25'), endDate: new Date('2025-10-22'), days: 90, sqft: 161, amount: 194700, qos: '10%', status: 'Confirmed' },
+      { id: '4', projectId: 'P00106', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'Matrix Network Solutions', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, sqft: 1280, amount: 224200, qos: '42.5%', status: 'Active' },
+      { id: '5', projectId: 'P00094', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'ADMINDS', displayName: 'Sunil Reddy', startDate: new Date('2025-07-01'), endDate: new Date('2025-07-31'), days: 31, sqft: 793, amount: 310929, qos: '6.25%', status: 'Draft' },
+      { id: '6', projectId: 'P00105', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'LAQSHYA MEDIA LIMITED', displayName: 'Quick delivery food campaign', startDate: new Date('2025-07-10'), endDate: new Date('2025-08-08'), days: 30, sqft: 2119.5, amount: 790600, qos: '5.51%', status: 'Draft' },
   ];
 
-  useEffect(() => {
+  React.useEffect(() => {
     const getData = async () => {
         setLoading(true);
         try {
@@ -146,9 +137,9 @@ export function MediaPlansManager() {
         }
     };
     getData();
-  }, []);
+  }, [toast]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (dateRange?.from && dateRange?.to) {
         setFormData(prev => ({
             ...prev,
@@ -167,7 +158,18 @@ export function MediaPlansManager() {
   };
 
   const handleSelectChange = (name: keyof MediaPlan, value: string) => {
-    setFormData(prev => ({...prev, [name]: value}));
+    if (name === 'employeeId') {
+        const employee = mockEmployees.find(e => e.id === value);
+        if (employee) {
+            setFormData(prev => ({
+                ...prev,
+                employeeId: value,
+                employee: { id: employee.id, name: employee.name, avatar: employee.avatar }
+            }));
+        }
+    } else {
+        setFormData(prev => ({...prev, [name]: value}));
+    }
   };
 
   const handleSwitchChange = (name: keyof MediaPlan, checked: boolean) => {
@@ -185,7 +187,7 @@ export function MediaPlansManager() {
       const newPlan = { 
         ...formData, 
         id: `plan-${Math.random()}`, 
-        planId: formData.planId || `P-${Date.now()}`,
+        projectId: `P-${Date.now().toString().slice(-5)}`,
         isRotational: formData.isRotational || false,
       } as MediaPlan;
       setMediaPlans([...mediaPlans, newPlan]);
@@ -201,7 +203,7 @@ export function MediaPlansManager() {
         setFormData(plan);
         setDateRange({ from: new Date(plan.startDate), to: new Date(plan.endDate) });
     } else {
-        setFormData({ planId: `P-${Date.now()}`});
+        setFormData({ projectId: `P-${Date.now().toString().slice(-5)}`});
         setDateRange(undefined);
     }
     setIsDialogOpen(true);
@@ -231,9 +233,12 @@ export function MediaPlansManager() {
     let sortablePlans = [...mediaPlans];
     if (filter) {
       sortablePlans = sortablePlans.filter(plan =>
-        Object.values(plan).some(val => 
-          String(val).toLowerCase().includes(filter.toLowerCase())
-        )
+        Object.values(plan).some(val => {
+            if(typeof val === 'object' && val !== null) {
+                return Object.values(val).some(nestedVal => String(nestedVal).toLowerCase().includes(filter.toLowerCase()));
+            }
+            return String(val).toLowerCase().includes(filter.toLowerCase());
+        })
       );
     }
     if (sortConfig !== null) {
@@ -261,12 +266,17 @@ export function MediaPlansManager() {
   };
   
   const columns: { key: keyof typeof columnVisibility, label: string, sortable?: boolean }[] = [
-    { key: 'planId', label: 'Plan ID', sortable: true },
-    { key: 'displayName', label: 'Display Name', sortable: true },
-    { key: 'customer', label: 'Customer', sortable: true },
+    { key: 'projectId', label: 'Project ID', sortable: true },
+    { key: 'employee', label: 'Employee', sortable: true },
+    { key: 'customer', label: 'Customer Name', sortable: true },
+    { key: 'display', label: 'Display', sortable: true },
+    { key: 'from', label: 'From', sortable: true },
+    { key: 'to', label: 'To', sortable: true },
+    { key: 'days', label: 'Days' },
+    { key: 'sqft', label: 'SQFT' },
+    { key: 'amount', label: 'Amount' },
+    { key: 'qos', label: 'QoS' },
     { key: 'status', label: 'Status', sortable: true },
-    { key: 'startDate', label: 'Start Date', sortable: true },
-    { key: 'endDate', label: 'End Date', sortable: true },
   ];
   
   const exportTemplateToExcel = () => {
@@ -299,9 +309,10 @@ export function MediaPlansManager() {
       columns
         .filter(c => columnVisibility[c.key])
         .map(col => {
-            if (col.key === 'startDate' || col.key === 'endDate') {
-                return format(new Date(plan[col.key as 'startDate' | 'endDate']), 'PPP');
-            }
+            if (col.key === 'from') return format(new Date(plan.startDate), 'ddMMMyy');
+            if (col.key === 'to') return format(new Date(plan.endDate), 'ddMMMyy');
+            if (col.key === 'employee') return plan.employee?.name;
+            if (col.key === 'display') return plan.displayName;
             const value = plan[col.key as keyof MediaPlan];
             return value !== null && value !== undefined ? String(value) : '';
         })
@@ -319,14 +330,14 @@ export function MediaPlansManager() {
       columns.forEach(col => {
         if (columnVisibility[col.key]) {
             let value;
-            if (col.key === 'startDate' || col.key === 'endDate') {
-                value = format(new Date(plan[col.key  as 'startDate' | 'endDate']), 'PPP');
-            } else {
-                value = plan[col.key as keyof MediaPlan];
-            }
+            if (col.key === 'from') value = format(new Date(plan.startDate), 'ddMMMyy');
+            else if (col.key === 'to') value = format(new Date(plan.endDate), 'ddMMMyy');
+            else if (col.key === 'employee') value = plan.employee?.name;
+            else if (col.key === 'display') value = plan.displayName;
+            else value = plan[col.key as keyof MediaPlan];
 
            if (value) {
-            slide.addText(`${String(value)}: ${String(value)}`, { x: 0.5, y, fontSize: 12 });
+            slide.addText(`${col.label}: ${String(value)}`, { x: 0.5, y, fontSize: 12 });
             y += 0.4;
            }
         }
@@ -379,60 +390,18 @@ export function MediaPlansManager() {
   return (
     <TooltipProvider>
       <div className="flex justify-between items-center mb-6 gap-4">
+        <h1 className="text-2xl font-semibold flex items-center gap-2">
+            <FileText />
+            Plan List
+        </h1>
         <div className="flex items-center gap-2">
-           <Input
-            placeholder="Filter plans..."
+          <Input
+            placeholder="Filter by Project Id, Employee..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="max-w-sm"
+            className="w-64"
           />
-        </div>
-        <div className="flex items-center gap-2">
-           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="icon" onClick={handleImport}>
-                  <Upload className="h-4 w-4" />
-                  <span className="sr-only">Import</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Import from Excel</TooltipContent>
-          </Tooltip>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileImport}
-            className="hidden"
-            accept=".xlsx, .xls"
-          />
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="icon" onClick={exportTemplateToExcel}>
-                  <Download className="h-4 w-4" />
-                  <span className="sr-only">Download Template</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Download Excel Template</TooltipContent>
-          </Tooltip>
-
-          <DropdownMenu>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="icon">
-                            <Download className="h-4 w-4" />
-                            <span className="sr-only">Export</span>
-                        </Button>
-                    </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent>Export Plans</TooltipContent>
-            </Tooltip>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={exportToExcel}>Excel</DropdownMenuItem>
-              <DropdownMenuItem onClick={exportToPdf}>PDF</DropdownMenuItem>
-              <DropdownMenuItem onClick={exportToPpt}>PowerPoint</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button onClick={() => {}}><Search className="h-4 w-4" /></Button>
 
           <DropdownMenu>
             <Tooltip>
@@ -453,7 +422,7 @@ export function MediaPlansManager() {
                  <DropdownMenuCheckboxItem
                   key={column.key}
                   className="capitalize"
-                  checked={columnVisibility[column.key]}
+                  checked={columnVisibility[column.key as keyof typeof columnVisibility]}
                   onCheckedChange={(value) =>
                     setColumnVisibility((prev) => ({ ...prev, [column.key]: !!value }))
                   }
@@ -463,10 +432,10 @@ export function MediaPlansManager() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-
+          <Button variant="outline" onClick={() => {}}><Sparkles className="mr-2 h-4 w-4" /> Create With AI</Button>
           <Button onClick={() => openDialog()}>
             <PlusCircle className="mr-2" />
-            Add New Plan
+            Add Plan
           </Button>
         </div>
       </div>
@@ -474,6 +443,9 @@ export function MediaPlansManager() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead padding="checkbox">
+                <Checkbox />
+              </TableHead>
               {columns.map(col => columnVisibility[col.key as keyof typeof columnVisibility] && (
                  <TableHead key={col.key}>
                    {col.sortable ? (
@@ -492,22 +464,46 @@ export function MediaPlansManager() {
           <TableBody>
             {sortedAndFilteredPlans.map(plan => (
               <TableRow key={plan.id}>
-                {columnVisibility.planId && <TableCell className="font-medium">{plan.planId}</TableCell>}
-                {columnVisibility.displayName && <TableCell>{plan.displayName}</TableCell>}
+                <TableCell padding="checkbox">
+                  <Checkbox />
+                </TableCell>
+                {columnVisibility.projectId && <TableCell className="font-medium">{plan.projectId}</TableCell>}
+                {columnVisibility.employee && <TableCell>
+                    <div className="flex items-center gap-2">
+                        <Avatar className="h-6 w-6">
+                            <AvatarImage src={plan.employee?.avatar} />
+                            <AvatarFallback>{plan.employee?.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <span>{plan.employee?.name}</span>
+                    </div>
+                </TableCell>}
                 {columnVisibility.customer && <TableCell>{plan.customer}</TableCell>}
+                {columnVisibility.display && <TableCell className="text-blue-600">{plan.displayName}</TableCell>}
+                {columnVisibility.from && <TableCell>{format(new Date(plan.startDate), 'ddMMMyy')}</TableCell>}
+                {columnVisibility.to && <TableCell>{format(new Date(plan.endDate), 'ddMMMyy')}</TableCell>}
+                {columnVisibility.days && <TableCell>{plan.days}</TableCell>}
+                {columnVisibility.sqft && <TableCell>{plan.sqft}</TableCell>}
+                {columnVisibility.amount && <TableCell>{plan.amount?.toLocaleString('en-IN')}</TableCell>}
+                {columnVisibility.qos && <TableCell className="text-green-600">{plan.qos}</TableCell>}
                 {columnVisibility.status && <TableCell>{plan.status}</TableCell>}
-                {columnVisibility.startDate && <TableCell>{format(new Date(plan.startDate), 'PPP')}</TableCell>}
-                {columnVisibility.endDate && <TableCell>{format(new Date(plan.endDate), 'PPP')}</TableCell>}
                 <TableCell className="text-right">
-                   <Button variant="ghost" size="icon" onClick={() => console.log('View', plan.id)}>
-                    <FileText className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => openDialog(plan)}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDelete(plan)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onClick={() => openDialog(plan)}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDelete(plan)} className="text-destructive">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))}
@@ -535,7 +531,7 @@ export function MediaPlansManager() {
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                      <div>
-                                        <Label htmlFor="employeeId">Employee</Label>
+                                        <Label htmlFor="employee">Employee</Label>
                                         <Select onValueChange={(value) => handleSelectChange('employeeId', value)} value={formData.employeeId}>
                                             <SelectTrigger><SelectValue placeholder="Select user" /></SelectTrigger>
                                             <SelectContent>
@@ -628,3 +624,5 @@ export function MediaPlansManager() {
     </TooltipProvider>
   );
 }
+
+    
