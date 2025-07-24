@@ -95,7 +95,7 @@ export interface OperationTask {
 // /photoLibrary/photos/{id}
 export interface Photo {
     id: string;
-    category?: string;
+    category?: 'Geo-tagged' | 'Newspaper' | 'Traffic' | 'Other';
     type?: string;
     iid?: string;
     district?: string;
@@ -108,5 +108,5 @@ export interface Photo {
     displayName?: string;
     photographer?: string;
     arrivalTimestamp?: Timestamp;
-    storagePath?: string;
+    storagePath?: string; // URL to image in Firebase Storage
 }

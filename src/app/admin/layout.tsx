@@ -24,7 +24,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem
 } from '@/components/ui/sidebar';
-import { Projector, LayoutGrid, ListChecks, FileText, LogOut, Loader2, Home, Users, ReceiptText, FilePieChart, AreaChart, Dot, ChevronDown } from 'lucide-react';
+import { Projector, LayoutGrid, ListChecks, FileText, LogOut, Loader2, Home, Users, ReceiptText, FilePieChart, AreaChart, Dot, ChevronDown, Wrench, Package, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -163,6 +163,38 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                            <Link href="#">
                             <ReceiptText />
                             <span className="whitespace-nowrap">Invoices</span>
+                           </Link>
+                         </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    </SidebarMenu>
+                 </SidebarGroupContent>
+             </SidebarGroup>
+
+             <SidebarGroup>
+                <SidebarGroupLabel>Operations</SidebarGroupLabel>
+                 <SidebarGroupContent>
+                     <SidebarMenu>
+                       <SidebarMenuItem>
+                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/operations/mounting-tasks')} tooltip="Mounting Tasks">
+                           <Link href="/admin/operations/mounting-tasks">
+                            <Wrench />
+                            <span className="whitespace-nowrap">Mounting Tasks</span>
+                           </Link>
+                         </SidebarMenuButton>
+                      </SidebarMenuItem>
+                       <SidebarMenuItem>
+                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/operations/flex-stock')} tooltip="Flex Stock">
+                           <Link href="/admin/operations/flex-stock">
+                            <Package />
+                            <span className="whitespace-nowrap">Flex Stock</span>
+                           </Link>
+                         </SidebarMenuButton>
+                      </SidebarMenuItem>
+                       <SidebarMenuItem>
+                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/operations/photo-library')} tooltip="Photo Library">
+                           <Link href="/admin/operations/photo-library">
+                            <ImageIcon />
+                            <span className="whitespace-nowrap">Photo Library</span>
                            </Link>
                          </SidebarMenuButton>
                       </SidebarMenuItem>
