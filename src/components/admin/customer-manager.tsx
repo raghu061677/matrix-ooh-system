@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useMemo, useTransition, useRef } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -22,14 +22,37 @@ import {
   DialogTitle,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2, Loader2, Search } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, Search, SlidersHorizontal, ArrowUpDown, Upload, Download } from 'lucide-react';
 import { Customer } from '@/types/firestore';
-import { statesAndDistricts } from '@/lib/india-states';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import PptxGenJS from 'pptxgenjs';
 import { getGstDetails } from '@/lib/actions';
+
+type SortConfig = {
+  key: keyof Customer;
+  direction: 'ascending' | 'descending';
+} | null;
+
 
 export function CustomerManager() {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -38,6 +61,19 @@ export function CustomerManager() {
   const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
   const [formData, setFormData] = useState<Partial<Customer>>({});
   const [isFetchingGst, startGstTransition] = useTransition();
+
+  const [filter, setFilter] = useState('');
+  const [sortConfig, setSortConfig] = useState<SortConfig>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [columnVisibility, setColumnVisibility] = useState({
+    code: true,
+    name: true,
+    gst: true,
+    primaryContact: true,
+    city: false,
+    state: true,
+    postalCode: false,
+  });
 
   const { toast } = useToast();
   const customersCollectionRef = collection(db, 'customers');
@@ -137,7 +173,12 @@ export function CustomerManager() {
 
   const openDialog = (customer: Customer | null = null) => {
     setCurrentCustomer(customer);
-    setFormData(customer || { contactPersons: [{}], addresses: [{ type: 'billing' }] });
+    const initialFormData = customer || { 
+      code: `CUST-${Math.floor(Date.now() / 1000)}`,
+      contactPersons: [{}], 
+      addresses: [{ type: 'billing' }] 
+    };
+    setFormData(initialFormData);
     setIsDialogOpen(true);
   };
 
@@ -153,6 +194,176 @@ export function CustomerManager() {
      setCustomers(customers.filter(c => c.id !== customer.id));
      toast({ title: 'Customer Deleted', description: `${customer.name} has been removed.` });
   };
+
+  const requestSort = (key: keyof Customer) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedAndFilteredCustomers = useMemo(() => {
+    let sortableCustomers = [...customers];
+    if (filter) {
+      sortableCustomers = sortableCustomers.filter(customer =>
+        Object.values(customer).some(val => 
+          String(val).toLowerCase().includes(filter.toLowerCase())
+        )
+      );
+    }
+    if (sortConfig !== null) {
+      sortableCustomers.sort((a, b) => {
+        const aValue = a[sortConfig.key] || '';
+        const bValue = b[sortConfig.key] || '';
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableCustomers;
+  }, [customers, filter, sortConfig]);
+
+  const getSortIcon = (key: keyof Customer) => {
+    if (!sortConfig || sortConfig.key !== key) {
+      return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />;
+    }
+    return <ArrowUpDown className="ml-2 h-4 w-4" />; 
+  };
+  
+  const columns: { key: keyof typeof columnVisibility, label: string, sortable?: boolean }[] = [
+    { key: 'code', label: 'Code', sortable: true },
+    { key: 'name', label: 'Name', sortable: true },
+    { key: 'gst', label: 'GST', sortable: true },
+    { key: 'primaryContact', label: 'Primary Contact' },
+    { key: 'city', label: 'City', sortable: true },
+    { key: 'state', label: 'State', sortable: true },
+    { key: 'postalCode', label: 'Postal Code' },
+  ];
+
+  const exportTemplateToExcel = () => {
+    const headers = [
+      'code', 'name', 'gst', 
+      'contactPersonName', 'contactPersonPhone', 'contactPersonDesignation', 
+      'addressType', 'addressStreet', 'addressCity', 'addressState', 'addressPostalCode'
+    ];
+    const worksheet = XLSX.utils.aoa_to_sheet([headers]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Customers Template');
+    XLSX.writeFile(workbook, 'customers-template.xlsx');
+  };
+  
+  const exportToExcel = () => {
+    const dataToExport = sortedAndFilteredCustomers.map(c => ({
+      ...c,
+      primaryContact: c.contactPersons?.[0]?.name,
+      city: c.addresses?.[0]?.city,
+      state: c.addresses?.[0]?.state,
+      postalCode: c.addresses?.[0]?.postalCode,
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Customers');
+    XLSX.writeFile(workbook, 'customers.xlsx');
+  };
+
+  const exportToPdf = () => {
+    const doc = new jsPDF();
+    doc.text('Customers', 20, 10);
+    const head = columns
+      .filter(c => columnVisibility[c.key])
+      .map(c => c.label);
+    const body = sortedAndFilteredCustomers.map(customer => 
+      columns
+        .filter(c => columnVisibility[c.key])
+        .map(col => {
+            if (col.key === 'primaryContact') return customer.contactPersons?.[0]?.name ?? '';
+            if (col.key === 'city') return customer.addresses?.[0]?.city ?? '';
+            if (col.key === 'state') return customer.addresses?.[0]?.state ?? '';
+            if (col.key === 'postalCode') return customer.addresses?.[0]?.postalCode ?? '';
+            return customer[col.key as keyof Customer] ?? '';
+        })
+    );
+    (doc as any).autoTable({ head: [head], body });
+    doc.save('customers.pdf');
+  };
+
+   const exportToPpt = () => {
+    const pptx = new PptxGenJS();
+    sortedAndFilteredCustomers.forEach(customer => {
+      const slide = pptx.addSlide();
+      slide.addText(`Customer: ${customer.name || 'N/A'}`, { x: 0.5, y: 0.5, fontSize: 18, bold: true });
+      let y = 1.0;
+      columns.forEach(col => {
+        if (columnVisibility[col.key]) {
+            let value;
+            if (col.key === 'primaryContact') value = customer.contactPersons?.[0]?.name;
+            else if (col.key === 'city') value = customer.addresses?.[0]?.city;
+            else if (col.key === 'state') value = customer.addresses?.[0]?.state;
+            else if (col.key === 'postalCode') value = customer.addresses?.[0]?.postalCode;
+            else value = customer[col.key as keyof Customer];
+
+           if (value) {
+            slide.addText(`${col.label}: ${value}`, { x: 0.5, y, fontSize: 12 });
+            y += 0.4;
+           }
+        }
+      });
+    });
+    pptx.writeFile({ fileName: 'customers.pptx' });
+  };
+  
+  const handleImport = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+        const data = event.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        setLoading(true);
+        for (const item of json) {
+            const customerData: Partial<Customer> = {
+                code: item.code,
+                name: item.name,
+                gst: item.gst,
+                contactPersons: [{
+                    name: item.contactPersonName,
+                    phone: item.contactPersonPhone,
+                    designation: item.contactPersonDesignation
+                }],
+                addresses: [{
+                    type: item.addressType,
+                    street: item.addressStreet,
+                    city: item.addressCity,
+                    state: item.addressState,
+                    postalCode: item.addressPostalCode
+                }]
+            };
+            await addDoc(customersCollectionRef, customerData);
+        }
+        
+        const updatedData = await getDocs(customersCollectionRef);
+        setCustomers(updatedData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Customer)));
+        setLoading(false);
+        toast({ title: 'Import Successful', description: `${json.length} customers have been imported.` });
+    };
+    reader.readAsBinaryString(file);
+    if(fileInputRef.current) fileInputRef.current.value = '';
+  };
   
   if (loading && !isDialogOpen) {
     return (
@@ -163,32 +374,128 @@ export function CustomerManager() {
   }
 
   return (
-    <>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Customer Management</h1>
-        <Button onClick={() => openDialog()}>
-          <PlusCircle className="mr-2" />
-          Add New Customer
-        </Button>
+    <TooltipProvider>
+      <div className="flex justify-between items-center mb-6 gap-4">
+        <div className="flex items-center gap-2">
+           <Input
+            placeholder="Filter customers..."
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="max-w-sm"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+           <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="icon" onClick={handleImport}>
+                  <Upload className="h-4 w-4" />
+                  <span className="sr-only">Import</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Import from Excel</TooltipContent>
+          </Tooltip>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileImport}
+            className="hidden"
+            accept=".xlsx, .xls"
+          />
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="icon" onClick={exportTemplateToExcel}>
+                  <Download className="h-4 w-4" />
+                  <span className="sr-only">Download Template</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Download Excel Template</TooltipContent>
+          </Tooltip>
+
+          <DropdownMenu>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="icon">
+                            <Download className="h-4 w-4" />
+                            <span className="sr-only">Export</span>
+                        </Button>
+                    </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>Export Customers</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportToExcel}>Excel</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportToPdf}>PDF</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportToPpt}>PowerPoint</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <SlidersHorizontal className="h-4 w-4" />
+                    <span className="sr-only">Toggle columns</span>
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Toggle Columns</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {columns.map((column) => (
+                 <DropdownMenuCheckboxItem
+                  key={column.key}
+                  className="capitalize"
+                  checked={columnVisibility[column.key]}
+                  onCheckedChange={(value) =>
+                    setColumnVisibility((prev) => ({ ...prev, [column.key]: !!value }))
+                  }
+                >
+                  {column.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button onClick={() => openDialog()}>
+            <PlusCircle className="mr-2" />
+            Add New Customer
+          </Button>
+        </div>
       </div>
       <div className="border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Code</TableHead>
-              <TableHead>GST</TableHead>
-              <TableHead>Primary Contact</TableHead>
+              {columns.map(col => columnVisibility[col.key as keyof typeof columnVisibility] && (
+                 <TableHead key={col.key}>
+                   {col.sortable ? (
+                     <Button variant="ghost" onClick={() => requestSort(col.key as keyof Customer)}>
+                       {col.label}
+                       {getSortIcon(col.key as keyof Customer)}
+                     </Button>
+                   ) : (
+                     col.label
+                   )}
+                 </TableHead>
+              ))}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {customers.map(customer => (
+            {sortedAndFilteredCustomers.map(customer => (
               <TableRow key={customer.id}>
-                <TableCell className="font-medium">{customer.name}</TableCell>
-                <TableCell>{customer.code}</TableCell>
-                <TableCell>{customer.gst}</TableCell>
-                <TableCell>{customer.contactPersons?.[0]?.name}</TableCell>
+                {columnVisibility.code && <TableCell className="font-medium">{customer.code}</TableCell>}
+                {columnVisibility.name && <TableCell>{customer.name}</TableCell>}
+                {columnVisibility.gst && <TableCell>{customer.gst}</TableCell>}
+                {columnVisibility.primaryContact && <TableCell>{customer.contactPersons?.[0]?.name}</TableCell>}
+                {columnVisibility.city && <TableCell>{customer.addresses?.[0]?.city}</TableCell>}
+                {columnVisibility.state && <TableCell>{customer.addresses?.[0]?.state}</TableCell>}
+                {columnVisibility.postalCode && <TableCell>{customer.addresses?.[0]?.postalCode}</TableCell>}
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" onClick={() => openDialog(customer)}>
                     <Edit className="h-4 w-4" />
@@ -217,7 +524,7 @@ export function CustomerManager() {
               </div>
               <div>
                 <Label htmlFor="code">Customer Code</Label>
-                <Input id="code" name="code" value={formData.code || ''} onChange={handleFormChange} />
+                <Input id="code" name="code" value={formData.code || ''} onChange={handleFormChange} readOnly={!currentCustomer} />
               </div>
               <div>
                 <Label htmlFor="gst">GST Number</Label>
@@ -281,6 +588,8 @@ export function CustomerManager() {
           </form>
         </DialogContent>
       </Dialog>
-    </>
+    </TooltipProvider>
   );
 }
+
+    

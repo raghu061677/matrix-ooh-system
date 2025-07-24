@@ -12,7 +12,7 @@ export interface User {
 // /customers/{id}
 export interface Customer {
   id: string;
-  code?: string;
+  code: string;
   name: string;
   gst?: string;
   contactPersons?: {
@@ -28,6 +28,12 @@ export interface Customer {
     postalCode: string;
   }[];
   assignedEmployeeId?: string; // Reference to users collection
+
+  // Helper fields for table display
+  primaryContact?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
 }
 
 // /salesEstimates/pendingInvoices/{id} | ...
@@ -102,3 +108,5 @@ export interface Photo {
     arrivalTimestamp?: Timestamp;
     storagePath?: string;
 }
+
+    
