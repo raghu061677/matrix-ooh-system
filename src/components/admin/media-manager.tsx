@@ -70,6 +70,8 @@ type Asset = {
   dimensions?: string;
   width?: number;
   height?: number;
+  width2?: number;
+  height2?: number;
   sqft?: number;
   light?: 'BackLit' | 'Non-Lit' | 'Front-Lit';
   status?: 'active' | 'deleted';
@@ -108,6 +110,7 @@ export function MediaManager() {
     area: true,
     location: true,
     dimensions: true,
+    dimensions2: false,
     sqft: true,
     light: true,
     status: true,
@@ -117,6 +120,8 @@ export function MediaManager() {
     city: false,
     width: false,
     height: false,
+    width2: false,
+    height2: false,
     supplierId: false,
   });
 
@@ -296,6 +301,7 @@ export function MediaManager() {
     { key: 'area', label: 'Area', sortable: true },
     { key: 'location', label: 'Location', sortable: true },
     { key: 'dimensions', label: 'Dimensions' },
+    { key: 'dimensions2', label: 'Dimensions 2' },
     { key: 'sqft', label: 'Sqft' },
     { key: 'light', label: 'Lighting' },
     { key: 'status', label: 'Status', sortable: true },
@@ -305,13 +311,15 @@ export function MediaManager() {
     { key: 'city', label: 'City', sortable: true },
     { key: 'width', label: 'Width' },
     { key: 'height', label: 'Height' },
+    { key: 'width2', label: 'Width 2' },
+    { key: 'height2', label: 'Height 2' },
     { key: 'supplierId', label: 'Supplier ID' },
   ];
 
   const exportTemplateToExcel = () => {
     const headers = [
       'mid', 'ownership', 'media', 'state', 'district', 'city', 'area', 'location', 
-      'dimensions', 'width', 'height', 'sqft', 'light', 'status', 'supplierId'
+      'dimensions', 'width', 'height', 'width2', 'height2', 'sqft', 'light', 'status', 'supplierId'
     ];
     const worksheet = XLSX.utils.aoa_to_sheet([headers]);
     const workbook = XLSX.utils.book_new();
@@ -332,7 +340,12 @@ export function MediaManager() {
     (doc as any).autoTable({
       head: [columns.filter(c => c.key !== 'image').map(c => c.label)],
       body: sortedAndFilteredAssets.map(asset => 
-        columns.filter(c => c.key !== 'image').map(col => asset[col.key as keyof Asset] ?? '')
+        columns.filter(c => c.key !== 'image').map(col => {
+            if (col.key === 'dimensions2') {
+                return asset.width2 && asset.height2 ? `${asset.width2}' x ${asset.height2}'` : '';
+            }
+            return asset[col.key as keyof Asset] ?? '';
+        })
       ),
     });
     doc.save('media-assets.pdf');
@@ -346,8 +359,14 @@ export function MediaManager() {
       let y = 1.0;
       columns.forEach(col => {
         if (col.key !== 'image' && asset[col.key as keyof Asset]) {
-           slide.addText(`${col.label}: ${asset[col.key as keyof Asset]}`, { x: 0.5, y, fontSize: 12 });
-           y += 0.4;
+           let value = asset[col.key as keyof Asset];
+           if (col.key === 'dimensions2' && asset.width2 && asset.height2) {
+               value = `${asset.width2}' x ${asset.height2}'`;
+           }
+           if (value) {
+            slide.addText(`${col.label}: ${value}`, { x: 0.5, y, fontSize: 12 });
+            y += 0.4;
+           }
         }
       });
       if (asset.imageUrls && asset.imageUrls[0]) {
@@ -531,6 +550,7 @@ export function MediaManager() {
                 {columnVisibility.area && <TableCell>{asset.area}</TableCell>}
                 {columnVisibility.location && <TableCell>{asset.location}</TableCell>}
                 {columnVisibility.dimensions && <TableCell>{asset.dimensions}</TableCell>}
+                {columnVisibility.dimensions2 && <TableCell>{asset.width2 && asset.height2 ? `${asset.width2}' x ${asset.height2}'` : ''}</TableCell>}
                 {columnVisibility.sqft && <TableCell>{asset.sqft}</TableCell>}
                 {columnVisibility.light && <TableCell>{asset.light}</TableCell>}
                 {columnVisibility.status && <TableCell>{asset.status}</TableCell>}
@@ -540,6 +560,8 @@ export function MediaManager() {
                 {columnVisibility.city && <TableCell>{asset.city}</TableCell>}
                 {columnVisibility.width && <TableCell>{asset.width}</TableCell>}
                 {columnVisibility.height && <TableCell>{asset.height}</TableCell>}
+                {columnVisibility.width2 && <TableCell>{asset.width2}</TableCell>}
+                {columnVisibility.height2 && <TableCell>{asset.height2}</TableCell>}
                 {columnVisibility.supplierId && <TableCell>{asset.supplierId}</TableCell>}
 
                 <TableCell className="text-right">
@@ -565,7 +587,7 @@ export function MediaManager() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSave}>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 py-4">
               <div>
                 <Label htmlFor="mid">MID</Label>
                 <Input id="mid" name="mid" defaultValue={currentAsset?.mid} />
@@ -611,7 +633,7 @@ export function MediaManager() {
                 <Label htmlFor="area">Area</Label>
                 <Input id="area" name="area" defaultValue={currentAsset?.area} />
               </div>
-              <div className="md:col-span-2">
+              <div className="md:col-span-3">
                 <Label htmlFor="location">Location</Label>
                 <Input id="location" name="location" defaultValue={currentAsset?.location} required />
               </div>
@@ -630,6 +652,14 @@ export function MediaManager() {
               <div>
                 <Label htmlFor="sqft">Total Sqft</Label>
                 <Input id="sqft" name="sqft" type="number" defaultValue={currentAsset?.sqft} />
+              </div>
+              <div>
+                <Label htmlFor="width2">Width 2 (ft)</Label>
+                <Input id="width2" name="width2" type="number" defaultValue={currentAsset?.width2} />
+              </div>
+              <div>
+                <Label htmlFor="height2">Height 2 (ft)</Label>
+                <Input id="height2" name="height2" type="number" defaultValue={currentAsset?.height2} />
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="light">Lighting</Label>
@@ -691,3 +721,5 @@ export function MediaManager() {
     </TooltipProvider>
   );
 }
+
+    
