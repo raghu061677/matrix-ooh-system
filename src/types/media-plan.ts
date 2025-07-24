@@ -1,14 +1,17 @@
 
 import type { Timestamp } from 'firebase/firestore';
 
+export type MediaPlanStatus = 'Draft' | 'Confirmed' | 'Cancelled' | 'Active' | 'Pending' | 'Converted';
+
 export type MediaPlan = {
   id: string; // Firestore document ID
+  planId: string;
   projectId?: string;
   employeeId?: string; // Reference to users collection
-  customerId?: string; // Reference to customers collection
+  customer?: string; // Reference to customers collection
   displayName: string;
-  startDate: Timestamp;
-  endDate: Timestamp;
+  startDate: Date | Timestamp;
+  endDate: Date | Timestamp;
   days?: number;
   statistics?: {
     haMarkupPercentage?: number;
@@ -42,7 +45,7 @@ export type MediaPlan = {
     purchaseOrders?: number;
     others?: number;
   };
-  status: 'active' | 'pending' | 'converted';
+  status: MediaPlanStatus;
 };
 
 // Campaigns have an identical structure to plans.

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,21 @@ import {
   DialogTitle,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { 
@@ -32,16 +47,38 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2, Loader2, FileText } from 'lucide-react';
-import { MediaPlan } from '@/types/media-plan';
+import { PlusCircle, Edit, Trash2, Loader2, FileText, SlidersHorizontal, ArrowUpDown, Upload, Download } from 'lucide-react';
+import { MediaPlan, MediaPlanStatus } from '@/types/media-plan';
 import { format } from 'date-fns';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import PptxGenJS from 'pptxgenjs';
+
+type SortConfig = {
+  key: keyof MediaPlan;
+  direction: 'ascending' | 'descending';
+} | null;
 
 export function MediaPlansManager() {
   const [mediaPlans, setMediaPlans] = useState<MediaPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<MediaPlan | null>(null);
-  const [status, setStatus] = useState<string | undefined>(undefined);
+  const [formData, setFormData] = useState<Partial<MediaPlan>>({});
+  
+  const [filter, setFilter] = useState('');
+  const [sortConfig, setSortConfig] = useState<SortConfig>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [columnVisibility, setColumnVisibility] = useState({
+    planId: true,
+    displayName: true,
+    customer: true,
+    status: true,
+    startDate: true,
+    endDate: true,
+  });
+
   const { toast } = useToast();
   const mediaPlansCollectionRef = collection(db, 'media_plans');
 
@@ -53,8 +90,8 @@ export function MediaPlansManager() {
         displayName: 'Summer Sale Campaign',
         customer: 'Nike',
         status: 'Draft',
-        startDate: new Date('2024-07-01').toISOString(),
-        endDate: new Date('2024-07-31').toISOString(),
+        startDate: new Date('2024-07-01'),
+        endDate: new Date('2024-07-31'),
     },
     {
         id: 'plan-002',
@@ -62,8 +99,8 @@ export function MediaPlansManager() {
         displayName: 'New Product Launch',
         customer: 'Apple',
         status: 'Confirmed',
-        startDate: new Date('2024-08-01').toISOString(),
-        endDate: new Date('2024-08-31').toISOString(),
+        startDate: new Date('2024-08-01'),
+        endDate: new Date('2024-08-31'),
     }
   ];
 
@@ -83,31 +120,26 @@ export function MediaPlansManager() {
 
   }, []);
 
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChange = (name: keyof MediaPlan, value: string) => {
+    setFormData(prev => ({...prev, [name]: value}));
+  };
+
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-    const formData = new FormData(e.target as HTMLFormElement);
-    const planData: any = Object.fromEntries(formData.entries());
-    
-    if (status) {
-      planData.status = status;
-    }
-    
-    // Add dates if they exist
-    planData.startDate = new Date().toISOString();
-    planData.endDate = new Date().toISOString();
-
 
     if (currentPlan) {
-      // Update logic
-      // const planDoc = doc(db, 'media_plans', currentPlan.id);
-      // await updateDoc(planDoc, planData);
-      setMediaPlans(mediaPlans.map(plan => plan.id === currentPlan.id ? { ...plan, ...planData, id: currentPlan.id } : plan));
+      // Update logic (currently mocked)
+      setMediaPlans(mediaPlans.map(plan => plan.id === currentPlan.id ? { ...plan, ...formData, id: currentPlan.id } as MediaPlan : plan));
       toast({ title: 'Plan Updated!', description: 'The media plan has been successfully updated.' });
     } else {
-      // Add logic
-      // const docRef = await addDoc(mediaPlansCollectionRef, planData);
-      const newPlan = { ...planData, id: `plan-${Math.random()}` };
+      // Add logic (currently mocked)
+      const newPlan = { ...formData, id: `plan-${Math.random()}`, startDate: new Date(), endDate: new Date() } as MediaPlan;
       setMediaPlans([...mediaPlans, newPlan]);
       toast({ title: 'Plan Added!', description: 'The new media plan has been added.' });
     }
@@ -117,14 +149,14 @@ export function MediaPlansManager() {
 
   const openDialog = (plan: MediaPlan | null = null) => {
     setCurrentPlan(plan);
-    setStatus(plan?.status);
+    setFormData(plan || { planId: `P-${Date.now()}`});
     setIsDialogOpen(true);
   };
 
   const closeDialog = () => {
     setIsDialogOpen(false);
     setCurrentPlan(null);
-    setStatus(undefined);
+    setFormData({});
   };
   
   const handleDelete = async (plan: MediaPlan) => {
@@ -132,6 +164,154 @@ export function MediaPlansManager() {
      // await deleteDoc(planDoc);
      setMediaPlans(mediaPlans.filter(p => p.id !== plan.id));
      toast({ title: 'Plan Deleted', description: `${plan.displayName} has been removed.` });
+  };
+
+  const requestSort = (key: keyof MediaPlan) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedAndFilteredPlans = useMemo(() => {
+    let sortablePlans = [...mediaPlans];
+    if (filter) {
+      sortablePlans = sortablePlans.filter(plan =>
+        Object.values(plan).some(val => 
+          String(val).toLowerCase().includes(filter.toLowerCase())
+        )
+      );
+    }
+    if (sortConfig !== null) {
+      sortablePlans.sort((a, b) => {
+        const aValue = a[sortConfig.key] || '';
+        const bValue = b[sortConfig.key] || '';
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortablePlans;
+  }, [mediaPlans, filter, sortConfig]);
+
+  const getSortIcon = (key: keyof MediaPlan) => {
+    if (!sortConfig || sortConfig.key !== key) {
+      return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />;
+    }
+    return <ArrowUpDown className="ml-2 h-4 w-4" />; 
+  };
+  
+  const columns: { key: keyof typeof columnVisibility, label: string, sortable?: boolean }[] = [
+    { key: 'planId', label: 'Plan ID', sortable: true },
+    { key: 'displayName', label: 'Display Name', sortable: true },
+    { key: 'customer', label: 'Customer', sortable: true },
+    { key: 'status', label: 'Status', sortable: true },
+    { key: 'startDate', label: 'Start Date', sortable: true },
+    { key: 'endDate', label: 'End Date', sortable: true },
+  ];
+  
+  const exportTemplateToExcel = () => {
+    const headers = columns.map(c => c.key);
+    const worksheet = XLSX.utils.aoa_to_sheet([headers]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Media Plans Template');
+    XLSX.writeFile(workbook, 'media-plans-template.xlsx');
+  };
+  
+  const exportToExcel = () => {
+    const dataToExport = sortedAndFilteredPlans.map(p => ({
+      ...p,
+      startDate: format(new Date(p.startDate), 'yyyy-MM-dd'),
+      endDate: format(new Date(p.endDate), 'yyyy-MM-dd'),
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Media Plans');
+    XLSX.writeFile(workbook, 'media-plans.xlsx');
+  };
+
+  const exportToPdf = () => {
+    const doc = new jsPDF();
+    doc.text('Media Plans', 20, 10);
+    const head = columns
+      .filter(c => columnVisibility[c.key])
+      .map(c => c.label);
+    const body = sortedAndFilteredPlans.map(plan => 
+      columns
+        .filter(c => columnVisibility[c.key])
+        .map(col => {
+            if (col.key === 'startDate' || col.key === 'endDate') {
+                return format(new Date(plan[col.key]), 'PPP');
+            }
+            return plan[col.key as keyof MediaPlan] ?? '';
+        })
+    );
+    (doc as any).autoTable({ head: [head], body });
+    doc.save('media-plans.pdf');
+  };
+
+   const exportToPpt = () => {
+    const pptx = new PptxGenJS();
+    sortedAndFilteredPlans.forEach(plan => {
+      const slide = pptx.addSlide();
+      slide.addText(`Plan: ${plan.displayName || 'N/A'}`, { x: 0.5, y: 0.5, fontSize: 18, bold: true });
+      let y = 1.0;
+      columns.forEach(col => {
+        if (columnVisibility[col.key]) {
+            let value;
+            if (col.key === 'startDate' || col.key === 'endDate') {
+                value = format(new Date(plan[col.key]), 'PPP');
+            } else {
+                value = plan[col.key as keyof MediaPlan];
+            }
+
+           if (value) {
+            slide.addText(`${col.label}: ${value}`, { x: 0.5, y, fontSize: 12 });
+            y += 0.4;
+           }
+        }
+      });
+    });
+    pptx.writeFile({ fileName: 'media-plans.pptx' });
+  };
+  
+  const handleImport = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+        const data = event.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        // This is a mock implementation. In a real app, you would add to Firestore.
+        setLoading(true);
+        const newPlans: MediaPlan[] = json.map(item => ({
+            ...item,
+            id: `imported-${Math.random()}`,
+            startDate: new Date(item.startDate),
+            endDate: new Date(item.endDate),
+        }));
+        
+        setMediaPlans(prev => [...prev, ...newPlans]);
+        setLoading(false);
+        toast({ title: 'Import Successful', description: `${json.length} plans have been imported.` });
+    };
+    reader.readAsBinaryString(file);
+    if(fileInputRef.current) fileInputRef.current.value = '';
   };
   
   if (loading && !isDialogOpen) {
@@ -143,36 +323,127 @@ export function MediaPlansManager() {
   }
 
   return (
-    <>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Media Plans</h1>
-        <Button onClick={() => openDialog()}>
-          <PlusCircle className="mr-2" />
-          Add New Plan
-        </Button>
+    <TooltipProvider>
+      <div className="flex justify-between items-center mb-6 gap-4">
+        <div className="flex items-center gap-2">
+           <Input
+            placeholder="Filter plans..."
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="max-w-sm"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+           <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="icon" onClick={handleImport}>
+                  <Upload className="h-4 w-4" />
+                  <span className="sr-only">Import</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Import from Excel</TooltipContent>
+          </Tooltip>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileImport}
+            className="hidden"
+            accept=".xlsx, .xls"
+          />
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="icon" onClick={exportTemplateToExcel}>
+                  <Download className="h-4 w-4" />
+                  <span className="sr-only">Download Template</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Download Excel Template</TooltipContent>
+          </Tooltip>
+
+          <DropdownMenu>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="icon">
+                            <Download className="h-4 w-4" />
+                            <span className="sr-only">Export</span>
+                        </Button>
+                    </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>Export Plans</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportToExcel}>Excel</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportToPdf}>PDF</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportToPpt}>PowerPoint</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <SlidersHorizontal className="h-4 w-4" />
+                    <span className="sr-only">Toggle columns</span>
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Toggle Columns</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {columns.map((column) => (
+                 <DropdownMenuCheckboxItem
+                  key={column.key}
+                  className="capitalize"
+                  checked={columnVisibility[column.key]}
+                  onCheckedChange={(value) =>
+                    setColumnVisibility((prev) => ({ ...prev, [column.key]: !!value }))
+                  }
+                >
+                  {column.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button onClick={() => openDialog()}>
+            <PlusCircle className="mr-2" />
+            Add New Plan
+          </Button>
+        </div>
       </div>
       <div className="border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Plan ID</TableHead>
-              <TableHead>Display Name</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Start Date</TableHead>
-              <TableHead>End Date</TableHead>
+              {columns.map(col => columnVisibility[col.key as keyof typeof columnVisibility] && (
+                 <TableHead key={col.key}>
+                   {col.sortable ? (
+                     <Button variant="ghost" onClick={() => requestSort(col.key as keyof MediaPlan)}>
+                       {col.label}
+                       {getSortIcon(col.key as keyof MediaPlan)}
+                     </Button>
+                   ) : (
+                     col.label
+                   )}
+                 </TableHead>
+              ))}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {mediaPlans.map(plan => (
+            {sortedAndFilteredPlans.map(plan => (
               <TableRow key={plan.id}>
-                <TableCell className="font-medium">{plan.planId}</TableCell>
-                <TableCell>{plan.displayName}</TableCell>
-                <TableCell>{plan.customer}</TableCell>
-                <TableCell>{plan.status}</TableCell>
-                <TableCell>{format(new Date(plan.startDate), 'PPP')}</TableCell>
-                <TableCell>{format(new Date(plan.endDate), 'PPP')}</TableCell>
+                {columnVisibility.planId && <TableCell className="font-medium">{plan.planId}</TableCell>}
+                {columnVisibility.displayName && <TableCell>{plan.displayName}</TableCell>}
+                {columnVisibility.customer && <TableCell>{plan.customer}</TableCell>}
+                {columnVisibility.status && <TableCell>{plan.status}</TableCell>}
+                {columnVisibility.startDate && <TableCell>{format(new Date(plan.startDate), 'PPP')}</TableCell>}
+                {columnVisibility.endDate && <TableCell>{format(new Date(plan.endDate), 'PPP')}</TableCell>}
                 <TableCell className="text-right">
                    <Button variant="ghost" size="icon" onClick={() => console.log('View', plan.id)}>
                     <FileText className="h-4 w-4" />
@@ -202,19 +473,19 @@ export function MediaPlansManager() {
             <div className="grid gap-4 py-4">
               <div>
                 <Label htmlFor="planId">Plan ID</Label>
-                <Input id="planId" name="planId" defaultValue={currentPlan?.planId} />
+                <Input id="planId" name="planId" value={formData.planId || ''} onChange={handleFormChange} required />
               </div>
               <div>
                 <Label htmlFor="displayName">Display Name</Label>
-                <Input id="displayName" name="displayName" defaultValue={currentPlan?.displayName} required />
+                <Input id="displayName" name="displayName" value={formData.displayName || ''} onChange={handleFormChange} required />
               </div>
                <div>
                 <Label htmlFor="customer">Customer</Label>
-                <Input id="customer" name="customer" defaultValue={currentPlan?.customer} />
+                <Input id="customer" name="customer" value={formData.customer || ''} onChange={handleFormChange} />
               </div>
               <div>
                 <Label htmlFor="status">Status</Label>
-                 <Select onValueChange={setStatus} defaultValue={currentPlan?.status}>
+                 <Select onValueChange={(value) => handleSelectChange('status', value)} value={formData.status}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
@@ -237,7 +508,6 @@ export function MediaPlansManager() {
           </form>
         </DialogContent>
       </Dialog>
-    </>
+    </TooltipProvider>
   );
 }
-
