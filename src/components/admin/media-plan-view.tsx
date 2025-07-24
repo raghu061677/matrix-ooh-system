@@ -30,6 +30,8 @@ import * as XLSX from 'xlsx';
 import { db, storage } from '@/lib/firebase';
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { ref, getDownloadURL } from 'firebase/storage';
+import { Label } from '../ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 interface MediaPlanViewProps {
   plan: MediaPlan;
@@ -49,6 +51,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   const [plan, setPlan] = React.useState<MediaPlan>(initialPlan);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [isAssetSelectorOpen, setIsAssetSelectorOpen] = React.useState(false);
+  const [pdfTemplate, setPdfTemplate] = React.useState('classic');
   const { toast } = useToast();
 
   const handlePlanUpdate = (updatedPlan: MediaPlan) => {
@@ -115,8 +118,6 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
       }
       const planData = planDocSnap.data();
       
-      // In a real app, you would have a list of asset IDs in the plan document.
-      // Here, we'll continue using sample assets for demonstration.
       const planAssets = (planData as any).mediaAssets || sampleAssets.slice(0, 5); 
 
       for (const asset of planAssets) {
@@ -167,8 +168,6 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
     }
     const planData = planDoc.data();
     
-    // NOTE: Using sampleAssets because planData.mediaAssets is not yet implemented in the data structure.
-    // In a real implementation, you would use:
     const assets = (planData as any).mediaAssets || sampleAssets.slice(0, 5); 
 
     const worksheetData: (string | number)[][] = [
@@ -178,7 +177,6 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
     ];
 
     assets.forEach((asset: Asset, index: number) => {
-      // These costs would ideally come from the asset object within the plan
       const rate = asset.baseRate || 0;
       const printing = 0; // Replace with actual printing cost for the asset in the plan
       const mounting = 3500; // Replace with actual mounting cost for the asset in the plan
@@ -317,22 +315,6 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
             <Button onClick={handleConvertToCampaign}>Convert to Campaign</Button>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="outline"><Download className="mr-2" /> Export Plan</Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={exportPlanToPPT}>
-                      <FileText className="mr-2" /> Export as PPT
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={exportPlanToExcel}>
-                      <FileText className="mr-2" /> Export as Excel
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => exportPlanToPDF()}>
-                      <FileText className="mr-2" /> Export as PDF Work Order
-                    </DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon"><MoreVertical /></Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -416,19 +398,6 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                     <InfoRow label="Total SQFT" value={plan.inventorySummary?.totalSqft} className="font-bold" />
                 </CardContent>
             </Card>
-
-            {/* Client Grade Card */}
-             <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">Client Grade A</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <InfoRow label="Unbilled Sales" value={formatCurrency(plan.clientGrade?.unbilledSales)} />
-                    <InfoRow label="Effective Sales" value={formatCurrency(plan.clientGrade?.effectiveSales)} />
-                    <InfoRow label="Payment Received" value={formatCurrency(plan.clientGrade?.paymentReceived)} />
-                    <InfoRow label="Outstanding" value={formatCurrency(plan.clientGrade?.outstandingSales)} />
-                </CardContent>
-            </Card>
         </div>
         
         {/* Right Sidebar */}
@@ -462,6 +431,32 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                     <InfoRow label="Others" value={plan.documents?.others} />
                 </CardContent>
             </Card>
+
+            {/* Export Card */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base">Export Plan Options</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div>
+                        <Label>PDF Template Style</Label>
+                        <Select value={pdfTemplate} onValueChange={setPdfTemplate}>
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="classic">Classic (Black & White)</SelectItem>
+                                <SelectItem value="modern">Modern (Blue Header)</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="flex flex-col space-y-2">
+                        <Button onClick={exportPlanToPPT}>Download PPT</Button>
+                        <Button onClick={exportPlanToExcel}>Download Excel</Button>
+                        <Button onClick={() => exportPlanToPDF(pdfTemplate)}>Download PDF (Work Order)</Button>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
       </main>
       
@@ -485,4 +480,4 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
     </div>
   );
 
-    
+}
