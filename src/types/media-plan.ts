@@ -59,6 +59,12 @@ export type MediaPlan = {
   };
   status: MediaPlanStatus;
   exportReady?: boolean;
+  exports?: {
+    pptUrl?: string;
+    pdfUrl?: string;
+    excelUrl?: string;
+    lastGeneratedAt?: Timestamp;
+  }
 };
 
 // Campaigns have an identical structure to plans.

@@ -97,8 +97,9 @@ export interface OperationTask {
 export interface Photo {
     id: string;
     category?: 'Geo-tagged' | 'Newspaper' | 'Traffic' | 'Other';
-    type?: string;
+    type?: 'newspaper' | 'geotag' | 'traffic1' | 'traffic2';
     iid?: string;
+    campaignId?: string;
     district?: string;
     city?: string;
     location?: string;
