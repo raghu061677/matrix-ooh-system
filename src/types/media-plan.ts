@@ -1,7 +1,6 @@
 
 
 import type { Timestamp } from 'firebase/firestore';
-import type { User } from './firestore';
 
 export type MediaPlanStatus = 'Draft' | 'Confirmed' | 'Cancelled' | 'Active' | 'Pending' | 'Converted';
 
@@ -14,14 +13,12 @@ export type MediaPlan = {
     name: string;
     avatar?: string;
   };
-  customer?: string; // Reference to customers collection
+  customerId?: string; // Reference to customers collection
+  customerName?: string;
   displayName: string;
   startDate: Date | Timestamp;
   endDate: Date | Timestamp;
   days?: number;
-  sqft?: number;
-  amount?: number;
-  qos?: string;
   isRotational?: boolean;
   notes?: string;
   statistics?: {
@@ -31,6 +28,7 @@ export type MediaPlan = {
     taMarkupPercentage?: number;
     occupancyPercentage?: number;
     roiPercentage?: number;
+    qos?: string;
   };
   inventorySummary?: {
     homeCount?: number;

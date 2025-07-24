@@ -105,6 +105,11 @@ export function MediaPlanFormDialog({
           },
         }));
       }
+    } else if (name === 'customerId') {
+      const customer = customers.find((c) => c.id === value);
+       if (customer) {
+        setFormData((prev) => ({ ...prev, customerId: value, customerName: customer.name }));
+      }
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -174,16 +179,16 @@ export function MediaPlanFormDialog({
                       <Label htmlFor="customer">Customer</Label>
                       <Select
                         onValueChange={(value) =>
-                          handleSelectChange('customer', value)
+                          handleSelectChange('customerId', value)
                         }
-                        value={formData.customer}
+                        value={formData.customerId}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select customer" />
                         </SelectTrigger>
                         <SelectContent>
                           {customers.map((cust) => (
-                            <SelectItem key={cust.id} value={cust.name}>
+                            <SelectItem key={cust.id} value={cust.id}>
                               {cust.name}
                             </SelectItem>
                           ))}

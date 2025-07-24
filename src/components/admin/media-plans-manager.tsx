@@ -83,12 +83,12 @@ export function MediaPlansManager() {
   const customersCollectionRef = collection(db, 'customers');
 
   const sampleData: MediaPlan[] = [
-      { id: '1', projectId: 'P00109', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'Matrix Network Solutions', displayName: 'CRI', startDate: new Date('2025-07-26'), endDate: new Date('2025-08-24'), days: 30, sqft: 1048.5, amount: 460790, qos: '10.14%', status: 'Draft' },
-      { id: '2', projectId: 'P00108', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'Matrix', displayName: 'Matrix ®', startDate: new Date('2025-07-24'), endDate: new Date('2025-08-22'), days: 30, sqft: 1936.5, amount: 800040, qos: '10%', status: 'Draft' },
-      { id: '3', projectId: 'P00107', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'Founding Years Learning Solutions Pvt Ltd', displayName: 'Education', startDate: new Date('2025-07-25'), endDate: new Date('2025-10-22'), days: 90, sqft: 161, amount: 194700, qos: '10%', status: 'Confirmed' },
-      { id: '4', projectId: 'P00106', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'Matrix Network Solutions', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, sqft: 1280, amount: 224200, qos: '42.5%', status: 'Active' },
-      { id: '5', projectId: 'P00094', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'ADMINDS', displayName: 'Sunil Reddy', startDate: new Date('2025-07-01'), endDate: new Date('2025-07-31'), days: 31, sqft: 793, amount: 310929, qos: '6.25%', status: 'Draft' },
-      { id: '6', projectId: 'P00105', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customer: 'LAQSHYA MEDIA LIMITED', displayName: 'Quick delivery food campaign', startDate: new Date('2025-07-10'), endDate: new Date('2025-08-08'), days: 30, sqft: 2119.5, amount: 790600, qos: '5.51%', status: 'Draft' },
+      { id: '1', projectId: 'P00109', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerName: 'Matrix Network Solutions', displayName: 'CRI', startDate: new Date('2025-07-26'), endDate: new Date('2025-08-24'), days: 30, inventorySummary: { totalSqft: 1048.5 }, costSummary: { grandTotal: 460790 }, statistics: { qos: '10.14%' }, status: 'Draft' },
+      { id: '2', projectId: 'P00108', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerName: 'Matrix', displayName: 'Matrix ®', startDate: new Date('2025-07-24'), endDate: new Date('2025-08-22'), days: 30, inventorySummary: { totalSqft: 1936.5 }, costSummary: { grandTotal: 800040 }, statistics: { qos: '10%' }, status: 'Draft' },
+      { id: '3', projectId: 'P00107', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerName: 'Founding Years Learning Solutions Pvt Ltd', displayName: 'Education', startDate: new Date('2025-07-25'), endDate: new Date('2025-10-22'), days: 90, inventorySummary: { totalSqft: 161 }, costSummary: { grandTotal: 194700 }, statistics: { qos: '10%' }, status: 'Confirmed' },
+      { id: '4', projectId: 'P00106', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerName: 'Matrix Network Solutions', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, inventorySummary: { totalSqft: 1280 }, costSummary: { grandTotal: 224200 }, statistics: { qos: '42.5%' }, status: 'Active' },
+      { id: '5', projectId: 'P00094', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerName: 'ADMINDS', displayName: 'Sunil Reddy', startDate: new Date('2025-07-01'), endDate: new Date('2025-07-31'), days: 31, inventorySummary: { totalSqft: 793 }, costSummary: { grandTotal: 310929 }, statistics: { qos: '6.25%' }, status: 'Draft' },
+      { id: '6', projectId: 'P00105', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerName: 'LAQSHYA MEDIA LIMITED', displayName: 'Quick delivery food campaign', startDate: new Date('2025-07-10'), endDate: new Date('2025-08-08'), days: 30, inventorySummary: { totalSqft: 2119.5 }, costSummary: { grandTotal: 790600 }, statistics: { qos: '5.51%' }, status: 'Draft' },
   ];
 
   React.useEffect(() => {
@@ -233,6 +233,10 @@ export function MediaPlansManager() {
             if (col.key === 'to') return format(new Date(plan.endDate), 'ddMMMyy');
             if (col.key === 'employee') return plan.employee?.name;
             if (col.key === 'display') return plan.displayName;
+            if (col.key === 'customer') return plan.customerName;
+            if (col.key === 'sqft') return plan.inventorySummary?.totalSqft;
+            if (col.key === 'amount') return plan.costSummary?.grandTotal?.toLocaleString('en-IN');
+            if (col.key === 'qos') return plan.statistics?.qos;
             const value = plan[col.key as keyof MediaPlan];
             return value !== null && value !== undefined ? String(value) : '';
         })
@@ -254,6 +258,10 @@ export function MediaPlansManager() {
             else if (col.key === 'to') value = format(new Date(plan.endDate), 'ddMMMyy');
             else if (col.key === 'employee') value = plan.employee?.name;
             else if (col.key === 'display') value = plan.displayName;
+            else if (col.key === 'customer') value = plan.customerName;
+            else if (col.key === 'sqft') value = plan.inventorySummary?.totalSqft;
+            else if (col.key === 'amount') value = plan.costSummary?.grandTotal?.toLocaleString('en-IN');
+            else if (col.key === 'qos') value = plan.statistics?.qos;
             else value = plan[col.key as keyof MediaPlan];
 
            if (value) {
@@ -397,7 +405,7 @@ export function MediaPlansManager() {
                         <span>{plan.employee?.name}</span>
                     </div>
                 </TableCell>}
-                {columnVisibility.customer && <TableCell>{plan.customer}</TableCell>}
+                {columnVisibility.customer && <TableCell>{plan.customerName}</TableCell>}
                 {columnVisibility.display && <TableCell>
                     <Link href={`/admin/media-plans/${plan.id}`} className="text-blue-600 hover:underline">
                         {plan.displayName}
@@ -406,9 +414,9 @@ export function MediaPlansManager() {
                 {columnVisibility.from && <TableCell>{format(new Date(plan.startDate), 'ddMMMyy')}</TableCell>}
                 {columnVisibility.to && <TableCell>{format(new Date(plan.endDate), 'ddMMMyy')}</TableCell>}
                 {columnVisibility.days && <TableCell>{plan.days}</TableCell>}
-                {columnVisibility.sqft && <TableCell>{plan.sqft}</TableCell>}
-                {columnVisibility.amount && <TableCell>{plan.amount?.toLocaleString('en-IN')}</TableCell>}
-                {columnVisibility.qos && <TableCell className="text-green-600">{plan.qos}</TableCell>}
+                {columnVisibility.sqft && <TableCell>{plan.inventorySummary?.totalSqft}</TableCell>}
+                {columnVisibility.amount && <TableCell>{plan.costSummary?.grandTotal?.toLocaleString('en-IN')}</TableCell>}
+                {columnVisibility.qos && <TableCell className="text-green-600">{plan.statistics?.qos}</TableCell>}
                 {columnVisibility.status && <TableCell>{plan.status}</TableCell>}
                 <TableCell className="text-right">
                   <DropdownMenu>
@@ -418,9 +426,11 @@ export function MediaPlansManager() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
-                      <DropdownMenuItem onClick={() => openDialog(plan)}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit
+                       <DropdownMenuItem asChild>
+                         <Link href={`/admin/media-plans/${plan.id}`}>
+                           <Edit className="mr-2 h-4 w-4" />
+                           Edit
+                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleDelete(plan)} className="text-destructive">
                         <Trash2 className="mr-2 h-4 w-4" />

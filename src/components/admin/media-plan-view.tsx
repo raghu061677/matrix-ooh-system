@@ -57,7 +57,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                 <Link href="/admin/media-plans"><ChevronLeft /></Link>
             </Button>
             <h1 className="text-xl font-bold">
-                {plan.projectId} - {plan.customer} - {plan.displayName}
+                {plan.projectId} - {plan.customerName} - {plan.displayName}
             </h1>
         </div>
         <div className="flex items-center gap-2">
