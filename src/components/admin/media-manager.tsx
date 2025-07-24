@@ -58,20 +58,28 @@ import PptxGenJS from 'pptxgenjs';
 
 
 type Asset = {
-  id: string;
-  mediaId?: string;
+  id: string; // Document ID from Firestore
+  iid?: string;
+  ownership?: 'own' | 'rented';
+  media?: string;
+  state?: string;
   district?: string;
+  city?: string;
   area?: string;
   location?: string;
-  trafficDirection?: string;
   dimensions?: string;
-  totalSqft?: number;
-  lighting?: string;
-  basePrice?: number;
-  cardRate?: number;
-  latitude?: number;
-  longitude?: number;
-  status?: 'Available' | 'Booked' | 'Blocked' | 'Inactive';
+  width?: number;
+  height?: number;
+  sqft?: number;
+  light?: boolean;
+  quantity?: number;
+  status?: 'active' | 'deleted';
+  supplierId?: string; // Reference to suppliers collection
+  contractDetails?: {
+    ownerName: string;
+    contractStartDate: Date;
+    contractEndDate: Date;
+  };
   imageUrls?: string[];
 };
 
@@ -93,19 +101,22 @@ export function MediaManager() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [columnVisibility, setColumnVisibility] = useState({
     image: true,
-    mediaId: true,
+    iid: true,
     district: true,
     area: true,
     location: true,
-    trafficDirection: false,
     dimensions: true,
-    totalSqft: false,
-    lighting: true,
-    basePrice: false,
-    cardRate: false,
-    latitude: false,
-    longitude: false,
+    sqft: true,
+    light: true,
     status: true,
+    ownership: false,
+    media: false,
+    state: false,
+    city: false,
+    width: false,
+    height: false,
+    quantity: false,
+    supplierId: false,
   });
 
   const { toast } = useToast();
@@ -175,8 +186,9 @@ export function MediaManager() {
     const formData = new FormData(e.target as HTMLFormElement);
     const assetData: any = Object.fromEntries(formData.entries());
     
-    assetData.latitude = latitude;
-    assetData.longitude = longitude;
+    // Manual handling for now, would be replaced by proper geo fields
+    // assetData.latitude = latitude;
+    // assetData.longitude = longitude;
 
     if (status) {
       assetData.status = status;
@@ -206,8 +218,6 @@ export function MediaManager() {
   const openDialog = (asset: Asset | null = null) => {
     setCurrentAsset(asset);
     setStatus(asset?.status);
-    setLatitude(asset?.latitude?.toString() || '');
-    setLongitude(asset?.longitude?.toString() || '');
     setIsDialogOpen(true);
   };
 
@@ -273,26 +283,28 @@ export function MediaManager() {
   
   const columns: { key: keyof typeof columnVisibility, label: string, sortable?: boolean }[] = [
     { key: 'image', label: 'Image' },
-    { key: 'mediaId', label: 'Media ID', sortable: true },
+    { key: 'iid', label: 'IID', sortable: true },
     { key: 'district', label: 'District', sortable: true },
     { key: 'area', label: 'Area', sortable: true },
     { key: 'location', label: 'Location', sortable: true },
-    { key: 'trafficDirection', label: 'Traffic Direction' },
     { key: 'dimensions', label: 'Dimensions' },
-    { key: 'totalSqft', label: 'Total Sqft' },
-    { key: 'lighting', label: 'Lighting', sortable: true },
-    { key: 'basePrice', label: 'Base Price' },
-    { key: 'cardRate', label: 'Card Rate' },
-    { key: 'latitude', label: 'Latitude' },
-    { key: 'longitude', label: 'Longitude' },
+    { key: 'sqft', label: 'Sqft' },
+    { key: 'light', label: 'Lighting' },
     { key: 'status', label: 'Status', sortable: true },
+    { key: 'ownership', label: 'Ownership', sortable: true },
+    { key: 'media', label: 'Media', sortable: true },
+    { key: 'state', label: 'State', sortable: true },
+    { key: 'city', label: 'City', sortable: true },
+    { key: 'width', label: 'Width' },
+    { key: 'height', label: 'Height' },
+    { key: 'quantity', label: 'Quantity' },
+    { key: 'supplierId', label: 'Supplier ID' },
   ];
 
   const exportTemplateToExcel = () => {
     const headers = [
-      'mediaId', 'district', 'area', 'location', 'trafficDirection', 
-      'dimensions', 'totalSqft', 'lighting', 'basePrice', 'cardRate', 
-      'latitude', 'longitude', 'status'
+      'iid', 'ownership', 'media', 'state', 'district', 'city', 'area', 'location', 
+      'dimensions', 'width', 'height', 'sqft', 'light', 'quantity', 'status', 'supplierId'
     ];
     const worksheet = XLSX.utils.aoa_to_sheet([headers]);
     const workbook = XLSX.utils.book_new();
@@ -323,7 +335,7 @@ export function MediaManager() {
     const pptx = new PptxGenJS();
     sortedAndFilteredAssets.forEach(asset => {
       const slide = pptx.addSlide();
-      slide.addText(`Media Asset: ${asset.mediaId || 'N/A'}`, { x: 0.5, y: 0.5, fontSize: 18, bold: true });
+      slide.addText(`Media Asset: ${asset.iid || 'N/A'}`, { x: 0.5, y: 0.5, fontSize: 18, bold: true });
       let y = 1.0;
       columns.forEach(col => {
         if (col.key !== 'image' && asset[col.key as keyof Asset]) {
@@ -474,7 +486,7 @@ export function MediaManager() {
         <Table>
           <TableHeader>
             <TableRow>
-              {columns.map(col => columnVisibility[col.key] && (
+              {columns.map(col => columnVisibility[col.key as keyof typeof columnVisibility] && (
                  <TableHead key={col.key}>
                    {col.sortable ? (
                      <Button variant="ghost" onClick={() => requestSort(col.key as keyof Asset)}>
@@ -507,19 +519,23 @@ export function MediaManager() {
                     </div>
                   )}
                 </TableCell>}
-                {columnVisibility.mediaId && <TableCell className="font-medium">{asset.mediaId}</TableCell>}
+                {columnVisibility.iid && <TableCell className="font-medium">{asset.iid}</TableCell>}
                 {columnVisibility.district && <TableCell>{asset.district}</TableCell>}
                 {columnVisibility.area && <TableCell>{asset.area}</TableCell>}
                 {columnVisibility.location && <TableCell>{asset.location}</TableCell>}
-                {columnVisibility.trafficDirection && <TableCell>{asset.trafficDirection}</TableCell>}
                 {columnVisibility.dimensions && <TableCell>{asset.dimensions}</TableCell>}
-                {columnVisibility.totalSqft && <TableCell>{asset.totalSqft}</TableCell>}
-                {columnVisibility.lighting && <TableCell>{asset.lighting}</TableCell>}
-                {columnVisibility.basePrice && <TableCell>{asset.basePrice}</TableCell>}
-                {columnVisibility.cardRate && <TableCell>{asset.cardRate}</TableCell>}
-                {columnVisibility.latitude && <TableCell>{asset.latitude}</TableCell>}
-                {columnVisibility.longitude && <TableCell>{asset.longitude}</TableCell>}
+                {columnVisibility.sqft && <TableCell>{asset.sqft}</TableCell>}
+                {columnVisibility.light && <TableCell>{asset.light ? 'Yes' : 'No'}</TableCell>}
                 {columnVisibility.status && <TableCell>{asset.status}</TableCell>}
+                {columnVisibility.ownership && <TableCell>{asset.ownership}</TableCell>}
+                {columnVisibility.media && <TableCell>{asset.media}</TableCell>}
+                {columnVisibility.state && <TableCell>{asset.state}</TableCell>}
+                {columnVisibility.city && <TableCell>{asset.city}</TableCell>}
+                {columnVisibility.width && <TableCell>{asset.width}</TableCell>}
+                {columnVisibility.height && <TableCell>{asset.height}</TableCell>}
+                {columnVisibility.quantity && <TableCell>{asset.quantity}</TableCell>}
+                {columnVisibility.supplierId && <TableCell>{asset.supplierId}</TableCell>}
+
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" onClick={() => openDialog(asset)}>
                     <Edit className="h-4 w-4" />
@@ -545,8 +561,8 @@ export function MediaManager() {
           <form onSubmit={handleSave}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
               <div>
-                <Label htmlFor="mediaId">Media ID</Label>
-                <Input id="mediaId" name="mediaId" defaultValue={currentAsset?.mediaId} />
+                <Label htmlFor="iid">IID</Label>
+                <Input id="iid" name="iid" defaultValue={currentAsset?.iid} />
               </div>
               <div>
                 <Label htmlFor="district">District</Label>
@@ -561,36 +577,12 @@ export function MediaManager() {
                 <Input id="location" name="location" defaultValue={currentAsset?.location} required />
               </div>
               <div>
-                <Label htmlFor="trafficDirection">Traffic Direction</Label>
-                <Input id="trafficDirection" name="trafficDirection" defaultValue={currentAsset?.trafficDirection} />
-              </div>
-               <div>
                 <Label htmlFor="dimensions">Dimensions (e.g. 14' x 48')</Label>
                 <Input id="dimensions" name="dimensions" defaultValue={currentAsset?.dimensions} />
               </div>
               <div>
-                <Label htmlFor="totalSqft">Total Sqft</Label>
-                <Input id="totalSqft" name="totalSqft" type="number" defaultValue={currentAsset?.totalSqft} />
-              </div>
-              <div>
-                <Label htmlFor="lighting">Lighting</Label>
-                <Input id="lighting" name="lighting" defaultValue={currentAsset?.lighting} />
-              </div>
-              <div>
-                <Label htmlFor="basePrice">Base Price</Label>
-                <Input id="basePrice" name="basePrice" type="number" step="0.01" defaultValue={currentAsset?.basePrice} />
-              </div>
-              <div>
-                <Label htmlFor="cardRate">Card Rate</Label>
-                <Input id="cardRate" name="cardRate" type="number" step="0.01" defaultValue={currentAsset?.cardRate} />
-              </div>
-              <div>
-                <Label htmlFor="latitude">Latitude</Label>
-                <Input id="latitude" name="latitude" type="number" step="any" value={latitude} onChange={(e) => setLatitude(e.target.value)} />
-              </div>
-              <div>
-                <Label htmlFor="longitude">Longitude</Label>
-                <Input id="longitude" name="longitude" type="number" step="any" value={longitude} onChange={(e) => setLongitude(e.target.value)} />
+                <Label htmlFor="sqft">Total Sqft</Label>
+                <Input id="sqft" name="sqft" type="number" defaultValue={currentAsset?.sqft} />
               </div>
               <div>
                 <Label htmlFor="status">Status</Label>
@@ -599,10 +591,8 @@ export function MediaManager() {
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Available">Available</SelectItem>
-                    <SelectItem value="Booked">Booked</SelectItem>
-                    <SelectItem value="Blocked">Blocked</SelectItem>
-                    <SelectItem value="Inactive">Inactive</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="deleted">Deleted</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -610,7 +600,7 @@ export function MediaManager() {
                 <Label htmlFor="images">Asset Images</Label>
                 <Input id="images" type="file" multiple onChange={handleImageChange} />
                  <p className="text-sm text-muted-foreground mt-1">
-                   Select an image with GPS data to automatically fill coordinates. New images will be added to existing ones.
+                   New images will be added to existing ones.
                 </p>
                 {currentAsset?.imageUrls && (
                   <div className="mt-2 flex flex-wrap gap-2">
