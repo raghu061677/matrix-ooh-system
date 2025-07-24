@@ -153,11 +153,15 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                 </CardContent>
             </Card>
 
-            {/* Inventory Card */}
+            {/* Media Assets Card */}
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="text-base">Inventory</CardTitle>
-                    <Button variant="ghost" size="icon" onClick={() => setIsAssetSelectorOpen(true)}><Edit className="h-4 w-4" /></Button>
+                    <CardTitle className="text-base">Media Assets</CardTitle>
+                    <Button variant="ghost" size="icon" asChild>
+                      <Link href={`/admin/media-plans/${plan.id}/negotiation`}>
+                        <Edit className="h-4 w-4" />
+                      </Link>
+                    </Button>
                 </CardHeader>
                 <CardContent>
                     <InfoRow label="Home Inventory" value={plan.inventorySummary?.homeCount} />
