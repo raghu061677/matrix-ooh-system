@@ -11,6 +11,7 @@ import { ChevronLeft } from 'lucide-react';
 import { Customer, User } from '@/types/firestore';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
+import { useParams } from 'next/navigation';
 
 
 // Mock data fetching
@@ -35,10 +36,11 @@ const mockEmployees: User[] = [
     { id: 'user-002', uid: 'user-002', name: 'Sunil Reddy', email: 'sunil@example.com', role: 'sales', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026705d' },
 ];
 
-export default function MediaPlanPage({ params }: { params: { id: string } }) {
+export default function MediaPlanPage() {
   const [plan, setPlan] = React.useState<MediaPlan | null>(null);
   const [customers, setCustomers] = React.useState<Customer[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const params = useParams();
   
   React.useEffect(() => {
     const id = params.id;

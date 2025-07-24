@@ -11,6 +11,7 @@ import { ChevronLeft } from 'lucide-react';
 import { Customer, User } from '@/types/firestore';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
+import { useParams } from 'next/navigation';
 
 
 // Mock data fetching - In a real app, this would be more robust
@@ -30,9 +31,10 @@ const sampleData: MediaPlan[] = [
     { id: '6', projectId: 'P00105', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-5', customerName: 'LAQSHYA MEDIA LIMITED', displayName: 'Quick delivery food campaign', startDate: new Date('2025-07-10'), endDate: new Date('2025-08-08'), days: 30, status: 'Draft' },
 ];
 
-export default function NegotiationPage({ params }: { params: { id: string } }) {
+export default function NegotiationPage() {
   const [plan, setPlan] = React.useState<MediaPlan | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const params = useParams();
 
   React.useEffect(() => {
     const id = params.id;
