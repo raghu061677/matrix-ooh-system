@@ -402,6 +402,11 @@ export function MediaManager() {
     reader.readAsBinaryString(file);
     if(fileInputRef.current) fileInputRef.current.value = '';
   };
+  
+  const uniqueAreas = useMemo(() => {
+    const areas = new Set(mediaAssets.map(asset => asset.area).filter(Boolean));
+    return Array.from(areas).sort();
+  }, [mediaAssets]);
 
 
   if (loading && !isDialogOpen) {
@@ -561,7 +566,7 @@ export function MediaManager() {
                   <Button variant="ghost" size="icon" onClick={() => openDialog(asset)}>
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDelete(asset)}>
+                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={()={() => handleDelete(asset)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </TableCell>
@@ -644,9 +649,22 @@ export function MediaManager() {
                 <Label htmlFor="city">City</Label>
                 <Input id="city" name="city" value={formData.city || ''} onChange={handleFormChange} />
               </div>
-               <div>
+               
+               <div className="grid gap-2">
                 <Label htmlFor="area">Area</Label>
-                <Input id="area" name="area" value={formData.area || ''} onChange={handleFormChange} />
+                <div className="flex gap-2">
+                    <Select onValueChange={(value) => handleSelectChange('area', value)} value={formData.area}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select existing area" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {uniqueAreas.map(area => (
+                                <SelectItem key={area} value={area}>{area}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <Input id="area" name="area" placeholder="Or add new area" value={formData.area || ''} onChange={handleFormChange} />
+                </div>
               </div>
               <div className="md:col-span-3">
                 <Label htmlFor="location">Location</Label>
@@ -769,3 +787,5 @@ export function MediaManager() {
     </TooltipProvider>
   );
 }
+
+    
