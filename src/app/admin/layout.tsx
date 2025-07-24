@@ -17,8 +17,10 @@ import {
   SidebarTrigger,
   SidebarFooter,
   SidebarRail,
+  SidebarGroup,
+  SidebarGroupLabel,
 } from '@/components/ui/sidebar';
-import { Projector, LayoutGrid, ListChecks, FileText, LogOut, Loader2, Home, Users } from 'lucide-react';
+import { Projector, LayoutGrid, ListChecks, FileText, LogOut, Loader2, Home, Users, ReceiptText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -80,39 +82,72 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                    </Link>
                  </SidebarMenuButton>
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                 <SidebarMenuButton asChild isActive={pathname === '/admin/media-assets'} tooltip="Media Assets">
-                   <Link href="/admin/media-assets">
-                    <LayoutGrid />
-                    <span className="whitespace-nowrap">Media Assets</span>
-                   </Link>
-                 </SidebarMenuButton>
-              </SidebarMenuItem>
-               <SidebarMenuItem>
-                 <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/customers')} tooltip="Customers">
-                   <Link href="/admin/customers">
-                    <Users />
-                    <span className="whitespace-nowrap">Customers</span>
-                   </Link>
-                 </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                 <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/media-plans')} tooltip="Media Plans">
-                   <Link href="/admin/media-plans">
-                    <FileText />
-                    <span className="whitespace-nowrap">Media Plans</span>
-                   </Link>
-                 </SidebarMenuButton>
-              </SidebarMenuItem>
-               <SidebarMenuItem>
-                 <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/campaigns')} tooltip="Campaigns">
-                   <Link href="/admin/campaigns">
-                    <ListChecks />
-                    <span className="whitespace-nowrap">Campaigns</span>
-                   </Link>
-                 </SidebarMenuButton>
-              </SidebarMenuItem>
             </SidebarMenu>
+
+             <SidebarGroup>
+                <SidebarGroupLabel>Media</SidebarGroupLabel>
+                <SidebarGroupContent>
+                    <SidebarMenu>
+                       <SidebarMenuItem>
+                         <SidebarMenuButton asChild isActive={pathname === '/admin/media-assets'} tooltip="Media Assets">
+                           <Link href="/admin/media-assets">
+                            <LayoutGrid />
+                            <span className="whitespace-nowrap">Media Assets</span>
+                           </Link>
+                         </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/media-plans')} tooltip="Media Plans">
+                           <Link href="/admin/media-plans">
+                            <FileText />
+                            <span className="whitespace-nowrap">Media Plans</span>
+                           </Link>
+                         </SidebarMenuButton>
+                      </SidebarMenuItem>
+                       <SidebarMenuItem>
+                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/campaigns')} tooltip="Campaigns">
+                           <Link href="/admin/campaigns">
+                            <ListChecks />
+                            <span className="whitespace-nowrap">Campaigns</span>
+                           </Link>
+                         </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    </SidebarMenu>
+                </SidebarGroupContent>
+             </SidebarGroup>
+
+             <SidebarGroup>
+                <SidebarGroupLabel>Sales</SidebarGroupLabel>
+                 <SidebarGroupContent>
+                     <SidebarMenu>
+                       <SidebarMenuItem>
+                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/customers')} tooltip="Customers">
+                           <Link href="/admin/customers">
+                            <Users />
+                            <span className="whitespace-nowrap">Customers</span>
+                           </Link>
+                         </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/quotations')} tooltip="Quotations">
+                           <Link href="#">
+                            <ReceiptText />
+                            <span className="whitespace-nowrap">Quotations</span>
+                           </Link>
+                         </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/invoices')} tooltip="Invoices">
+                           <Link href="#">
+                            <ReceiptText />
+                            <span className="whitespace-nowrap">Invoices</span>
+                           </Link>
+                         </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    </SidebarMenu>
+                 </SidebarGroupContent>
+             </SidebarGroup>
+
           </SidebarContent>
           <SidebarFooter>
              <div className="flex items-center justify-between">
