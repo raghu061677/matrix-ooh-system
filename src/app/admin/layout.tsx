@@ -70,7 +70,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                <h2 className="text-lg font-bold font-headline whitespace-nowrap">Matrix Network</h2>
             </div>
           </SidebarHeader>
-          <SidebarContent>
+          <SidebarContent className="pt-4">
             <SidebarMenu>
               <SidebarMenuItem>
                  <SidebarMenuButton asChild isActive={pathname === '/admin/dashboard'} tooltip="Dashboard">
