@@ -120,9 +120,11 @@ export function MediaManager() {
           <TableHeader>
             <TableRow>
               <TableHead>Media ID</TableHead>
-              <TableHead>Location</TableHead>
               <TableHead>District</TableHead>
               <TableHead>Area</TableHead>
+              <TableHead>Location</TableHead>
+              <TableHead>Traffic Direction</TableHead>
+              <TableHead>Dimensions</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -131,9 +133,11 @@ export function MediaManager() {
             {mediaAssets.map(asset => (
               <TableRow key={asset.id}>
                 <TableCell className="font-medium">{asset.mediaId}</TableCell>
-                <TableCell>{asset.location}</TableCell>
                 <TableCell>{asset.district}</TableCell>
                 <TableCell>{asset.area}</TableCell>
+                <TableCell>{asset.location}</TableCell>
+                <TableCell>{asset.trafficDirection}</TableCell>
+                <TableCell>{asset.dimensions}</TableCell>
                 <TableCell>{asset.status}</TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" onClick={() => openDialog(asset)}>
@@ -164,16 +168,16 @@ export function MediaManager() {
                 <Input id="mediaId" name="mediaId" defaultValue={currentAsset?.mediaId} />
               </div>
               <div>
-                <Label htmlFor="location">Location</Label>
-                <Input id="location" name="location" defaultValue={currentAsset?.location} required />
-              </div>
-              <div>
                 <Label htmlFor="district">District</Label>
                 <Input id="district" name="district" defaultValue={currentAsset?.district} />
               </div>
                <div>
                 <Label htmlFor="area">Area</Label>
                 <Input id="area" name="area" defaultValue={currentAsset?.area} />
+              </div>
+              <div>
+                <Label htmlFor="location">Location</Label>
+                <Input id="location" name="location" defaultValue={currentAsset?.location} required />
               </div>
               <div>
                 <Label htmlFor="trafficDirection">Traffic Direction</Label>
