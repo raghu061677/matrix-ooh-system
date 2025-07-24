@@ -84,6 +84,10 @@ type Asset = {
     contractEndDate: Date;
   };
   imageUrls?: string[];
+  latitude?: number;
+  longitude?: number;
+  baseRate?: number;
+  cardRate?: number;
 };
 
 type SortConfig = {
@@ -119,13 +123,14 @@ export function MediaManager() {
     state: false,
     city: false,
     supplierId: false,
+    latitude: false,
+    longitude: false,
+    baseRate: true,
+    cardRate: true,
   });
 
   const { toast } = useToast();
   const mediaAssetsCollectionRef = collection(db, 'media_assets');
-
-  const [latitude, setLatitude] = useState('');
-  const [longitude, setLongitude] = useState('');
 
   useEffect(() => {
     const getMediaAssets = async () => {
@@ -179,8 +184,11 @@ export function MediaManager() {
                 const parser = exifParser.create(buffer);
                 const result = parser.parse();
                 if (result.tags.GPSLatitude && result.tags.GPSLongitude) {
-                    setLatitude(result.tags.GPSLatitude.toString());
-                    setLongitude(result.tags.GPSLongitude.toString());
+                    setFormData(prev => ({
+                      ...prev,
+                      latitude: result.tags.GPSLatitude,
+                      longitude: result.tags.GPSLongitude,
+                    }));
                     toast({
                         title: 'Coordinates Found!',
                         description: 'GPS data extracted from image.',
@@ -246,8 +254,6 @@ export function MediaManager() {
     setCurrentAsset(null);
     setFormData({});
     setImageFiles(null);
-    setLatitude('');
-    setLongitude('');
   };
   
   const handleDelete = async (asset: Asset) => {
@@ -317,12 +323,17 @@ export function MediaManager() {
     { key: 'state', label: 'State', sortable: true },
     { key: 'city', label: 'City', sortable: true },
     { key: 'supplierId', label: 'Supplier ID' },
+    { key: 'latitude', label: 'Latitude' },
+    { key: 'longitude', label: 'Longitude' },
+    { key: 'baseRate', label: 'Base Rate' },
+    { key: 'cardRate', label: 'Card Rate' },
   ];
 
   const exportTemplateToExcel = () => {
     const headers = [
       'mid', 'ownership', 'media', 'state', 'district', 'city', 'area', 'location', 
-      'dimensions', 'structure', 'width1', 'height1', 'width2', 'height2', 'sqft', 'light', 'status', 'supplierId'
+      'dimensions', 'structure', 'width1', 'height1', 'width2', 'height2', 'sqft', 'light', 'status', 'supplierId',
+      'latitude', 'longitude', 'baseRate', 'cardRate'
     ];
     const worksheet = XLSX.utils.aoa_to_sheet([headers]);
     const workbook = XLSX.utils.book_new();
@@ -561,6 +572,10 @@ export function MediaManager() {
                 {columnVisibility.state && <TableCell>{asset.state}</TableCell>}
                 {columnVisibility.city && <TableCell>{asset.city}</TableCell>}
                 {columnVisibility.supplierId && <TableCell>{asset.supplierId}</TableCell>}
+                {columnVisibility.latitude && <TableCell>{asset.latitude}</TableCell>}
+                {columnVisibility.longitude && <TableCell>{asset.longitude}</TableCell>}
+                {columnVisibility.baseRate && <TableCell>{asset.baseRate}</TableCell>}
+                {columnVisibility.cardRate && <TableCell>{asset.cardRate}</TableCell>}
 
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" onClick={() => openDialog(asset)}>
@@ -756,11 +771,27 @@ export function MediaManager() {
                 <Label htmlFor="supplierId">Supplier ID</Label>
                 <Input id="supplierId" name="supplierId" value={formData.supplierId || ''} onChange={handleFormChange} />
               </div>
+              <div>
+                <Label htmlFor="latitude">Latitude</Label>
+                <Input id="latitude" name="latitude" type="number" value={formData.latitude || ''} onChange={handleFormChange} />
+              </div>
+              <div>
+                <Label htmlFor="longitude">Longitude</Label>
+                <Input id="longitude" name="longitude" type="number" value={formData.longitude || ''} onChange={handleFormChange} />
+              </div>
+              <div>
+                <Label htmlFor="baseRate">Base Rate (per month)</Label>
+                <Input id="baseRate" name="baseRate" type="number" value={formData.baseRate || ''} onChange={handleFormChange} />
+              </div>
+              <div>
+                <Label htmlFor="cardRate">Card Rate (per month)</Label>
+                <Input id="cardRate" name="cardRate" type="number" value={formData.cardRate || ''} onChange={handleFormChange} />
+              </div>
                <div className="col-span-full">
                 <Label htmlFor="images">Asset Images</Label>
                 <Input id="images" type="file" multiple onChange={handleImageChange} />
                  <p className="text-sm text-muted-foreground mt-1">
-                   New images will be added to existing ones.
+                   New images will be added to existing ones. GPS data will be extracted from the first image if available.
                 </p>
                 {currentAsset?.imageUrls && (
                   <div className="mt-2 flex flex-wrap gap-2">
