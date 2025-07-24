@@ -57,6 +57,7 @@ import 'jspdf-autotable';
 import PptxGenJS from 'pptxgenjs';
 import { statesAndDistricts } from '@/lib/india-states';
 import { Asset, sampleAssets } from './media-manager-types';
+import { ScrollArea } from '../ui/scroll-area';
 
 type SortConfig = {
   key: keyof Asset;
@@ -564,221 +565,223 @@ export function MediaManager() {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-4xl">
+        <DialogContent className="sm:max-w-4xl h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{currentAsset ? 'Edit Media Asset' : 'Add New Media Asset'}</DialogTitle>
             <DialogDescription>
               {currentAsset ? 'Update the details for this media asset.' : 'Fill in the details for the new media asset.'}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSave}>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 py-4">
-              <div>
-                <Label htmlFor="mid">MID</Label>
-                <Input id="mid" name="mid" value={formData.mid || ''} onChange={handleFormChange}/>
-              </div>
-              <div>
-                <Label htmlFor="ownership">Ownership</Label>
-                 <Select onValueChange={(value) => handleSelectChange('ownership', value)} value={formData.ownership}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select ownership" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="own">Own</SelectItem>
-                    <SelectItem value="rented">Rented</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-               <div>
-                <Label htmlFor="media">Media Type</Label>
-                 <Select onValueChange={(value) => handleSelectChange('media', value)} value={formData.media}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select media type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Bus Shelter">Bus Shelter</SelectItem>
-                    <SelectItem value="Center Median">Center Median</SelectItem>
-                    <SelectItem value="Cantilever">Cantilever</SelectItem>
-                    <SelectItem value="Hoarding">Hoarding</SelectItem>
-                    <SelectItem value="Unipole">Unipole</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                 <Label htmlFor="state">State</Label>
-                <Select onValueChange={handleStateChange} value={formData.state}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select state" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statesAndDistricts.states.map(state => (
-                      <SelectItem key={state.name} value={state.name}>{state.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="district">District</Label>
-                <Select
-                  onValueChange={(value) => handleSelectChange('district', value)}
-                  value={formData.district}
-                  disabled={!formData.state}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select district" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {formData.state && statesAndDistricts.states.find(s => s.name === formData.state)?.districts.map(district => (
-                      <SelectItem key={district} value={district}>{district}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="city">City</Label>
-                <Input id="city" name="city" value={formData.city || ''} onChange={handleFormChange} />
-              </div>
-               
-               <div className="grid gap-2">
-                <Label htmlFor="area">Area</Label>
-                <div className="flex gap-2">
-                    <Select onValueChange={(value) => handleSelectChange('area', value)} value={formData.area}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select existing area" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {uniqueAreas.map(area => (
-                                <SelectItem key={area} value={area}>{area}</SelectItem>
-                            ))}
-                        </SelectContent>
+          <form onSubmit={handleSave} className="flex-grow overflow-hidden flex flex-col">
+            <ScrollArea className="flex-grow pr-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 py-4">
+                  <div>
+                    <Label htmlFor="mid">MID</Label>
+                    <Input id="mid" name="mid" value={formData.mid || ''} onChange={handleFormChange}/>
+                  </div>
+                  <div>
+                    <Label htmlFor="ownership">Ownership</Label>
+                     <Select onValueChange={(value) => handleSelectChange('ownership', value)} value={formData.ownership}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select ownership" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="own">Own</SelectItem>
+                        <SelectItem value="rented">Rented</SelectItem>
+                      </SelectContent>
                     </Select>
-                    <Input id="area" name="area" placeholder="Or add new area" value={formData.area || ''} onChange={handleFormChange} />
-                </div>
-              </div>
-              <div className="md:col-span-3">
-                <Label htmlFor="location">Location</Label>
-                <Input id="location" name="location" value={formData.location || ''} onChange={handleFormChange} required />
-              </div>
-
-               <div className="md:col-span-2">
-                <Label htmlFor="dimensions">Dimensions (e.g. 14' x 48')</Label>
-                <Input id="dimensions" name="dimensions" value={formData.dimensions || ''} onChange={handleFormChange} />
-              </div>
-
-              <div>
-                <Label htmlFor="structure">Structure</Label>
-                 <Select onValueChange={(value) => handleSelectChange('structure', value as 'single' | 'multi')} value={formData.structure}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Structure" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="single">Single Display</SelectItem>
-                    <SelectItem value="multi">Multi Display</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="sqft">Total Sqft</Label>
-                <Input id="sqft" name="sqft" type="number" value={formData.sqft || ''} readOnly className="bg-muted" />
-              </div>
-              
-              {formData.structure === 'single' && (
-                <>
+                  </div>
                    <div>
-                    <Label htmlFor="width1">Width (ft)</Label>
-                    <Input id="width1" name="width1" type="number" value={formData.width1 || ''} onChange={handleFormChange} />
+                    <Label htmlFor="media">Media Type</Label>
+                     <Select onValueChange={(value) => handleSelectChange('media', value)} value={formData.media}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select media type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Bus Shelter">Bus Shelter</SelectItem>
+                        <SelectItem value="Center Median">Center Median</SelectItem>
+                        <SelectItem value="Cantilever">Cantilever</SelectItem>
+                        <SelectItem value="Hoarding">Hoarding</SelectItem>
+                        <SelectItem value="Unipole">Unipole</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
-                    <Label htmlFor="height1">Height (ft)</Label>
-                    <Input id="height1" name="height1" type="number" value={formData.height1 || ''} onChange={handleFormChange} />
-                  </div>
-                </>
-              )}
-              {formData.structure === 'multi' && (
-                 <>
-                   <div>
-                    <Label htmlFor="width1">Width 1 (ft)</Label>
-                    <Input id="width1" name="width1" type="number" value={formData.width1 || ''} onChange={handleFormChange} />
-                  </div>
-                  <div>
-                    <Label htmlFor="height1">Height 1 (ft)</Label>
-                    <Input id="height1" name="height1" type="number" value={formData.height1 || ''} onChange={handleFormChange} />
+                     <Label htmlFor="state">State</Label>
+                    <Select onValueChange={handleStateChange} value={formData.state}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select state" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {statesAndDistricts.states.map(state => (
+                          <SelectItem key={state.name} value={state.name}>{state.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
-                    <Label htmlFor="width2">Width 2 (ft)</Label>
-                    <Input id="width2" name="width2" type="number" value={formData.width2 || ''} onChange={handleFormChange} />
+                    <Label htmlFor="district">District</Label>
+                    <Select
+                      onValueChange={(value) => handleSelectChange('district', value)}
+                      value={formData.district}
+                      disabled={!formData.state}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select district" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {formData.state && statesAndDistricts.states.find(s => s.name === formData.state)?.districts.map(district => (
+                          <SelectItem key={district} value={district}>{district}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
-                    <Label htmlFor="height2">Height 2 (ft)</Label>
-                    <Input id="height2" name="height2" type="number" value={formData.height2 || ''} onChange={handleFormChange} />
+                    <Label htmlFor="city">City</Label>
+                    <Input id="city" name="city" value={formData.city || ''} onChange={handleFormChange} />
                   </div>
-                </>
-              )}
+                   
+                   <div className="grid gap-2">
+                    <Label htmlFor="area">Area</Label>
+                    <div className="flex gap-2">
+                        <Select onValueChange={(value) => handleSelectChange('area', value)} value={formData.area}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select existing area" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {uniqueAreas.map(area => (
+                                    <SelectItem key={area} value={area}>{area}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Input id="area" name="area" placeholder="Or add new area" value={formData.area || ''} onChange={handleFormChange} />
+                    </div>
+                  </div>
+                  <div className="md:col-span-3">
+                    <Label htmlFor="location">Location</Label>
+                    <Input id="location" name="location" value={formData.location || ''} onChange={handleFormChange} required />
+                  </div>
 
+                   <div className="md:col-span-2">
+                    <Label htmlFor="dimensions">Dimensions (e.g. 14' x 48')</Label>
+                    <Input id="dimensions" name="dimensions" value={formData.dimensions || ''} onChange={handleFormChange} />
+                  </div>
 
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="light">Lighting</Label>
-                 <Select onValueChange={(value) => handleSelectChange('light', value as any)} value={formData.light}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select lighting type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="BackLit">Back-Lit</SelectItem>
-                    <SelectItem value="Non-Lit">Non-Lit</SelectItem>
-                    <SelectItem value="Front-Lit">Front-Lit</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="status">Status</Label>
-                 <Select onValueChange={(value) => handleSelectChange('status', value)} value={formData.status}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="deleted">Deleted</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="supplierId">Supplier ID</Label>
-                <Input id="supplierId" name="supplierId" value={formData.supplierId || ''} onChange={handleFormChange} />
-              </div>
-              <div>
-                <Label htmlFor="latitude">Latitude</Label>
-                <Input id="latitude" name="latitude" type="number" value={formData.latitude || ''} onChange={handleFormChange} />
-              </div>
-              <div>
-                <Label htmlFor="longitude">Longitude</Label>
-                <Input id="longitude" name="longitude" type="number" value={formData.longitude || ''} onChange={handleFormChange} />
-              </div>
-              <div>
-                <Label htmlFor="baseRate">Base Rate (per month)</Label>
-                <Input id="baseRate" name="baseRate" type="number" value={formData.baseRate || ''} onChange={handleFormChange} />
-              </div>
-              <div>
-                <Label htmlFor="cardRate">Card Rate (per month)</Label>
-                <Input id="cardRate" name="cardRate" type="number" value={formData.cardRate || ''} onChange={handleFormChange} />
-              </div>
-               <div className="col-span-full">
-                <Label htmlFor="images">Asset Images</Label>
-                <Input id="images" type="file" multiple onChange={handleImageChange} />
-                 <p className="text-sm text-muted-foreground mt-1">
-                   New images will be added to existing ones. GPS data will be extracted from the first image if available.
-                </p>
-                {currentAsset?.imageUrls && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {currentAsset.imageUrls.map((url: string) => (
-                      <div key={url} className="relative h-20 w-20">
-                        <Image src={url} alt="Asset image" layout="fill" className="rounded-md object-cover" />
+                  <div>
+                    <Label htmlFor="structure">Structure</Label>
+                     <Select onValueChange={(value) => handleSelectChange('structure', value as 'single' | 'multi')} value={formData.structure}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Structure" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="single">Single Display</SelectItem>
+                        <SelectItem value="multi">Multi Display</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="sqft">Total Sqft</Label>
+                    <Input id="sqft" name="sqft" type="number" value={formData.sqft || ''} readOnly className="bg-muted" />
+                  </div>
+                  
+                  {formData.structure === 'single' && (
+                    <>
+                       <div>
+                        <Label htmlFor="width1">Width (ft)</Label>
+                        <Input id="width1" name="width1" type="number" value={formData.width1 || ''} onChange={handleFormChange} />
                       </div>
-                    ))}
+                      <div>
+                        <Label htmlFor="height1">Height (ft)</Label>
+                        <Input id="height1" name="height1" type="number" value={formData.height1 || ''} onChange={handleFormChange} />
+                      </div>
+                    </>
+                  )}
+                  {formData.structure === 'multi' && (
+                     <>
+                       <div>
+                        <Label htmlFor="width1">Width 1 (ft)</Label>
+                        <Input id="width1" name="width1" type="number" value={formData.width1 || ''} onChange={handleFormChange} />
+                      </div>
+                      <div>
+                        <Label htmlFor="height1">Height 1 (ft)</Label>
+                        <Input id="height1" name="height1" type="number" value={formData.height1 || ''} onChange={handleFormChange} />
+                      </div>
+                      <div>
+                        <Label htmlFor="width2">Width 2 (ft)</Label>
+                        <Input id="width2" name="width2" type="number" value={formData.width2 || ''} onChange={handleFormChange} />
+                      </div>
+                      <div>
+                        <Label htmlFor="height2">Height 2 (ft)</Label>
+                        <Input id="height2" name="height2" type="number" value={formData.height2 || ''} onChange={handleFormChange} />
+                      </div>
+                    </>
+                  )}
+
+
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="light">Lighting</Label>
+                     <Select onValueChange={(value) => handleSelectChange('light', value as any)} value={formData.light}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select lighting type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="BackLit">Back-Lit</SelectItem>
+                        <SelectItem value="Non-Lit">Non-Lit</SelectItem>
+                        <SelectItem value="Front-Lit">Front-Lit</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                )}
-              </div>
-            </div>
-            <DialogFooter>
+                  <div>
+                    <Label htmlFor="status">Status</Label>
+                     <Select onValueChange={(value) => handleSelectChange('status', value)} value={formData.status}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="deleted">Deleted</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="supplierId">Supplier ID</Label>
+                    <Input id="supplierId" name="supplierId" value={formData.supplierId || ''} onChange={handleFormChange} />
+                  </div>
+                  <div>
+                    <Label htmlFor="latitude">Latitude</Label>
+                    <Input id="latitude" name="latitude" type="number" value={formData.latitude || ''} onChange={handleFormChange} />
+                  </div>
+                  <div>
+                    <Label htmlFor="longitude">Longitude</Label>
+                    <Input id="longitude" name="longitude" type="number" value={formData.longitude || ''} onChange={handleFormChange} />
+                  </div>
+                  <div>
+                    <Label htmlFor="baseRate">Base Rate (per month)</Label>
+                    <Input id="baseRate" name="baseRate" type="number" value={formData.baseRate || ''} onChange={handleFormChange} />
+                  </div>
+                  <div>
+                    <Label htmlFor="cardRate">Card Rate (per month)</Label>
+                    <Input id="cardRate" name="cardRate" type="number" value={formData.cardRate || ''} onChange={handleFormChange} />
+                  </div>
+                   <div className="col-span-full">
+                    <Label htmlFor="images">Asset Images</Label>
+                    <Input id="images" type="file" multiple onChange={handleImageChange} />
+                     <p className="text-sm text-muted-foreground mt-1">
+                       New images will be added to existing ones. GPS data will be extracted from the first image if available.
+                    </p>
+                    {currentAsset?.imageUrls && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {currentAsset.imageUrls.map((url: string) => (
+                          <div key={url} className="relative h-20 w-20">
+                            <Image src={url} alt="Asset image" layout="fill" className="rounded-md object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+            </ScrollArea>
+            <DialogFooter className="flex-shrink-0 pt-4">
               <DialogClose asChild>
                 <Button type="button" variant="secondary" onClick={closeDialog}>Cancel</Button>
               </DialogClose>
@@ -792,3 +795,5 @@ export function MediaManager() {
     </TooltipProvider>
   );
 }
+
+    

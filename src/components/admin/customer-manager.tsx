@@ -54,6 +54,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import PptxGenJS from 'pptxgenjs';
 import { getGstDetails } from '@/lib/actions';
+import { ScrollArea } from '../ui/scroll-area';
 
 type SortConfig = {
   key: keyof Customer;
@@ -107,7 +108,7 @@ export function CustomerManager() {
     };
 
     getCustomers();
-  }, []);
+  }, [toast]);
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -544,73 +545,75 @@ export function CustomerManager() {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-4xl">
+        <DialogContent className="sm:max-w-4xl h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{currentCustomer ? 'Edit Customer' : 'Add New Customer'}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSave}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 py-4">
-              
-              <div className="md:col-span-2">
-                <Label htmlFor="name">Business Name</Label>
-                <Input id="name" name="name" value={formData.name || ''} onChange={handleFormChange} required />
-              </div>
-              <div>
-                <Label htmlFor="code">Customer Code</Label>
-                <Input id="code" name="code" value={formData.code || ''} onChange={handleFormChange} readOnly={!!currentCustomer} />
-              </div>
-              <div>
-                <Label htmlFor="gst">GST Number</Label>
-                <div className="flex items-center gap-2">
-                    <Input id="gst" name="gst" value={formData.gst || ''} onChange={handleFormChange} />
-                    <Button type="button" variant="outline" size="icon" onClick={handleGstFetch} disabled={isFetchingGst}>
-                        {isFetchingGst ? <Loader2 className="animate-spin" /> : <Search />}
-                    </Button>
-                </div>
-              </div>
+          <form onSubmit={handleSave} className="flex-grow overflow-hidden flex flex-col">
+            <ScrollArea className="flex-grow pr-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 py-4">
+                  
+                  <div className="md:col-span-2">
+                    <Label htmlFor="name">Business Name</Label>
+                    <Input id="name" name="name" value={formData.name || ''} onChange={handleFormChange} required />
+                  </div>
+                  <div>
+                    <Label htmlFor="code">Customer Code</Label>
+                    <Input id="code" name="code" value={formData.code || ''} onChange={handleFormChange} readOnly={!!currentCustomer} />
+                  </div>
+                  <div>
+                    <Label htmlFor="gst">GST Number</Label>
+                    <div className="flex items-center gap-2">
+                        <Input id="gst" name="gst" value={formData.gst || ''} onChange={handleFormChange} />
+                        <Button type="button" variant="outline" size="icon" onClick={handleGstFetch} disabled={isFetchingGst}>
+                            {isFetchingGst ? <Loader2 className="animate-spin" /> : <Search />}
+                        </Button>
+                    </div>
+                  </div>
 
-              <div className="md:col-span-2">
-                <h3 className="text-lg font-medium border-b pb-2 mb-4">Contact Person</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                     <div>
-                        <Label htmlFor="contactName">Name</Label>
-                        <Input id="contactName" name="name" value={formData.contactPersons?.[0]?.name || ''} onChange={(e) => handleNestedChange(e, 'contactPersons', 0)} />
+                  <div className="md:col-span-2">
+                    <h3 className="text-lg font-medium border-b pb-2 mb-4">Contact Person</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                         <div>
+                            <Label htmlFor="contactName">Name</Label>
+                            <Input id="contactName" name="name" value={formData.contactPersons?.[0]?.name || ''} onChange={(e) => handleNestedChange(e, 'contactPersons', 0)} />
+                        </div>
+                        <div>
+                            <Label htmlFor="contactPhone">Phone</Label>
+                            <Input id="contactPhone" name="phone" value={formData.contactPersons?.[0]?.phone || ''} onChange={(e) => handleNestedChange(e, 'contactPersons', 0)} />
+                        </div>
+                        <div>
+                            <Label htmlFor="contactDesignation">Designation</Label>
+                            <Input id="contactDesignation" name="designation" value={formData.contactPersons?.[0]?.designation || ''} onChange={(e) => handleNestedChange(e, 'contactPersons', 0)} />
+                        </div>
                     </div>
-                    <div>
-                        <Label htmlFor="contactPhone">Phone</Label>
-                        <Input id="contactPhone" name="phone" value={formData.contactPersons?.[0]?.phone || ''} onChange={(e) => handleNestedChange(e, 'contactPersons', 0)} />
-                    </div>
-                    <div>
-                        <Label htmlFor="contactDesignation">Designation</Label>
-                        <Input id="contactDesignation" name="designation" value={formData.contactPersons?.[0]?.designation || ''} onChange={(e) => handleNestedChange(e, 'contactPersons', 0)} />
-                    </div>
-                </div>
-              </div>
+                  </div>
 
-              <div className="md:col-span-2">
-                 <h3 className="text-lg font-medium border-b pb-2 mb-4">Billing Address</h3>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="md:col-span-2">
-                        <Label htmlFor="street">Street</Label>
-                        <Input id="street" name="street" value={formData.addresses?.[0]?.street || ''} onChange={(e) => handleNestedChange(e, 'addresses', 0)} />
-                    </div>
-                    <div>
-                        <Label htmlFor="city">City</Label>
-                        <Input id="city" name="city" value={formData.addresses?.[0]?.city || ''} onChange={(e) => handleNestedChange(e, 'addresses', 0)} />
-                    </div>
-                    <div>
-                        <Label htmlFor="state">State</Label>
-                        <Input id="state" name="state" value={formData.addresses?.[0]?.state || ''} onChange={(e) => handleNestedChange(e, 'addresses', 0)} />
-                    </div>
-                     <div>
-                        <Label htmlFor="postalCode">Postal Code</Label>
-                        <Input id="postalCode" name="postalCode" value={formData.addresses?.[0]?.postalCode || ''} onChange={(e) => handleNestedChange(e, 'addresses', 0)} />
-                    </div>
-                 </div>
-              </div>
-              
-            </div>
-            <DialogFooter>
+                  <div className="md:col-span-2">
+                     <h3 className="text-lg font-medium border-b pb-2 mb-4">Billing Address</h3>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="md:col-span-2">
+                            <Label htmlFor="street">Street</Label>
+                            <Input id="street" name="street" value={formData.addresses?.[0]?.street || ''} onChange={(e) => handleNestedChange(e, 'addresses', 0)} />
+                        </div>
+                        <div>
+                            <Label htmlFor="city">City</Label>
+                            <Input id="city" name="city" value={formData.addresses?.[0]?.city || ''} onChange={(e) => handleNestedChange(e, 'addresses', 0)} />
+                        </div>
+                        <div>
+                            <Label htmlFor="state">State</Label>
+                            <Input id="state" name="state" value={formData.addresses?.[0]?.state || ''} onChange={(e) => handleNestedChange(e, 'addresses', 0)} />
+                        </div>
+                         <div>
+                            <Label htmlFor="postalCode">Postal Code</Label>
+                            <Input id="postalCode" name="postalCode" value={formData.addresses?.[0]?.postalCode || ''} onChange={(e) => handleNestedChange(e, 'addresses', 0)} />
+                        </div>
+                     </div>
+                  </div>
+                  
+                </div>
+            </ScrollArea>
+            <DialogFooter className="flex-shrink-0 pt-4">
               <DialogClose asChild>
                 <Button type="button" variant="secondary" onClick={closeDialog}>Cancel</Button>
               </DialogClose>
@@ -624,3 +627,5 @@ export function CustomerManager() {
     </TooltipProvider>
   );
 }
+
+    

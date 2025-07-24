@@ -34,6 +34,7 @@ import { MediaPlan } from '@/types/media-plan';
 import { Customer, User } from '@/types/firestore';
 import { format, differenceInDays } from 'date-fns';
 import { DateRange } from 'react-day-picker';
+import { ScrollArea } from '../ui/scroll-area';
 
 interface MediaPlanFormDialogProps {
   isOpen: boolean;
@@ -61,10 +62,12 @@ export function MediaPlanFormDialog({
   React.useEffect(() => {
     if (plan) {
       setFormData(plan);
-      setDateRange({
-        from: new Date(plan.startDate),
-        to: new Date(plan.endDate),
-      });
+      if(plan.startDate && plan.endDate) {
+        setDateRange({
+          from: new Date(plan.startDate as any),
+          to: new Date(plan.endDate as any),
+        });
+      }
     } else {
       setFormData({ projectId: `P-${Date.now().toString().slice(-5)}` });
       setDateRange(undefined);
@@ -129,177 +132,183 @@ export function MediaPlanFormDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{plan ? 'Edit Plan' : 'Add to Plan'}</DialogTitle>
         </DialogHeader>
-        <Tabs defaultValue="new-plan">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="new-plan">New Plan</TabsTrigger>
-            <TabsTrigger value="existing-plan">Existing Plan</TabsTrigger>
-          </TabsList>
-          <TabsContent value="new-plan">
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4 py-4">
-                <div className="grid grid-cols-1 gap-4">
-                  <div>
-                    <Label htmlFor="displayName">
-                      Display Name <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="displayName"
-                      name="displayName"
-                      value={formData.displayName || ''}
-                      onChange={handleFormChange}
-                      required
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="employee">Employee</Label>
-                      <Select
-                        onValueChange={(value) =>
-                          handleSelectChange('employeeId', value)
-                        }
-                        value={formData.employeeId}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select user" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {employees.map((emp) => (
-                            <SelectItem key={emp.id} value={emp.id}>
-                              {emp.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="customer">Customer</Label>
-                      <Select
-                        onValueChange={(value) =>
-                          handleSelectChange('customerId', value)
-                        }
-                        value={formData.customerId}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select customer" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {customers.map((cust) => (
-                            <SelectItem key={cust.id} value={cust.id}>
-                              {cust.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 items-center gap-2">
-                    <Label htmlFor="dates">
-                      Dates <span className="text-red-500">*</span>
-                    </Label>
-                    <div className="grid grid-cols-[1fr_auto] gap-2">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            id="date"
-                            variant={'outline'}
-                            className="w-full justify-start text-left font-normal"
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {dateRange?.from ? (
-                              dateRange.to ? (
-                                <>
-                                  {format(dateRange.from, 'LLL dd, y')} -{' '}
-                                  {format(dateRange.to, 'LLL dd, y')}
-                                </>
-                              ) : (
-                                format(dateRange.from, 'LLL dd, y')
-                              )
-                            ) : (
-                              <span>Pick a date range</span>
-                            )}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            initialFocus
-                            mode="range"
-                            defaultMonth={dateRange?.from}
-                            selected={dateRange}
-                            onSelect={setDateRange}
-                            numberOfMonths={2}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <Input
-                        id="days"
-                        name="days"
-                        value={formData.days || ''}
-                        placeholder="Days"
-                        readOnly
-                        className="w-20"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="isRotational"
-                      checked={formData.isRotational}
-                      onCheckedChange={(checked) =>
-                        handleSwitchChange('isRotational', checked)
-                      }
-                    />
-                    <Label htmlFor="isRotational">Is Rotational</Label>
-                  </div>
-                  <div>
-                    <Label htmlFor="notes">Notes</Label>
-                    <Textarea
-                      id="notes"
-                      name="notes"
-                      value={formData.notes || ''}
-                      onChange={handleFormChange}
-                    />
-                  </div>
+        <div className="flex-grow overflow-hidden">
+            <Tabs defaultValue="new-plan" className="h-full flex flex-col">
+              <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
+                <TabsTrigger value="new-plan">New Plan</TabsTrigger>
+                <TabsTrigger value="existing-plan">Existing Plan</TabsTrigger>
+              </TabsList>
+              <TabsContent value="new-plan" className="flex-grow overflow-hidden">
+                <form onSubmit={handleSubmit} className="h-full flex flex-col">
+                  <ScrollArea className="flex-grow pr-6">
+                      <div className="space-y-4 py-4">
+                        <div className="grid grid-cols-1 gap-4">
+                          <div>
+                            <Label htmlFor="displayName">
+                              Display Name <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                              id="displayName"
+                              name="displayName"
+                              value={formData.displayName || ''}
+                              onChange={handleFormChange}
+                              required
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="employee">Employee</Label>
+                              <Select
+                                onValueChange={(value) =>
+                                  handleSelectChange('employeeId', value)
+                                }
+                                value={formData.employeeId}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select user" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {employees.map((emp) => (
+                                    <SelectItem key={emp.id} value={emp.id}>
+                                      {emp.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label htmlFor="customer">Customer</Label>
+                              <Select
+                                onValueChange={(value) =>
+                                  handleSelectChange('customerId', value)
+                                }
+                                value={formData.customerId}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select customer" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {customers.map((cust) => (
+                                    <SelectItem key={cust.id} value={cust.id}>
+                                      {cust.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 items-center gap-2">
+                            <Label htmlFor="dates">
+                              Dates <span className="text-red-500">*</span>
+                            </Label>
+                            <div className="grid grid-cols-[1fr_auto] gap-2">
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    id="date"
+                                    variant={'outline'}
+                                    className="w-full justify-start text-left font-normal"
+                                  >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {dateRange?.from ? (
+                                      dateRange.to ? (
+                                        <>
+                                          {format(dateRange.from, 'LLL dd, y')} -{' '}
+                                          {format(dateRange.to, 'LLL dd, y')}
+                                        </>
+                                      ) : (
+                                        format(dateRange.from, 'LLL dd, y')
+                                      )
+                                    ) : (
+                                      <span>Pick a date range</span>
+                                    )}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                    initialFocus
+                                    mode="range"
+                                    defaultMonth={dateRange?.from}
+                                    selected={dateRange}
+                                    onSelect={setDateRange}
+                                    numberOfMonths={2}
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                              <Input
+                                id="days"
+                                name="days"
+                                value={formData.days || ''}
+                                placeholder="Days"
+                                readOnly
+                                className="w-20"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              id="isRotational"
+                              checked={!!formData.isRotational}
+                              onCheckedChange={(checked) =>
+                                handleSwitchChange('isRotational', checked)
+                              }
+                            />
+                            <Label htmlFor="isRotational">Is Rotational</Label>
+                          </div>
+                          <div>
+                            <Label htmlFor="notes">Notes</Label>
+                            <Textarea
+                              id="notes"
+                              name="notes"
+                              value={formData.notes || ''}
+                              onChange={handleFormChange}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                  </ScrollArea>
+                  <DialogFooter className="flex-shrink-0 pt-4">
+                    <DialogClose asChild>
+                      <Button type="button" variant="secondary">
+                        Cancel
+                      </Button>
+                    </DialogClose>
+                    <Button type="submit" disabled={loading}>
+                      {loading ? (
+                        <Loader2 className="animate-spin" />
+                      ) : plan ? (
+                        'Save Changes'
+                      ) : (
+                        'Create Plan'
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </TabsContent>
+              <TabsContent value="existing-plan" className="flex-grow">
+                <div className="py-4">
+                  <p className="text-muted-foreground">
+                    Select an existing plan to add assets to. This feature is coming
+                    soon.
+                  </p>
                 </div>
-              </div>
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button type="button" variant="secondary">
-                    Cancel
-                  </Button>
-                </DialogClose>
-                <Button type="submit" disabled={loading}>
-                  {loading ? (
-                    <Loader2 className="animate-spin" />
-                  ) : plan ? (
-                    'Save Changes'
-                  ) : (
-                    'Create Plan'
-                  )}
-                </Button>
-              </DialogFooter>
-            </form>
-          </TabsContent>
-          <TabsContent value="existing-plan">
-            <div className="py-4">
-              <p className="text-muted-foreground">
-                Select an existing plan to add assets to. This feature is coming
-                soon.
-              </p>
-            </div>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="secondary">
-                  Cancel
-                </Button>
-              </DialogClose>
-            </DialogFooter>
-          </TabsContent>
-        </Tabs>
+                <DialogFooter className="flex-shrink-0 pt-4">
+                  <DialogClose asChild>
+                    <Button type="button" variant="secondary">
+                      Cancel
+                    </Button>
+                  </DialogClose>
+                </DialogFooter>
+              </TabsContent>
+            </Tabs>
+        </div>
       </DialogContent>
     </Dialog>
   );
 }
+
+    
