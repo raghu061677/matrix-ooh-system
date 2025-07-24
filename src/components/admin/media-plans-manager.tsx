@@ -43,6 +43,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import PptxGenJS from 'pptxgenjs';
 import { MediaPlanFormDialog } from './media-plan-form-dialog';
+import { SelectAssetsDialog } from './select-assets-dialog';
 
 type SortConfig = {
   key: keyof MediaPlan;
@@ -59,7 +60,8 @@ export function MediaPlansManager() {
   const [mediaPlans, setMediaPlans] = useState<MediaPlan[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isPlanFormOpen, setIsPlanFormOpen] = useState(false);
+  const [isAssetSelectorOpen, setIsAssetSelectorOpen] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<MediaPlan | null>(null);
   
   const [filter, setFilter] = useState('');
@@ -123,17 +125,24 @@ export function MediaPlansManager() {
       toast({ title: 'Plan Added!', description: 'The new media plan has been added.' });
     }
     setLoading(false);
-    closeDialog();
+    closePlanForm();
   };
 
-  const openDialog = (plan: MediaPlan | null = null) => {
+  const openPlanForm = (plan: MediaPlan | null = null) => {
     setCurrentPlan(plan);
-    setIsDialogOpen(true);
+    setIsPlanFormOpen(true);
   };
 
-  const closeDialog = () => {
-    setIsDialogOpen(false);
+  const closePlanForm = () => {
+    setIsPlanFormOpen(false);
     setCurrentPlan(null);
+  };
+
+  const handleAssetsSelected = (selectedAssets: any[]) => {
+    console.log("Selected assets:", selectedAssets);
+    setIsAssetSelectorOpen(false);
+    openPlanForm();
+    // Here you would pass the selected assets to the plan form
   };
   
   const handleDelete = async (plan: MediaPlan) => {
@@ -265,7 +274,7 @@ export function MediaPlansManager() {
             else value = plan[col.key as keyof MediaPlan];
 
            if (value) {
-            slide.addText(`${col.label}: ${String(value)}`, { x: 0.5, y, fontSize: 12 });
+            slide.addText(`${String(value)}`, { x: 0.5, y, fontSize: 12 });
             y += 0.4;
            }
         }
@@ -307,7 +316,7 @@ export function MediaPlansManager() {
     if(fileInputRef.current) fileInputRef.current.value = '';
   };
   
-  if (loading && !isDialogOpen) {
+  if (loading && !isPlanFormOpen) {
     return (
         <div className="flex items-center justify-center h-48">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -361,7 +370,7 @@ export function MediaPlansManager() {
             </DropdownMenuContent>
           </DropdownMenu>
           <Button variant="outline" onClick={() => {}}><Sparkles className="mr-2 h-4 w-4" /> Create With AI</Button>
-          <Button onClick={() => openDialog()}>
+          <Button onClick={() => setIsAssetSelectorOpen(true)}>
             <PlusCircle className="mr-2" />
             Add Plan
           </Button>
@@ -429,7 +438,7 @@ export function MediaPlansManager() {
                        <DropdownMenuItem asChild>
                          <Link href={`/admin/media-plans/${plan.id}`}>
                            <Edit className="mr-2 h-4 w-4" />
-                           Edit
+                           View/Edit
                          </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleDelete(plan)} className="text-destructive">
@@ -445,9 +454,15 @@ export function MediaPlansManager() {
         </Table>
       </div>
 
+      <SelectAssetsDialog
+        isOpen={isAssetSelectorOpen}
+        onOpenChange={setIsAssetSelectorOpen}
+        onAddToPlan={handleAssetsSelected}
+      />
+
       <MediaPlanFormDialog 
-        isOpen={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+        isOpen={isPlanFormOpen}
+        onOpenChange={setIsPlanFormOpen}
         plan={currentPlan}
         customers={customers}
         employees={mockEmployees}
