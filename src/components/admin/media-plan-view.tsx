@@ -301,19 +301,30 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   };
 
   const handleSendToClient = async () => {
-    // This is a client-side simulation.
-    // A real implementation would use a backend service to send emails.
-    toast({ title: 'Generating all files...', description: 'Your downloads will begin shortly.' });
+    toast({ title: 'Generating files...', description: 'Your downloads will begin shortly.' });
 
+    // Generate and download all files first.
     await exportPlanToPPT();
     await exportPlanToExcel();
     await exportPlanToPDF(pdfTemplate);
 
-    const clientEmail = customers.find(c => c.id === plan.customerId)?.contactPersons?.[0]?.name || 'the client';
+    // Find client info
+    const customer = customers.find(c => c.id === plan.customerId);
+    const clientEmail = customer?.contactPersons?.[0]?.email || 'client@example.com';
+    const clientName = customer?.contactPersons?.[0]?.name || 'Valued Client';
+
+    // Prepare mailto link
+    const subject = encodeURIComponent(`Media Plan Quotation: ${plan.displayName}`);
+    const body = encodeURIComponent(`Dear ${clientName},\n\nPlease find the attached media plan proposal (PPT, Excel, and PDF) for your review.\n\nWe look forward to hearing from you.\n\nBest regards,\n\n${plan.employee?.name || 'Your contact at MediaVenue'}`);
+    
+    const mailtoLink = `mailto:${clientEmail}?subject=${subject}&body=${body}`;
+    
+    // Open email client
+    window.location.href = mailtoLink;
 
     toast({
-        title: 'Files Ready for Sending!',
-        description: `Please manually attach the downloaded PPT, Excel, and PDF files to an email for ${clientEmail}.`,
+        title: 'Ready to Send!',
+        description: `Your email client should open. Please attach the downloaded files.`,
         duration: 9000,
     });
   }

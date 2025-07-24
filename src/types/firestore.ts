@@ -22,6 +22,7 @@ export interface Customer {
     name: string;
     phone: string;
     designation: string;
+    email?: string;
   }[];
   addresses?: {
     type: 'billing' | 'shipping';
