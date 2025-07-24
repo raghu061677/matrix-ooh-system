@@ -32,6 +32,7 @@ import { collection, doc, getDoc, getDocs, query, where, updateDoc } from 'fireb
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { mediavenueLogo } from '@/lib/logo';
 
 interface MediaPlanViewProps {
   plan: MediaPlan;
@@ -60,6 +61,14 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   const [isAssetSelectorOpen, setIsAssetSelectorOpen] = React.useState(false);
   const [pdfTemplate, setPdfTemplate] = React.useState('classic');
   const { toast } = useToast();
+
+  React.useEffect(() => {
+    // In a real app, you might re-fetch the plan if dependencies change.
+    // For now, we sync the state with the initial prop.
+    const planFromSample = sampleAssets.find(p => p.id === initialPlan.id) as unknown as MediaPlan || initialPlan;
+     setPlan(planFromSample);
+  }, [initialPlan]);
+
 
   const handlePlanUpdate = (updatedPlan: MediaPlan) => {
     // In a real app, this would also save to Firestore
@@ -111,137 +120,116 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   }
 
   const exportPlanToPPT = async () => {
-      toast({ title: 'Generating PPTX...', description: 'Please wait, fetching data...' });
-      const pptx = new PptxGenJS();
-      pptx.author = "MediaVenue App";
+    const ppt = new PptxGenJS();
+    ppt.author = "OOH Media App";
 
-      const planId = plan.id;
-      const planDocRef = doc(db, "plans", planId);
-      const planDocSnap = await getDoc(planDocRef);
+    const planId = plan.id;
+    // const planSnap = await getDoc(doc(db, "plans", planId));
+    // if (!planSnap.exists()) {
+    //   alert("Plan not found");
+    //   return;
+    // }
+    const planData = plan; // Use local state
+    const assets = (planData as any).mediaAssets || sampleAssets.slice(0, 5);
 
-      if (!planDocSnap.exists()) {
-          toast({ variant: 'destructive', title: 'Error', description: 'Plan not found.' });
-          return;
-      }
-      const planData = planDocSnap.data() as MediaPlan;
-      
-      const planAssets = (planData as any).mediaAssets || sampleAssets.slice(0, 5); 
+    for (let i = 0; i < assets.length; i++) {
+        const asset = assets[i];
+        const slide = ppt.addSlide();
 
-      for (const asset of planAssets) {
-          const slide = pptx.addSlide();
-          slide.addText(`Asset ID: ${asset.mid || 'N/A'}`, { x: 0.5, y: 0.25, fontSize: 14, bold: true });
-          slide.addText(`Location: ${asset.location || 'N/A'}`, { x: 0.5, y: 0.5, fontSize: 12 });
-          slide.addText(`Size: ${asset.dimensions || 'N/A'}`, { x: 0.5, y: 0.75, fontSize: 12 });
-
-          const q = query(collection(db, "photoLibrary/photos"), where("iid", "==", asset.mid));
-          const photoSnap = await getDocs(q);
-          const photoUrls: string[] = [];
-
-          photoSnap.forEach(photoDoc => {
-              const photoData = photoDoc.data();
-              if (photoData.storagePath) {
-                  photoUrls.push(photoData.storagePath);
-              }
-          });
-          
-          const urlsToProcess = photoUrls.length > 0 ? photoUrls : asset.imageUrls || [];
-
-          for (let i = 0; i < Math.min(2, urlsToProcess.length); i++) {
-              const imageUrl = urlsToProcess[i];
-              try {
-                  const imageBase64 = await imageToBase64(imageUrl);
-                  if (imageBase64) {
-                      slide.addImage({ data: imageBase64, x: 0.5 + i * 5.0, y: 1.2, w: 4.5, h: 2.53 });
-                  }
-              } catch (err) {
-                  console.warn(`Could not load image for asset ${asset.mid}:`, err);
-                  slide.addText('Image not available', { x: 0.5 + i * 5.0, y: 1.2, w: 4.5, h: 2.53, align: 'center', fill: { color: 'F1F1F1' } });
-              }
-          }
-      }
-
-      const blob = await pptx.write({ outputType: 'blob' });
-      try {
-        const downloadURL = await uploadFileAndGetURL(planId, blob, "preview.pptx");
+        slide.addText(`${i + 1}. ${asset.area} - ${asset.city}`, { x: 0.5, y: 0.3, fontSize: 14, bold: true });
+        slide.addText(`Size: ${asset.width1 || asset.width}ft x ${asset.height1 || asset.height}ft`, { x: 0.5, y: 0.7, fontSize: 12 });
         
-        await updateDoc(planDocRef, {
-            'exports.pptUrl': downloadURL,
-            'exports.lastGeneratedAt': new Date()
-        });
+        const photos = asset.imageUrls || []; // Using imageUrls from sample data
+        if (photos[0]) {
+            const imageBase64 = await imageToBase64(photos[0]);
+            if (imageBase64) slide.addImage({ data: imageBase64, x: 0.5, y: 1.2, w: 4, h: 3 });
+        }
+        if (photos[1]) {
+            const imageBase64 = await imageToBase64(photos[1]);
+            if(imageBase64) slide.addImage({ data: imageBase64, x: 5, y: 1.2, w: 4, h: 3 });
+        }
+    }
 
+    const buffer = await ppt.write("arraybuffer");
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
+    
+    const filename = `${planData.displayName || 'MediaPlan'}_${planId}.pptx`;
+
+    try {
+        const downloadURL = await uploadFileAndGetURL(planId, blob, filename);
+        await updateDoc(doc(db, "plans", planId), {
+            "exports.pptUrl": downloadURL,
+            "exports.lastGeneratedAt": new Date()
+        });
         toast({
           title: 'PPTX Exported Successfully!',
           description: 'The presentation has been saved to Firebase Storage.',
           action: <a href={downloadURL} target="_blank" rel="noopener noreferrer"><Button variant="outline">Open Link</Button></a>,
         });
-      } catch (error) {
-        toast({ variant: 'destructive', title: 'Upload Failed', description: 'Could not upload the PPTX file.' });
-        console.error("Upload error:", error);
-      }
+    } catch (error) {
+       toast({ variant: 'destructive', title: 'Upload Failed', description: 'Could not upload the PPTX file.' });
+       console.error("Upload error:", error);
+    }
   };
   
   const exportPlanToExcel = async () => {
-    toast({ title: 'Generating Excel...', description: 'Please wait, fetching data...' });
-    const planId = plan.id;
-    const planDocRef = doc(db, "plans", planId);
-    const planDoc = await getDoc(planDocRef);
+      const planId = plan.id;
+      // const planDoc = await getDoc(doc(db, "plans", planId));
+      // if (!planDoc.exists()) {
+      //   alert("Plan not found");
+      //   return;
+      // }
+      const planData = plan; // Use local state
+      const assets = (planData as any).mediaAssets || sampleAssets.slice(0, 5);
 
-    if (!planDoc.exists()) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Plan not found.' });
-      return;
-    }
-    const planData = planDoc.data() as MediaPlan;
-    
-    const assets = (planData as any).mediaAssets || sampleAssets.slice(0, 5); 
+      const worksheetData: (string | number)[][] = [
+        [
+          "S.No", "Location", "City", "Size (ft)", "Qty", "Rate", "Printing", "Mounting", "Total", "GST (18%)", "Grand Total"
+        ],
+      ];
 
-    const worksheetData: (string | number)[][] = [
-      [
-        "S.No", "Location", "City", "Size (ft)", "Qty", "Rate", "Printing", "Mounting", "Total", "GST (18%)", "Grand Total"
-      ],
-    ];
+      assets.forEach((asset: Asset, index: number) => {
+        const rate = (asset as any).rate || asset.baseRate || 0;
+        const printing = (asset as any).printing || 0;
+        const mounting = (asset as any).mounting || 3500;
+        const total = rate + printing + mounting;
+        const gst = total * 0.18;
+        const grandTotal = total + gst;
 
-    assets.forEach((asset: Asset, index: number) => {
-      const rate = asset.baseRate || 0;
-      const printing = 0; // Replace with actual printing cost for the asset in the plan
-      const mounting = 3500; // Replace with actual mounting cost for the asset in the plan
-      const total = rate + printing + mounting;
-      const gst = total * 0.18;
-      const grandTotal = total + gst;
+        worksheetData.push([
+          index + 1,
+          asset.area || '',
+          asset.city || '',
+          `${asset.width1} x ${asset.height1}`,
+          (asset as any).quantity || 1,
+          rate,
+          printing,
+          mounting,
+          total,
+          gst,
+          grandTotal
+        ]);
+      });
 
-      worksheetData.push([
-        index + 1,
-        asset.area || '',
-        asset.city || '',
-        `${asset.width1} x ${asset.height1}`,
-        1, // Replace with actual quantity if applicable
-        rate,
-        printing,
-        mounting,
-        total,
-        gst,
-        grandTotal
-      ]);
-    });
+      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Media Plan");
+      const filename = `${planData.displayName || 'MediaPlan'}_${planId}.xlsx`;
 
-    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Media Plan");
+      // Write to Blob
+      const excelBlob = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+      const blob = new Blob([excelBlob], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
 
-    const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([wbout], {type:"application/octet-stream"});
-
-    try {
-        const downloadURL = await uploadFileAndGetURL(planId, blob, "plan.xlsx");
-        
-        await updateDoc(planDocRef, {
-            'exports.excelUrl': downloadURL,
-            'exports.lastGeneratedAt': new Date()
+      try {
+        const url = await uploadFileAndGetURL(planId, blob, filename);
+        await updateDoc(doc(db, "plans", planId), {
+            "exports.excelUrl": url,
+            "exports.lastGeneratedAt": new Date()
         });
-
         toast({
           title: 'Excel Exported Successfully!',
           description: 'The spreadsheet has been saved to Firebase Storage.',
-          action: <a href={downloadURL} target="_blank" rel="noopener noreferrer"><Button variant="outline">Open Link</Button></a>,
+          action: <a href={url} target="_blank" rel="noopener noreferrer"><Button variant="outline">Open Link</Button></a>,
         });
       } catch (error) {
         toast({ variant: 'destructive', title: 'Upload Failed', description: 'Could not upload the Excel file.' });
@@ -252,97 +240,94 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   const exportPlanToPDF = async (templateStyle = 'classic') => {
      toast({ title: 'Generating PDF...', description: 'Please wait while we prepare your work order.' });
      const planId = plan.id;
-     const planDocRef = await getDoc(doc(db, "plans", planId));
-     if (!planDocRef.exists()) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Plan not found.' });
-        return;
-     }
-     const planData = planDocRef.data() as MediaPlan;
+     // const planDocRef = await getDoc(doc(db, "plans", planId));
+     // if (!planDocRef.exists()) {
+     //    toast({ variant: 'destructive', title: 'Error', description: 'Plan not found.' });
+     //    return;
+     // }
+     // const planData = planDocRef.data() as MediaPlan;
+     const planData = plan;
      const assets = (planData as any).mediaAssets || sampleAssets.slice(0, 7);
      const customer = customers.find(c => c.id === plan.customerId);
 
      const pdf = new jsPDF();
+      
+      // Header
+      pdf.addImage(mediavenueLogo, 'PNG', 14, 12, 50, 15);
+      pdf.setFontSize(22);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Quote', 195, 20, { align: 'right' });
+      pdf.line(14, 30, 196, 30);
 
-     // Company branding
-      const companyName = "Matrix Network Solutions";
-      const companyAddress = "H.No: 7-1-19/5/201, Jyothi Bhopal Apartments, Near Begumpet Metro Station, Opp Country Club, Begumpet, Hyderabad 500016, Telangana, India";
-      const gstin = "GSTIN: 36AATFM4107H2Z3";
-      const pan = "PAN: AATFM4107H";
-
-      // Add branding based on template style
-      if (templateStyle === 'classic' || templateStyle === 'modern' || templateStyle === 'bold') {
-        pdf.setFontSize(16);
-        pdf.setFont("helvetica", "bold");
-        pdf.text(companyName, 14, 20);
-        pdf.setFontSize(10);
-        pdf.setFont("helvetica", "normal");
-        pdf.text(companyAddress, 14, 26);
-        pdf.text(gstin, 14, 31);
-        pdf.text(pan, 14, 36);
+      // Billing Info
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Bill To:', 14, 40);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(customer?.name || 'N/A', 14, 45);
+      const address = customer?.addresses?.[0];
+      if (address) {
+          pdf.text(`${address.street}, ${address.city}`, 14, 50);
+          pdf.text(`${address.state} - ${address.postalCode}`, 14, 55);
       }
-      
-      // Plan info
-      const startDate = planData.startDate?.seconds ? new Date(planData.startDate.seconds * 1000) : new Date(plan.startDate);
-      const endDate = planData.endDate?.seconds ? new Date(planData.endDate.seconds * 1000) : new Date(plan.endDate);
-      
-      pdf.setFontSize(12);
-      pdf.text(`Quotation: ${planData.displayName || planId}`, 14, 46);
-      pdf.text(`Client: ${planData.customerName || 'Client Name'}`, 14, 52);
-      pdf.text(`Start Date: ${format(startDate, 'dd/MM/yyyy')}`, 14, 58);
-      pdf.text(`End Date: ${format(endDate, 'dd/MM/yyyy')}`, 14, 64);
+
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Ship To:', 110, 40);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(customer?.name || 'N/A', 110, 45);
+       if (address) {
+          pdf.text(`${address.street}, ${address.city}`, 110, 50);
+          pdf.text(`${address.state} - ${address.postalCode}`, 110, 55);
+      }
 
 
       // Table setup
       const body = assets.map((asset: any, index: number) => {
-        const rate = asset.rate || asset.baseRate || 0;
-        const printing = asset.printing || 0;
-        const mounting = asset.mounting || 0;
-        const total = rate + printing + mounting;
-        const gst = total * 0.18;
-        const grandTotal = total + gst;
+        const rate = (asset as any).rate || asset.baseRate || 0;
+        const total = rate; // Simplified for this example
 
         return [
           index + 1,
-          asset.area,
-          asset.city,
-          `${asset.width1 || asset.width} x ${asset.height1 || asset.height}`,
-          asset.quantity || 1,
-          rate.toFixed(2),
-          printing.toFixed(2),
-          mounting.toFixed(2),
-          total.toFixed(2),
-          gst.toFixed(2),
-          grandTotal.toFixed(2)
+          `${asset.location}\n${asset.area}, ${asset.city}`,
+          `${plan.days} days`,
+          formatCurrency(rate),
+          formatCurrency(total)
         ];
       });
 
-      let headStyles: { fillColor: any } = { fillColor: [0, 0, 0] }; // Classic
-      if (templateStyle === 'modern') headStyles = { fillColor: [41, 128, 185] };
-      if (templateStyle === 'bold') headStyles = { fillColor: [210, 80, 55] };
+      const totalAmount = assets.reduce((sum: number, asset: any) => sum + ((asset as any).rate || asset.baseRate || 0), 0);
+      const cgst = totalAmount * 0.09;
+      const sgst = totalAmount * 0.09;
+      const grandTotal = totalAmount + cgst + sgst;
+
 
       autoTable(pdf, {
         startY: 70,
-        head: [[
-          "S.No", "Location", "City", "Size", "Qty", "Rate", "Printing", "Mounting", "Total", "GST", "Grand Total"
-        ]],
+        head: [['#', 'Location & Description', 'Duration', 'Rate', 'Amount']],
         body,
-        theme: templateStyle === 'modern' ? 'grid' : 'striped',
-        headStyles: headStyles
+        theme: 'striped',
+        headStyles: { fillColor: [40, 40, 40] },
+        didDrawPage: (data) => {
+            // Totals
+            const finalY = data.cursor?.y ? data.cursor.y + 10 : 150;
+            pdf.setFontSize(10);
+            pdf.text('Sub Total:', 150, finalY, { align: 'right' });
+            pdf.text(formatCurrency(totalAmount)!, 195, finalY, { align: 'right' });
+            pdf.text('CGST (9%):', 150, finalY + 5, { align: 'right' });
+            pdf.text(formatCurrency(cgst)!, 195, finalY + 5, { align: 'right' });
+            pdf.text('SGST (9%):', 150, finalY + 10, { align: 'right' });
+            pdf.text(formatCurrency(sgst)!, 195, finalY + 10, { align: 'right' });
+            pdf.setFont('helvetica', 'bold');
+            pdf.text('Grand Total:', 150, finalY + 15, { align: 'right' });
+            pdf.text(formatCurrency(grandTotal)!, 195, finalY + 15, { align: 'right' });
+
+            // Footer
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            pdf.setFontSize(8);
+            pdf.text('This is a computer-generated document.', 14, pageHeight - 10);
+            pdf.text('Authorized Signature', 195, pageHeight - 15, { align: 'right' });
+        }
       });
-
-      const finalY = (pdf as any).lastAutoTable.finalY;
-
-     // Summary
-     pdf.text(`Total Before Tax: ${formatCurrency(plan.costSummary?.totalBeforeTax)}`, 140, finalY + 10);
-     pdf.text(`GST (18%): ${formatCurrency(plan.costSummary?.gst)}`, 140, finalY + 16);
-     pdf.setFont("helvetica", "bold");
-     pdf.text(`Grand Total: ${formatCurrency(plan.costSummary?.grandTotal)}`, 140, finalY + 22);
-
-     // Footer
-     pdf.setFontSize(10);
-     pdf.setFont("helvetica", "normal");
-     pdf.text("For MediaVenue", 30, finalY + 50);
-     pdf.text("Client Signature", 150, finalY + 50);
 
      const blob = pdf.output('blob');
      try {
@@ -444,8 +429,8 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                             <p className="text-sm font-semibold">{plan.employee?.name}</p>
                         </div>
                     </div>
-                    <InfoRow label="Start Date" value={format(new Date(plan.startDate), 'dd MMM yy')} />
-                    <InfoRow label="End Date" value={format(new Date(plan.endDate), 'dd MMM yy')} />
+                    <InfoRow label="Start Date" value={plan.startDate ? format(new Date(plan.startDate as any), 'dd MMM yy') : ''} />
+                    <InfoRow label="End Date" value={plan.endDate ? format(new Date(plan.endDate as any), 'dd MMM yy') : ''} />
                     <InfoRow label="Days" value={plan.days} />
                 </CardContent>
             </Card>
@@ -526,7 +511,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
             </Card>
 
             {/* Export Card */}
-            <Card>
+             <Card>
                 <CardHeader>
                     <CardTitle className="text-base">Export Plan Options</CardTitle>
                 </CardHeader>
@@ -580,5 +565,3 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   );
 
 }
-
-    

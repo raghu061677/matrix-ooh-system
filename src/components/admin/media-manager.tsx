@@ -104,18 +104,29 @@ export function MediaManager() {
   useEffect(() => {
     const getMediaAssets = async () => {
       setLoading(true);
-      // In a real app, you'd fetch from Firestore.
-      // For now, we use sample data for testing.
-      setMediaAssets(sampleAssets);
-      setLoading(false);
-      
-      // const data = await getDocs(mediaAssetsCollectionRef);
-      // setMediaAssets(data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Asset)));
-      // setLoading(false);
+      try {
+        const data = await getDocs(mediaAssetsCollectionRef);
+        const dbAssets = data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Asset));
+        if (dbAssets.length > 0) {
+            setMediaAssets(dbAssets);
+        } else {
+            setMediaAssets(sampleAssets);
+        }
+      } catch (e) {
+        console.error("Error fetching media assets:", e);
+        toast({
+            variant: 'destructive',
+            title: 'Error fetching assets',
+            description: 'Could not retrieve asset data. Using sample data.'
+        });
+        setMediaAssets(sampleAssets);
+      } finally {
+        setLoading(false);
+      }
     };
 
     getMediaAssets();
-  }, []);
+  }, [toast]);
   
   useEffect(() => {
     const { structure, width1, height1, width2, height2 } = formData;
@@ -196,9 +207,9 @@ export function MediaManager() {
       uploadedUrls.push(downloadURL);
     }
     
-    // In a real app, update Firestore. Here we update local state.
-    // const assetDoc = doc(db, 'media_assets', assetId);
-    // await updateDoc(assetDoc, { imageUrls: arrayUnion(...uploadedUrls) });
+    
+    const assetDoc = doc(db, 'media_assets', assetId);
+    await updateDoc(assetDoc, { imageUrls: arrayUnion(...uploadedUrls) });
     
     const newImageUrls = [...(currentAsset.imageUrls || []), ...uploadedUrls];
     const updatedAsset = { ...currentAsset, imageUrls: newImageUrls };
@@ -218,13 +229,12 @@ export function MediaManager() {
 
     try {
         const assetId = currentAsset.id;
-        // In real app, delete from Firebase Storage
-        // const imageRef = ref(storage, imageUrlToDelete);
-        // await deleteObject(imageRef);
+        
+        const imageRef = ref(storage, imageUrlToDelete);
+        await deleteObject(imageRef);
 
-        // In real app, remove from Firestore document
-        // const assetDoc = doc(db, 'media_assets', assetId);
-        // await updateDoc(assetDoc, { imageUrls: arrayRemove(imageUrlToDelete) });
+        const assetDoc = doc(db, 'media_assets', assetId);
+        await updateDoc(assetDoc, { imageUrls: arrayRemove(imageUrlToDelete) });
 
         const updatedImageUrls = currentAsset.imageUrls?.filter(url => url !== imageUrlToDelete);
         const updatedAsset = { ...currentAsset, imageUrls: updatedImageUrls };
@@ -247,10 +257,9 @@ export function MediaManager() {
     e.preventDefault();
     setIsSaving(true);
     
-    if (currentAsset) {
-      // In real app, update Firestore
-      // const assetDoc = doc(db, 'media_assets', currentAsset.id);
-      // await updateDoc(assetDoc, formData);
+    if (currentAsset?.id) {
+      const assetDoc = doc(db, 'media_assets', currentAsset.id);
+      await updateDoc(assetDoc, formData);
 
       const updatedAsset = { ...currentAsset, ...formData };
       setMediaAssets(mediaAssets.map(asset => 
@@ -259,10 +268,9 @@ export function MediaManager() {
       setCurrentAsset(updatedAsset); // Keep dialog populated with saved data
       toast({ title: 'Asset Updated!', description: 'The media asset details have been saved.' });
     } else {
-      // In real app, add to Firestore
-      // const docRef = await addDoc(mediaAssetsCollectionRef, { ...formData, imageUrls: [] });
-      // const newAsset = { ...formData, imageUrls: [], id: docRef.id } as Asset;
-      const newAsset = { ...formData, imageUrls: [], id: `new-${Date.now()}` } as Asset;
+      
+      const docRef = await addDoc(mediaAssetsCollectionRef, { ...formData, imageUrls: [] });
+      const newAsset = { ...formData, imageUrls: [], id: docRef.id } as Asset;
 
       setMediaAssets([...mediaAssets, newAsset]);
       toast({ title: 'Asset Added!', description: 'You can now upload images to this asset.' });
@@ -288,9 +296,8 @@ export function MediaManager() {
   };
   
   const handleDelete = async (asset: Asset) => {
-     // In real app, delete from Firestore
-     // const assetDoc = doc(db, 'media_assets', asset.id);
-     // await deleteDoc(assetDoc);
+     const assetDoc = doc(db, 'media_assets', asset.id);
+     await deleteDoc(assetDoc);
      setMediaAssets(mediaAssets.filter(a => a.id !== asset.id));
      toast({ title: 'Asset Deleted', description: `${asset.location} has been removed.` });
   };
