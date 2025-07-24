@@ -33,11 +33,13 @@ const sampleData: MediaPlan[] = [
 export default function NegotiationPage({ params }: { params: { id: string } }) {
   const [plan, setPlan] = React.useState<MediaPlan | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const id = params.id;
 
   React.useEffect(() => {
+    if (!id) return;
     const fetchData = async () => {
         // In a real app, you would fetch all these from Firestore
-        const foundPlan = sampleData.find(p => p.id === params.id);
+        const foundPlan = sampleData.find(p => p.id === id);
         if (foundPlan) {
             setPlan(foundPlan);
         }
@@ -45,7 +47,7 @@ export default function NegotiationPage({ params }: { params: { id: string } }) 
         setLoading(false);
     }
     fetchData();
-  }, [params.id]);
+  }, [id]);
 
   if (loading) {
     return (
