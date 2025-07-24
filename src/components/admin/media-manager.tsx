@@ -95,6 +95,126 @@ type SortConfig = {
   direction: 'ascending' | 'descending';
 } | null;
 
+const sampleAssets: Asset[] = [
+    {
+      id: 'asset-1',
+      mid: 'HYD-001',
+      ownership: 'own',
+      media: 'Hoarding',
+      state: 'Telangana',
+      district: 'Hyderabad',
+      city: 'Hyderabad',
+      area: 'Banjara Hills',
+      location: 'Main Road, Near GVK One Mall',
+      dimensions: "40' x 20'",
+      structure: 'single',
+      width1: 40,
+      height1: 20,
+      sqft: 800,
+      light: 'Front-Lit',
+      status: 'active',
+      imageUrls: ['https://placehold.co/600x400.png'],
+      latitude: 17.4173,
+      longitude: 78.4498,
+      baseRate: 50000,
+      cardRate: 65000,
+    },
+    {
+      id: 'asset-2',
+      mid: 'BLR-005',
+      ownership: 'rented',
+      media: 'Bus Shelter',
+      state: 'Karnataka',
+      district: 'Bengaluru (Bangalore) Urban',
+      city: 'Bengaluru',
+      area: 'Koramangala',
+      location: '80 Feet Road, Near Sony World Signal',
+      dimensions: "10' x 5'",
+      structure: 'single',
+      width1: 10,
+      height1: 5,
+      sqft: 50,
+      light: 'BackLit',
+      status: 'active',
+      supplierId: 'SUP-012',
+      imageUrls: ['https://placehold.co/600x400.png'],
+      latitude: 12.9352,
+      longitude: 77.6245,
+      baseRate: 15000,
+      cardRate: 20000,
+    },
+     {
+      id: 'asset-3',
+      mid: 'MUM-010',
+      ownership: 'own',
+      media: 'Cantilever',
+      state: 'Maharashtra',
+      district: 'Mumbai Suburban',
+      city: 'Mumbai',
+      area: 'Andheri',
+      location: 'Western Express Highway, Near Metro Station',
+      dimensions: "30' x 15'",
+      structure: 'single',
+      width1: 30,
+      height1: 15,
+      sqft: 450,
+      light: 'Front-Lit',
+      status: 'active',
+      imageUrls: ['https://placehold.co/600x400.png'],
+      latitude: 19.1197,
+      longitude: 72.8464,
+      baseRate: 70000,
+      cardRate: 90000,
+    },
+    {
+      id: 'asset-4',
+      mid: 'DEL-002',
+      ownership: 'own',
+      media: 'Unipole',
+      state: 'Delhi',
+      district: 'South Delhi',
+      city: 'New Delhi',
+      area: 'Saket',
+      location: 'Near Select Citywalk Mall',
+      dimensions: "20' x 10'",
+      structure: 'single',
+      width1: 20,
+      height1: 10,
+      sqft: 200,
+      light: 'BackLit',
+      status: 'active',
+      imageUrls: ['https://placehold.co/600x400.png'],
+      latitude: 28.5285,
+      longitude: 77.2194,
+      baseRate: 60000,
+      cardRate: 75000,
+    },
+     {
+      id: 'asset-5',
+      mid: 'CHE-007',
+      ownership: 'rented',
+      media: 'Hoarding',
+      state: 'Tamil Nadu',
+      district: 'Chennai',
+      city: 'Chennai',
+      area: 'T. Nagar',
+      location: 'Usman Road, Panagal Park',
+      dimensions: "50' x 12'",
+      structure: 'single',
+      width1: 50,
+      height1: 12,
+      sqft: 600,
+      light: 'Non-Lit',
+      status: 'active',
+      supplierId: 'SUP-008',
+      imageUrls: ['https://placehold.co/600x400.png'],
+      latitude: 13.0400,
+      longitude: 80.2359,
+      baseRate: 45000,
+      cardRate: 55000,
+    },
+];
+
 
 export function MediaManager() {
   const [mediaAssets, setMediaAssets] = useState<Asset[]>([]);
@@ -135,9 +255,14 @@ export function MediaManager() {
   useEffect(() => {
     const getMediaAssets = async () => {
       setLoading(true);
-      const data = await getDocs(mediaAssetsCollectionRef);
-      setMediaAssets(data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Asset)));
+      // In a real app, you'd fetch from Firestore.
+      // For now, we use sample data for testing.
+      setMediaAssets(sampleAssets);
       setLoading(false);
+      
+      // const data = await getDocs(mediaAssetsCollectionRef);
+      // setMediaAssets(data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Asset)));
+      // setLoading(false);
     };
 
     getMediaAssets();
@@ -627,6 +752,8 @@ export function MediaManager() {
                     <SelectItem value="Bus Shelter">Bus Shelter</SelectItem>
                     <SelectItem value="Center Median">Center Median</SelectItem>
                     <SelectItem value="Cantilever">Cantilever</SelectItem>
+                    <SelectItem value="Hoarding">Hoarding</SelectItem>
+                    <SelectItem value="Unipole">Unipole</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -818,5 +945,3 @@ export function MediaManager() {
     </TooltipProvider>
   );
 }
-
-    
