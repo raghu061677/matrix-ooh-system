@@ -74,7 +74,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                  <SidebarMenuButton asChild isActive={pathname === '/admin/media-assets'}>
                    <Link href="/admin/media-assets">
                     <LayoutGrid />
-                    <span>Media Assets</span>
+                    <span className="whitespace-nowrap">Media Assets</span>
                    </Link>
                  </SidebarMenuButton>
               </SidebarMenuItem>
@@ -82,7 +82,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                  <SidebarMenuButton asChild isActive={pathname === '/admin/media-plans'}>
                    <Link href="/admin/media-plans">
                     <FileText />
-                    <span>Media Plans</span>
+                    <span className="whitespace-nowrap">Media Plans</span>
                    </Link>
                  </SidebarMenuButton>
               </SidebarMenuItem>
@@ -90,7 +90,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                  <SidebarMenuButton asChild isActive={pathname === '/admin/campaigns'}>
                    <Link href="/admin/campaigns">
                     <ListChecks />
-                    <span>Campaigns</span>
+                    <span className="whitespace-nowrap">Campaigns</span>
                    </Link>
                  </SidebarMenuButton>
               </SidebarMenuItem>
