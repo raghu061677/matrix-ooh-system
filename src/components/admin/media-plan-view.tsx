@@ -265,18 +265,26 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
             <Button onClick={handleConvertToCampaign}>Convert to Campaign</Button>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon"><MoreVertical /></Button>
+                    <Button variant="outline"><Download className="mr-2" /> Export Plan</Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                     <DropdownMenuItem onSelect={exportPlanToPPT}>
-                      <Download className="mr-2" /> Export as PPT
+                      <FileText className="mr-2" /> Export as PPT
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={exportPlanToExcel}>
-                      <Download className="mr-2" /> Export as Excel
+                      <FileText className="mr-2" /> Export as Excel
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={exportPlanToPDF}>
                       <FileText className="mr-2" /> Export as PDF Work Order
                     </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon"><MoreVertical /></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => setIsDialogOpen(true)}><Edit className="mr-2" /> Edit Plan Details</DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem><Trash2 className="mr-2" /> Delete</DropdownMenuItem>
                     <DropdownMenuItem><Ban className="mr-2" /> Block</DropdownMenuItem>
@@ -425,5 +433,3 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
     </div>
   );
 }
-
-    
