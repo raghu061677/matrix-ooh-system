@@ -113,7 +113,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                     <CardTitle className="text-base">Statistics</CardTitle>
                 </CardHeader>
                 <CardContent>
-                     <InfoRow label="HA Markup">
+                     <InfoRow label="Asset Markup">
                         <span className="font-medium text-green-600">
                            {formatCurrency(plan.statistics?.haMarkup)} ({plan.statistics?.haMarkupPercentage}%)
                         </span>
