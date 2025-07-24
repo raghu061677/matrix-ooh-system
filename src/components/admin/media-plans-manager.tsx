@@ -1,6 +1,7 @@
 
 'use client';
 
+import * as React from 'react';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
@@ -325,7 +326,7 @@ export function MediaPlansManager() {
             }
 
            if (value) {
-            slide.addText(`${col.label}: ${String(value)}`, { x: 0.5, y, fontSize: 12 });
+            slide.addText(`${String(value)}: ${String(value)}`, { x: 0.5, y, fontSize: 12 });
             y += 0.4;
            }
         }
@@ -627,5 +628,3 @@ export function MediaPlansManager() {
     </TooltipProvider>
   );
 }
-
-    
