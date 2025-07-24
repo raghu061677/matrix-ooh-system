@@ -39,10 +39,11 @@ export default function MediaPlanPage({ params }: { params: { id: string } }) {
   const [plan, setPlan] = React.useState<MediaPlan | null>(null);
   const [customers, setCustomers] = React.useState<Customer[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const id = params.id;
-
+  
   React.useEffect(() => {
+    const id = params.id;
     if (!id) return;
+    
     const fetchData = async () => {
         // In a real app, you would fetch all these from Firestore
         const foundPlan = sampleData.find(p => p.id === id);
@@ -57,7 +58,7 @@ export default function MediaPlanPage({ params }: { params: { id: string } }) {
         setLoading(false);
     }
     fetchData();
-  }, [id]);
+  }, [params.id]);
 
   if (loading) {
     return (
