@@ -21,7 +21,7 @@ import {
   SidebarGroupLabel,
   SidebarGroupContent,
 } from '@/components/ui/sidebar';
-import { Projector, LayoutGrid, ListChecks, FileText, LogOut, Loader2, Home, Users, ReceiptText } from 'lucide-react';
+import { Projector, LayoutGrid, ListChecks, FileText, LogOut, Loader2, Home, Users, ReceiptText, FilePieChart, AreaChart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -147,6 +147,30 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                       </SidebarMenuItem>
                     </SidebarMenu>
                  </SidebarGroupContent>
+             </SidebarGroup>
+
+             <SidebarGroup>
+                <SidebarGroupLabel>Reports</SidebarGroupLabel>
+                <SidebarGroupContent>
+                    <SidebarMenu>
+                       <SidebarMenuItem>
+                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/reports/media')} tooltip="Media Reports">
+                           <Link href="#">
+                            <FilePieChart />
+                            <span className="whitespace-nowrap">Media Reports</span>
+                           </Link>
+                         </SidebarMenuButton>
+                      </SidebarMenuItem>
+                      <SidebarMenuItem>
+                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/reports/financial')} tooltip="Financial Reports">
+                           <Link href="#">
+                            <AreaChart />
+                            <span className="whitespace-nowrap">Financial Reports</span>
+                           </Link>
+                         </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    </SidebarMenu>
+                </SidebarGroupContent>
              </SidebarGroup>
 
           </SidebarContent>
