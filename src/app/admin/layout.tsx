@@ -20,14 +20,18 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem
 } from '@/components/ui/sidebar';
-import { Projector, LayoutGrid, ListChecks, FileText, LogOut, Loader2, Home, Users, ReceiptText, FilePieChart, AreaChart } from 'lucide-react';
+import { Projector, LayoutGrid, ListChecks, FileText, LogOut, Loader2, Home, Users, ReceiptText, FilePieChart, AreaChart, Dot, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { ThemeProvider, useTheme } from '@/components/admin/theme-provider';
 import { ThemeToggle } from '@/components/admin/theme-toggle';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState(null);
@@ -36,6 +40,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const auth = getAuth(firebaseApp);
   const pathname = usePathname();
   const { theme } = useTheme();
+  const [reportsOpen, setReportsOpen] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -152,15 +157,32 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
              <SidebarGroup>
                 <SidebarGroupLabel>Reports</SidebarGroupLabel>
                 <SidebarGroupContent>
+                  <Collapsible open={reportsOpen} onOpenChange={setReportsOpen}>
                     <SidebarMenu>
                        <SidebarMenuItem>
-                         <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/reports/media')} tooltip="Media Reports">
-                           <Link href="#">
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton>
                             <FilePieChart />
                             <span className="whitespace-nowrap">Media Reports</span>
-                           </Link>
-                         </SidebarMenuButton>
+                            <ChevronDown className={cn("ml-auto transition-transform", reportsOpen && "rotate-180")}/>
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
                       </SidebarMenuItem>
+                    </SidebarMenu>
+                    <CollapsibleContent>
+                       <SidebarMenuSub>
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild>
+                              <Link href="#">
+                                <Dot />
+                                <span>Availability Report</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                       </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </Collapsible>
+                  <SidebarMenu>
                       <SidebarMenuItem>
                          <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/reports/financial')} tooltip="Financial Reports">
                            <Link href="#">
@@ -169,7 +191,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                            </Link>
                          </SidebarMenuButton>
                       </SidebarMenuItem>
-                    </SidebarMenu>
+                  </SidebarMenu>
                 </SidebarGroupContent>
              </SidebarGroup>
 
