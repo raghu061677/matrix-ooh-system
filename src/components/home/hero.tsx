@@ -19,7 +19,7 @@ export function Hero() {
           High-Impact Advertising, Unforgettable Locations
         </h1>
         <p className="mt-4 text-lg md:text-xl text-primary-foreground/80 max-w-2xl mx-auto">
-          Connect your brand with millions. MediaVenue offers premium out-of-home advertising spaces that capture attention and drive results.
+          Connect your brand with millions. Matrix Network Solutions offers premium out-of-home advertising spaces that capture attention and drive results.
         </p>
         <div className="mt-8 flex justify-center gap-4">
           <Button size="lg" asChild>

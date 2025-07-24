@@ -6,15 +6,15 @@ import { Footer } from '@/components/layout/footer';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'MediaVenue - Premium OOH Advertising Solutions',
+  title: 'Matrix Network Solutions - Premium OOH Advertising Solutions',
   description:
-    'Explore premium out-of-home media locations with MediaVenue. We offer high-impact advertising opportunities to elevate your brand presence.',
+    'Explore premium out-of-home media locations with Matrix Network Solutions. We offer high-impact advertising opportunities to elevate your brand presence.',
   keywords: [
     'OOH advertising',
     'billboards',
     'media locations',
     'outdoor advertising',
-    'MediaVenue',
+    'Matrix Network Solutions',
   ],
 };
 
