@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
@@ -28,10 +28,17 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { 
@@ -42,8 +49,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2, Loader2, Image as ImageIcon, SlidersHorizontal, ArrowUpDown } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, Image as ImageIcon, SlidersHorizontal, ArrowUpDown, Upload, Download } from 'lucide-react';
 import exifParser from 'exif-parser';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import PptxGenJS from 'pptxgenjs';
+
 
 type Asset = {
   id: string;
@@ -78,6 +90,7 @@ export function MediaManager() {
   const [imageFiles, setImageFiles] = useState<FileList | null>(null);
   const [filter, setFilter] = useState('');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [columnVisibility, setColumnVisibility] = useState({
     image: true,
     mediaId: true,
@@ -98,7 +111,6 @@ export function MediaManager() {
   const { toast } = useToast();
   const mediaAssetsCollectionRef = collection(db, 'media_assets');
 
-  // Controlled form states for geo-coordinates
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
 
@@ -227,7 +239,9 @@ export function MediaManager() {
     let sortableAssets = [...mediaAssets];
     if (filter) {
       sortableAssets = sortableAssets.filter(asset =>
-        asset.location?.toLowerCase().includes(filter.toLowerCase())
+        Object.values(asset).some(val => 
+          String(val).toLowerCase().includes(filter.toLowerCase())
+        )
       );
     }
     if (sortConfig !== null) {
@@ -252,9 +266,9 @@ export function MediaManager() {
       return <ArrowUpDown className="ml-2 h-4 w-4" />;
     }
     if (sortConfig.direction === 'ascending') {
-      return <ArrowUpDown className="ml-2 h-4 w-4" />; // Or a dedicated up arrow
+      return <ArrowUpDown className="ml-2 h-4 w-4" />; 
     }
-    return <ArrowUpDown className="ml-2 h-4 w-4" />; // Or a dedicated down arrow
+    return <ArrowUpDown className="ml-2 h-4 w-4" />; 
   };
   
   const columns: { key: keyof typeof columnVisibility, label: string, sortable?: boolean }[] = [
@@ -274,6 +288,75 @@ export function MediaManager() {
     { key: 'status', label: 'Status', sortable: true },
   ];
   
+  const exportToExcel = () => {
+    const worksheet = XLSX.utils.json_to_sheet(sortedAndFilteredAssets);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Media Assets');
+    XLSX.writeFile(workbook, 'media-assets.xlsx');
+  };
+
+  const exportToPdf = () => {
+    const doc = new jsPDF();
+    doc.text('Media Assets', 20, 10);
+    (doc as any).autoTable({
+      head: [columns.filter(c => c.key !== 'image').map(c => c.label)],
+      body: sortedAndFilteredAssets.map(asset => 
+        columns.filter(c => c.key !== 'image').map(col => asset[col.key as keyof Asset] ?? '')
+      ),
+    });
+    doc.save('media-assets.pdf');
+  };
+
+  const exportToPpt = () => {
+    const pptx = new PptxGenJS();
+    sortedAndFilteredAssets.forEach(asset => {
+      const slide = pptx.addSlide();
+      slide.addText(`Media Asset: ${asset.mediaId || 'N/A'}`, { x: 0.5, y: 0.5, fontSize: 18, bold: true });
+      let y = 1.0;
+      columns.forEach(col => {
+        if (col.key !== 'image' && asset[col.key as keyof Asset]) {
+           slide.addText(`${col.label}: ${asset[col.key as keyof Asset]}`, { x: 0.5, y, fontSize: 12 });
+           y += 0.4;
+        }
+      });
+      if (asset.imageUrls && asset.imageUrls[0]) {
+         slide.addImage({ path: asset.imageUrls[0], x: 6, y: 1, w: 3, h: 2 });
+      }
+    });
+    pptx.writeFile({ fileName: 'media-assets.pptx' });
+  };
+  
+  const handleImport = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+        const data = event.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet);
+
+        setLoading(true);
+        for (const item of json) {
+            await addDoc(mediaAssetsCollectionRef, item);
+        }
+        
+        const updatedData = await getDocs(mediaAssetsCollectionRef);
+        setMediaAssets(updatedData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Asset)));
+        setLoading(false);
+        toast({ title: 'Import Successful', description: `${json.length} assets have been imported.` });
+    };
+    reader.readAsBinaryString(file);
+    if(fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+
   if (loading && !isDialogOpen) {
     return (
         <div className="flex items-center justify-center h-48">
@@ -283,22 +366,65 @@ export function MediaManager() {
   }
 
   return (
-    <>
+    <TooltipProvider>
       <div className="flex justify-between items-center mb-6 gap-4">
         <div className="flex items-center gap-2">
            <Input
-            placeholder="Filter by location..."
+            placeholder="Filter assets..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             className="max-w-sm"
           />
-           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon">
-                <SlidersHorizontal className="h-4 w-4" />
-                <span className="sr-only">Toggle columns</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="icon" onClick={handleImport}>
+                  <Upload className="h-4 w-4" />
+                  <span className="sr-only">Import</span>
               </Button>
-            </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>Import from Excel</TooltipContent>
+          </Tooltip>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileImport}
+            className="hidden"
+            accept=".xlsx, .xls"
+          />
+
+          <DropdownMenu>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="icon">
+                            <Download className="h-4 w-4" />
+                            <span className="sr-only">Export</span>
+                        </Button>
+                    </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>Export Assets</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportToExcel}>Excel</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportToPdf}>PDF</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportToPpt}>PowerPoint</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+           <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <SlidersHorizontal className="h-4 w-4" />
+                    <span className="sr-only">Toggle columns</span>
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Toggle Columns</TooltipContent>
+            </Tooltip>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -316,11 +442,11 @@ export function MediaManager() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
+          <Button onClick={() => openDialog()}>
+            <PlusCircle className="mr-2" />
+            Add New Asset
+          </Button>
         </div>
-        <Button onClick={() => openDialog()}>
-          <PlusCircle className="mr-2" />
-          Add New Asset
-        </Button>
       </div>
       <div className="border rounded-lg">
         <Table>
@@ -486,6 +612,6 @@ export function MediaManager() {
           </form>
         </DialogContent>
       </Dialog>
-    </>
+    </TooltipProvider>
   );
 }
