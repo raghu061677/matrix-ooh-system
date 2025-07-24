@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -29,7 +28,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { db, storage } from '@/lib/firebase';
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
-import { ref, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
@@ -45,6 +44,13 @@ const InfoRow: React.FC<{ label: string; value?: string | number | null; childre
         {value !== undefined && value !== null ? <span className="font-medium">{value}</span> : children}
     </div>
 );
+
+// Helper function to upload a file to Firebase Storage and return its URL
+async function uploadFileAndGetURL(planId: string, fileBlob: Blob, fileName: string) {
+  const exportRef = ref(storage, `exports/plans/${planId}/${fileName}`);
+  await uploadBytes(exportRef, fileBlob);
+  return await getDownloadURL(exportRef);
+}
 
 
 export function MediaPlanView({ plan: initialPlan, customers, employees }: MediaPlanViewProps) {
@@ -104,6 +110,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   }
 
   const exportPlanToPPT = async () => {
+      const { toast } = useToast();
       toast({ title: 'Generating PPTX...', description: 'Please wait, fetching data...' });
       const pptx = new PptxGenJS();
       pptx.author = "MediaVenue App";
@@ -153,8 +160,18 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
           }
       }
 
-      const filename = `${planData.displayName || 'MediaPlan'}_${planId}.pptx`;
-      pptx.writeFile({ fileName: filename });
+      const blob = await pptx.write({ outputType: 'blob' });
+      try {
+        const downloadURL = await uploadFileAndGetURL(planId, blob, "preview.pptx");
+        toast({
+          title: 'PPTX Exported Successfully!',
+          description: 'The presentation has been saved to Firebase Storage.',
+          action: <a href={downloadURL} target="_blank" rel="noopener noreferrer"><Button variant="outline">Open Link</Button></a>,
+        });
+      } catch (error) {
+        toast({ variant: 'destructive', title: 'Upload Failed', description: 'Could not upload the PPTX file.' });
+        console.error("Upload error:", error);
+      }
   };
   
   const exportPlanToExcel = async () => {
@@ -203,8 +220,20 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Media Plan");
 
-    const filename = `${planData.displayName || 'MediaPlan'}_${planId}.xlsx`;
-    XLSX.writeFile(workbook, filename);
+    const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], {type:"application/octet-stream"});
+
+    try {
+        const downloadURL = await uploadFileAndGetURL(planId, blob, "plan.xlsx");
+        toast({
+          title: 'Excel Exported Successfully!',
+          description: 'The spreadsheet has been saved to Firebase Storage.',
+          action: <a href={downloadURL} target="_blank" rel="noopener noreferrer"><Button variant="outline">Open Link</Button></a>,
+        });
+      } catch (error) {
+        toast({ variant: 'destructive', title: 'Upload Failed', description: 'Could not upload the Excel file.' });
+        console.error("Upload error:", error);
+      }
   };
 
   const exportPlanToPDF = async (templateStyle = 'classic') => {
@@ -228,10 +257,12 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
       const pan = "PAN: AATFM4107H";
 
       // Add branding based on template style
-      if (templateStyle === 'classic') {
+      if (templateStyle === 'classic' || templateStyle === 'modern' || templateStyle === 'bold') {
         pdf.setFontSize(16);
+        pdf.setFont("helvetica", "bold");
         pdf.text(companyName, 14, 20);
         pdf.setFontSize(10);
+        pdf.setFont("helvetica", "normal");
         pdf.text(companyAddress, 14, 26);
         pdf.text(gstin, 14, 31);
         pdf.text(pan, 14, 36);
@@ -272,6 +303,10 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
         ];
       });
 
+      let headStyles: { fillColor: any } = { fillColor: [0, 0, 0] }; // Classic
+      if (templateStyle === 'modern') headStyles = { fillColor: [41, 128, 185] };
+      if (templateStyle === 'bold') headStyles = { fillColor: [210, 80, 55] };
+
       autoTable(pdf, {
         startY: 70,
         head: [[
@@ -279,7 +314,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
         ]],
         body,
         theme: templateStyle === 'modern' ? 'grid' : 'striped',
-        headStyles: { fillColor: templateStyle === 'modern' ? [41, 128, 185] : [0, 0, 0] }
+        headStyles: headStyles
       });
 
       const finalY = (pdf as any).lastAutoTable.finalY;
@@ -296,8 +331,18 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
      pdf.text("For MediaVenue", 30, finalY + 50);
      pdf.text("Client Signature", 150, finalY + 50);
 
-     const filename = `${planData.displayName || 'MediaPlan'}_${planId}.pdf`;
-     pdf.save(filename);
+     const blob = pdf.output('blob');
+     try {
+        const downloadURL = await uploadFileAndGetURL(planId, blob, "quotation.pdf");
+        toast({
+          title: 'PDF Exported Successfully!',
+          description: 'The work order has been saved to Firebase Storage.',
+          action: <a href={downloadURL} target="_blank" rel="noopener noreferrer"><Button variant="outline">Open Link</Button></a>,
+        });
+      } catch (error) {
+        toast({ variant: 'destructive', title: 'Upload Failed', description: 'Could not upload the PDF file.' });
+        console.error("Upload error:", error);
+      }
   };
 
   const handleSendToClient = async () => {
@@ -474,8 +519,9 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="classic">Classic (Black & White)</SelectItem>
-                                <SelectItem value="modern">Modern (Blue Header)</SelectItem>
+                                <SelectItem value="classic">Classic (B&W)</SelectItem>
+                                <SelectItem value="modern">Modern (Blue)</SelectItem>
+                                <SelectItem value="bold">Bold (Future template)</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -485,9 +531,9 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                             Send to Client
                         </Button>
                         <Separator />
-                        <Button onClick={exportPlanToPPT} variant="outline">Download PPT</Button>
-                        <Button onClick={exportPlanToExcel} variant="outline">Download Excel</Button>
-                        <Button onClick={() => exportPlanToPDF(pdfTemplate)} variant="outline">Download PDF (Work Order)</Button>
+                        <Button onClick={exportPlanToPPT} variant="outline">Upload PPT</Button>
+                        <Button onClick={exportPlanToExcel} variant="outline">Upload Excel</Button>
+                        <Button onClick={() => exportPlanToPDF(pdfTemplate)} variant="outline">Upload PDF (Work Order)</Button>
                     </div>
                 </CardContent>
             </Card>
