@@ -1,7 +1,9 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -24,30 +26,42 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2 } from 'lucide-react';
-import { mediaLocations as initialMediaLocations } from '@/components/home/portfolio';
+import { PlusCircle, Edit, Trash2, Loader2 } from 'lucide-react';
 
 export function MediaManager() {
-  const [mediaAssets, setMediaAssets] = useState(initialMediaLocations);
+  const [mediaAssets, setMediaAssets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentAsset, setCurrentAsset] = useState<any>(null);
-  const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
-  const [assetToDelete, setAssetToDelete] = useState<any>(null);
   const { toast } = useToast();
+  const mediaAssetsCollectionRef = collection(db, 'media_assets');
 
-  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    const getMediaAssets = async () => {
+      setLoading(true);
+      const data = await getDocs(mediaAssetsCollectionRef);
+      setMediaAssets(data.docs.map((doc) => ({ ...doc.data(), id: doc.id })));
+      setLoading(false);
+    };
+
+    getMediaAssets();
+  }, []);
+
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
     const assetData: any = Object.fromEntries(formData.entries());
     
     if (currentAsset) {
       // Edit existing asset
+      const assetDoc = doc(db, 'media_assets', currentAsset.id);
+      await updateDoc(assetDoc, assetData);
       setMediaAssets(mediaAssets.map(asset => asset.id === currentAsset.id ? { ...asset, ...assetData, id: currentAsset.id } : asset));
       toast({ title: 'Asset Updated!', description: 'The media asset has been successfully updated.' });
     } else {
       // Add new asset
-      assetData.id = mediaAssets.length > 0 ? Math.max(...mediaAssets.map(a => a.id)) + 1 : 1;
-      setMediaAssets([...mediaAssets, assetData]);
+      const docRef = await addDoc(mediaAssetsCollectionRef, assetData);
+      setMediaAssets([...mediaAssets, { ...assetData, id: docRef.id }]);
       toast({ title: 'Asset Added!', description: 'The new media asset has been added.' });
     }
 
@@ -64,10 +78,20 @@ export function MediaManager() {
     setCurrentAsset(null);
   };
   
-  const handleDelete = (asset: any) => {
+  const handleDelete = async (asset: any) => {
+     const assetDoc = doc(db, 'media_assets', asset.id);
+     await deleteDoc(assetDoc);
      setMediaAssets(mediaAssets.filter(a => a.id !== asset.id));
      toast({ title: 'Asset Deleted', description: `${asset.title} has been removed.` });
   };
+  
+  if (loading) {
+    return (
+        <div className="flex items-center justify-center h-48">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        </div>
+    );
+  }
 
   return (
     <>
