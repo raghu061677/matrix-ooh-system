@@ -22,16 +22,44 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { format } from 'date-fns';
-import { MoreHorizontal, Search } from 'lucide-react';
+import { MoreHorizontal, Search, Download } from 'lucide-react';
 import { Campaign } from '@/types/media-plan';
+import { Asset, sampleAssets } from './media-manager-types';
+import { useToast } from '@/hooks/use-toast';
+import PptxGenJS from 'pptxgenjs';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 const sampleCampaigns: Campaign[] = [
     { id: '4', projectId: 'P00106', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerName: 'MediaVenue', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, inventorySummary: { totalSqft: 1280 }, costSummary: { grandTotal: 224200 }, statistics: { qos: '42.5%' }, status: 'Active' },
 ];
 
+// Helper to fetch an image and convert it to a base64 data URI
+async function imageToBase64(url: string): Promise<string> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.statusText}`);
+    }
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error(`Error converting image to base64: ${url}`, error);
+    // Return a placeholder or handle the error as needed
+    return ''; 
+  }
+}
+
 export function CampaignManager() {
   const [campaigns, setCampaigns] = useState<Campaign[]>(sampleCampaigns);
   const [filter, setFilter] = useState('');
+  const { toast } = useToast();
 
   const filteredCampaigns = useMemo(() => {
     return campaigns.filter(campaign =>
@@ -43,6 +71,104 @@ export function CampaignManager() {
       })
     );
   }, [campaigns, filter]);
+
+  const downloadCampaignPPT = async (campaign: Campaign) => {
+    toast({ title: 'Generating PPTX...', description: 'Please wait while we prepare your presentation.' });
+    // In a real app, you would fetch assets for the campaign.
+    const campaignAssets = sampleAssets.slice(0, 4); 
+    const pptx = new PptxGenJS();
+    pptx.layout = 'LAYOUT_16x9';
+
+    pptx.addSlide().addText(`Campaign Report: ${campaign.displayName}`, { 
+      x: 0.5, y: 2.5, w: '90%', h: 1, align: 'center', fontSize: 36, bold: true 
+    });
+
+    const imagePromises = campaignAssets.flatMap(asset => asset.imageUrls?.map(url => imageToBase64(url)) || []);
+    const base64Images = await Promise.all(imagePromises);
+
+    for (let i = 0; i < campaignAssets.length; i += 2) {
+      const asset1 = campaignAssets[i];
+      const asset2 = campaignAssets[i+1];
+      const slide = pptx.addSlide();
+      
+      slide.addText(`Campaign: ${campaign.displayName} | Dates: ${format(new Date(campaign.startDate), 'dd/MM/yy')} - ${format(new Date(campaign.endDate), 'dd/MM/yy')}`, { x: 0.5, y: 0.25, w: '90%', h: 0.5, fontSize: 12 });
+
+      if (asset1) {
+        slide.addText(`Location: ${asset1.location} | Size: ${asset1.dimensions}`, { x: 0.5, y: 0.75, w: 4, h: 0.5, fontSize: 11 });
+        if (asset1.imageUrls?.[0]) slide.addImage({ data: await imageToBase64(asset1.imageUrls[0]), x: 0.5, y: 1.25, w: 4, h: 2.25 });
+        if (asset1.imageUrls?.[1]) slide.addImage({ data: await imageToBase64(asset1.imageUrls[1]), x: 0.5, y: 3.75, w: 4, h: 2.25 });
+      }
+
+      if (asset2) {
+         slide.addText(`Location: ${asset2.location} | Size: ${asset2.dimensions}`, { x: 5.5, y: 0.75, w: 4, h: 0.5, fontSize: 11 });
+        if (asset2.imageUrls?.[0]) slide.addImage({ data: await imageToBase64(asset2.imageUrls[0]), x: 5.5, y: 1.25, w: 4, h: 2.25 });
+        if (asset2.imageUrls?.[1]) slide.addImage({ data: await imageToBase64(asset2.imageUrls[1]), x: 5.5, y: 3.75, w: 4, h: 2.25 });
+      }
+    }
+    
+    pptx.writeFile({ fileName: `Campaign-${campaign.displayName}.pptx` });
+  };
+
+  const downloadCampaignPDF = async (campaign: Campaign) => {
+    toast({ title: 'Generating PDF...', description: 'Please wait while we prepare your document.' });
+    const doc = new jsPDF();
+    const campaignAssets = sampleAssets.slice(0, 4);
+
+    doc.text(`Campaign Report: ${campaign.displayName}`, 14, 20);
+    doc.setFontSize(12);
+    doc.text(`Customer: ${campaign.customerName}`, 14, 30);
+    doc.text(`Dates: ${format(new Date(campaign.startDate), 'dd MMM yyyy')} - ${format(new Date(campaign.endDate), 'dd MMM yyyy')}`, 14, 36);
+
+    let y = 50;
+    for (const asset of campaignAssets) {
+        if (y > 250) {
+            doc.addPage();
+            y = 20;
+        }
+        doc.setFontSize(11);
+        doc.text(`Asset: ${asset.location} (${asset.dimensions})`, 14, y);
+        y += 8;
+        if(asset.imageUrls?.[0]) {
+            const imgData = await imageToBase64(asset.imageUrls[0]);
+            if (imgData) doc.addImage(imgData, 'PNG', 14, y, 80, 45);
+        }
+        if(asset.imageUrls?.[1]) {
+            const imgData = await imageToBase64(asset.imageUrls[1]);
+            if(imgData) doc.addImage(imgData, 'PNG', 100, y, 80, 45);
+        }
+        y += 55;
+    }
+
+    doc.save(`Campaign-${campaign.displayName}.pdf`);
+  };
+
+  const downloadCampaignExcel = (campaign: Campaign) => {
+    toast({ title: 'Generating Excel...', description: 'Please wait while we prepare your spreadsheet.' });
+    const campaignAssets = sampleAssets.slice(0, 4);
+
+    const data = campaignAssets.map(asset => ({
+        'IID': asset.mid,
+        'Area': asset.area,
+        'City': asset.city,
+        'Width': asset.width1,
+        'Height': asset.height1,
+        'SQFT': asset.sqft,
+        'Mounting Cost': 1500, // Sample Data
+        'Printing Cost': 5000, // Sample Data
+        'Asset Cost': asset.baseRate,
+        'GST': (asset.baseRate || 0) * 0.18,
+        'Total': (asset.baseRate || 0) * 1.18 + 1500 + 5000,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Campaign Assets');
+
+    // Formatting would require a more advanced library or more complex setup.
+    // This provides the basic data export.
+    XLSX.writeFile(workbook, `Campaign-${campaign.displayName}.xlsx`);
+  };
+
 
   return (
     <div>
@@ -108,6 +234,18 @@ export function CampaignManager() {
                          <Link href={`/admin/campaigns/${campaign.id}`}>
                            View
                          </Link>
+                      </DropdownMenuItem>
+                       <DropdownMenuItem onClick={() => downloadCampaignPPT(campaign)}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Export to PPT
+                      </DropdownMenuItem>
+                       <DropdownMenuItem onClick={() => downloadCampaignPDF(campaign)}>
+                         <Download className="mr-2 h-4 w-4" />
+                        Export to PDF
+                      </DropdownMenuItem>
+                       <DropdownMenuItem onClick={() => downloadCampaignExcel(campaign)}>
+                         <Download className="mr-2 h-4 w-4" />
+                        Export to Excel
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
