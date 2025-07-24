@@ -23,10 +23,10 @@ export function Hero() {
         </p>
         <div className="mt-8 flex justify-center gap-4">
           <Button size="lg" asChild>
-            <Link href="#portfolio">Explore Our Portfolio</Link>
+            <Link href="/home#portfolio">Explore Our Portfolio</Link>
           </Button>
           <Button size="lg" variant="secondary" asChild>
-            <Link href="#contact">Request a Quote</Link>
+            <Link href="/home#contact">Request a Quote</Link>
           </Button>
         </div>
       </div>

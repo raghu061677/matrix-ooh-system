@@ -89,7 +89,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                  </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                 <SidebarMenuButton asChild isActive={pathname === '/admin/media-plans'} tooltip="Media Plans">
+                 <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/media-plans')} tooltip="Media Plans">
                    <Link href="/admin/media-plans">
                     <FileText />
                     <span className="whitespace-nowrap">Media Plans</span>
@@ -97,7 +97,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                  </SidebarMenuButton>
               </SidebarMenuItem>
                <SidebarMenuItem>
-                 <SidebarMenuButton asChild isActive={pathname === '/admin/campaigns'} tooltip="Campaigns">
+                 <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/campaigns')} tooltip="Campaigns">
                    <Link href="/admin/campaigns">
                     <ListChecks />
                     <span className="whitespace-nowrap">Campaigns</span>
@@ -120,7 +120,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
           <header className="flex items-center justify-between p-4 border-b">
              <SidebarTrigger />
              <h1 className="text-xl font-semibold capitalize">
-                {pathname.split('/').pop()?.replace('-', ' ')}
+                {pathname.split('/').pop()?.replace(/-/g, ' ')}
              </h1>
           </header>
           <main className="p-4 md:p-6">

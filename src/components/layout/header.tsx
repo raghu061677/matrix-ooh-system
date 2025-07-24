@@ -12,9 +12,9 @@ import {
 } from "@/components/ui/sheet"
 
 const navItems = [
-  { href: '#portfolio', label: 'Portfolio' },
-  { href: '#map', label: 'Our Locations' },
-  { href: '#contact', label: 'Contact Us' },
+  { href: '/home#portfolio', label: 'Portfolio' },
+  { href: '/home#map', label: 'Our Locations' },
+  { href: '/home#contact', label: 'Contact Us' },
   { href: '/login', label: 'Login' },
 ];
 
@@ -24,7 +24,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 max-w-screen-2xl items-center">
-        <Link href="/" className="mr-6 flex items-center space-x-2">
+        <Link href="/home" className="mr-6 flex items-center space-x-2">
           <Projector className="h-6 w-6 text-primary" />
           <span className="font-bold font-headline text-lg">Matrix Network Solutions</span>
         </Link>
@@ -51,7 +51,7 @@ export function Header() {
                 <SheetContent side="left">
                     <div className="flex flex-col h-full">
                       <div className="flex items-center justify-between border-b pb-4">
-                         <Link href="/" className="flex items-center space-x-2" onClick={() => setIsMobileMenuOpen(false)}>
+                         <Link href="/home" className="flex items-center space-x-2" onClick={() => setIsMobileMenuOpen(false)}>
                           <Projector className="h-6 w-6 text-primary" />
                           <span className="font-bold font-headline text-lg">Matrix Network Solutions</span>
                         </Link>
@@ -73,7 +73,7 @@ export function Header() {
               </Sheet>
             </div>
           <Button asChild className="hidden md:flex">
-            <Link href="#contact">Get a Quote</Link>
+            <Link href="/home#contact">Get a Quote</Link>
           </Button>
         </div>
       </div>

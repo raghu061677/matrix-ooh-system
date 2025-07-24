@@ -1,15 +1,13 @@
-import { Hero } from '@/components/home/hero';
-import { Portfolio } from '@/components/home/portfolio';
-import { LocationMap } from '@/components/home/location-map';
-import { ContactSection } from '@/components/home/contact-section';
+'use client';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
-export default function Home() {
-  return (
-    <>
-      <Hero />
-      <Portfolio />
-      <LocationMap />
-      <ContactSection />
-    </>
-  );
+export default function RootPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace('/home');
+  }, [router]);
+
+  return null;
 }
