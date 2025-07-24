@@ -19,6 +19,7 @@ import {
   SidebarRail,
   SidebarGroup,
   SidebarGroupLabel,
+  SidebarGroupContent,
 } from '@/components/ui/sidebar';
 import { Projector, LayoutGrid, ListChecks, FileText, LogOut, Loader2, Home, Users, ReceiptText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
