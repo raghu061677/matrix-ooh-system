@@ -95,7 +95,7 @@ export function MediaManager() {
      const assetDoc = doc(db, 'media_assets', asset.id);
      await deleteDoc(assetDoc);
      setMediaAssets(mediaAssets.filter(a => a.id !== asset.id));
-     toast({ title: 'Asset Deleted', description: `${asset.title} has been removed.` });
+     toast({ title: 'Asset Deleted', description: `${asset.location} has been removed.` });
   };
   
   if (loading && !isDialogOpen) {
@@ -119,8 +119,9 @@ export function MediaManager() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Title</TableHead>
               <TableHead>Location</TableHead>
+              <TableHead>District</TableHead>
+              <TableHead>Area</TableHead>
               <TableHead>Dimensions</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Card Rate</TableHead>
@@ -130,8 +131,9 @@ export function MediaManager() {
           <TableBody>
             {mediaAssets.map(asset => (
               <TableRow key={asset.id}>
-                <TableCell className="font-medium">{asset.title}</TableCell>
-                <TableCell>{asset.location}</TableCell>
+                <TableCell className="font-medium">{asset.location}</TableCell>
+                <TableCell>{asset.district}</TableCell>
+                <TableCell>{asset.area}</TableCell>
                 <TableCell>{asset.dimensions}</TableCell>
                 <TableCell>{asset.status}</TableCell>
                 <TableCell>{asset.cardRate}</TableCell>
@@ -160,12 +162,16 @@ export function MediaManager() {
           <form onSubmit={handleSave}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
               <div>
-                <Label htmlFor="title">Title</Label>
-                <Input id="title" name="title" defaultValue={currentAsset?.title} required />
-              </div>
-              <div>
                 <Label htmlFor="location">Location</Label>
                 <Input id="location" name="location" defaultValue={currentAsset?.location} required />
+              </div>
+              <div>
+                <Label htmlFor="district">District</Label>
+                <Input id="district" name="district" defaultValue={currentAsset?.district} />
+              </div>
+               <div>
+                <Label htmlFor="area">Area</Label>
+                <Input id="area" name="area" defaultValue={currentAsset?.area} />
               </div>
               <div>
                 <Label htmlFor="trafficDirection">Traffic Direction</Label>
