@@ -119,24 +119,22 @@ export function MediaManager() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Media ID</TableHead>
               <TableHead>Location</TableHead>
               <TableHead>District</TableHead>
               <TableHead>Area</TableHead>
-              <TableHead>Dimensions</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Card Rate</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {mediaAssets.map(asset => (
               <TableRow key={asset.id}>
-                <TableCell className="font-medium">{asset.location}</TableCell>
+                <TableCell className="font-medium">{asset.mediaId}</TableCell>
+                <TableCell>{asset.location}</TableCell>
                 <TableCell>{asset.district}</TableCell>
                 <TableCell>{asset.area}</TableCell>
-                <TableCell>{asset.dimensions}</TableCell>
                 <TableCell>{asset.status}</TableCell>
-                <TableCell>{asset.cardRate}</TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" onClick={() => openDialog(asset)}>
                     <Edit className="h-4 w-4" />
@@ -161,6 +159,10 @@ export function MediaManager() {
           </DialogHeader>
           <form onSubmit={handleSave}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+              <div>
+                <Label htmlFor="mediaId">Media ID</Label>
+                <Input id="mediaId" name="mediaId" defaultValue={currentAsset?.mediaId} />
+              </div>
               <div>
                 <Label htmlFor="location">Location</Label>
                 <Input id="location" name="location" defaultValue={currentAsset?.location} required />
