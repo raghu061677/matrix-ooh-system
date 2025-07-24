@@ -22,17 +22,16 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { ThemeProvider, useTheme } from '@/components/admin/theme-provider';
+import { ThemeToggle } from '@/components/admin/theme-toggle';
 
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const auth = getAuth(firebaseApp);
   const pathname = usePathname();
+  const { theme } = useTheme();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -61,7 +60,7 @@ export default function AdminLayout({
 
   return (
     <SidebarProvider>
-      <div className={cn("flex min-h-screen", "dark bg-background")}>
+      <div className={cn('flex min-h-screen', theme)}>
         <Sidebar>
           <SidebarHeader>
             <div className="flex items-center gap-2">
@@ -98,10 +97,13 @@ export default function AdminLayout({
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter>
-             <Button variant="ghost" className="justify-start gap-2" onClick={handleLogout}>
-                <LogOut />
-                <span>Logout</span>
-             </Button>
+             <div className="flex items-center justify-between">
+                <Button variant="ghost" className="justify-start gap-2" onClick={handleLogout}>
+                    <LogOut />
+                    <span>Logout</span>
+                </Button>
+                <ThemeToggle />
+             </div>
           </SidebarFooter>
         </Sidebar>
         <SidebarInset>
@@ -117,5 +119,18 @@ export default function AdminLayout({
         </SidebarInset>
       </div>
     </SidebarProvider>
+  );
+}
+
+
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <ThemeProvider>
+      <AdminLayoutContent>{children}</AdminLayoutContent>
+    </ThemeProvider>
   );
 }
