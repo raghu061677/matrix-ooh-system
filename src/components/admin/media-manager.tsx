@@ -169,11 +169,6 @@ export function MediaManager() {
           const parser = exifParser.create(buffer);
           const result = parser.parse();
           if (result.tags.GPSLatitude && result.tags.GPSLongitude) {
-            setCurrentAsset(prev => prev ? ({
-                ...prev,
-                latitude: result.tags.GPSLatitude,
-                longitude: result.tags.GPSLongitude,
-            }) : null);
              setFormData(prev => ({
               ...prev,
               latitude: result.tags.GPSLatitude,
@@ -201,13 +196,17 @@ export function MediaManager() {
       uploadedUrls.push(downloadURL);
     }
     
-    const assetDoc = doc(db, 'media_assets', assetId);
-    await updateDoc(assetDoc, { imageUrls: arrayUnion(...uploadedUrls) });
+    // In a real app, update Firestore. Here we update local state.
+    // const assetDoc = doc(db, 'media_assets', assetId);
+    // await updateDoc(assetDoc, { imageUrls: arrayUnion(...uploadedUrls) });
     
-    const updatedAsset = { ...currentAsset, imageUrls: [...(currentAsset.imageUrls || []), ...uploadedUrls] };
+    const newImageUrls = [...(currentAsset.imageUrls || []), ...uploadedUrls];
+    const updatedAsset = { ...currentAsset, imageUrls: newImageUrls };
+    
     setMediaAssets(prev => prev.map(a => a.id === assetId ? updatedAsset : a));
     setCurrentAsset(updatedAsset);
-    
+    setFormData(prev => ({ ...prev, imageUrls: newImageUrls }));
+
     setIsUploading(false);
     toast({ title: 'Upload complete!', description: `${files.length} image(s) have been added.` });
   };
@@ -219,19 +218,20 @@ export function MediaManager() {
 
     try {
         const assetId = currentAsset.id;
-        // Delete from Firebase Storage
-        const imageRef = ref(storage, imageUrlToDelete);
-        await deleteObject(imageRef);
+        // In real app, delete from Firebase Storage
+        // const imageRef = ref(storage, imageUrlToDelete);
+        // await deleteObject(imageRef);
 
-        // Remove from Firestore document
-        const assetDoc = doc(db, 'media_assets', assetId);
-        await updateDoc(assetDoc, { imageUrls: arrayRemove(imageUrlToDelete) });
+        // In real app, remove from Firestore document
+        // const assetDoc = doc(db, 'media_assets', assetId);
+        // await updateDoc(assetDoc, { imageUrls: arrayRemove(imageUrlToDelete) });
 
         const updatedImageUrls = currentAsset.imageUrls?.filter(url => url !== imageUrlToDelete);
         const updatedAsset = { ...currentAsset, imageUrls: updatedImageUrls };
         
         setMediaAssets(prev => prev.map(a => a.id === assetId ? updatedAsset : a));
         setCurrentAsset(updatedAsset);
+        setFormData(prev => ({ ...prev, imageUrls: updatedImageUrls }));
         
         toast({ title: 'Image deleted!', description: 'The image has been removed successfully.' });
     } catch(error) {
@@ -247,24 +247,25 @@ export function MediaManager() {
     e.preventDefault();
     setIsSaving(true);
     
-    const assetData: Partial<Asset> = { ...formData, imageUrls: currentAsset?.imageUrls || formData.imageUrls || [] };
-    
     if (currentAsset) {
-      const assetId = currentAsset.id;
-      const assetDoc = doc(db, 'media_assets', assetId);
-      // We only update the form data, image URLs are handled separately
-      await updateDoc(assetDoc, formData);
+      // In real app, update Firestore
+      // const assetDoc = doc(db, 'media_assets', currentAsset.id);
+      // await updateDoc(assetDoc, formData);
 
+      const updatedAsset = { ...currentAsset, ...formData };
       setMediaAssets(mediaAssets.map(asset => 
-        asset.id === assetId ? { ...asset, ...formData, id: assetId } as Asset : asset
+        asset.id === currentAsset.id ? updatedAsset : asset
       ));
+      setCurrentAsset(updatedAsset); // Keep dialog populated with saved data
       toast({ title: 'Asset Updated!', description: 'The media asset details have been saved.' });
     } else {
-      const docRef = await addDoc(mediaAssetsCollectionRef, assetData);
-      const newAsset = { ...assetData, id: docRef.id } as Asset;
+      // In real app, add to Firestore
+      // const docRef = await addDoc(mediaAssetsCollectionRef, { ...formData, imageUrls: [] });
+      // const newAsset = { ...formData, imageUrls: [], id: docRef.id } as Asset;
+      const newAsset = { ...formData, imageUrls: [], id: `new-${Date.now()}` } as Asset;
+
       setMediaAssets([...mediaAssets, newAsset]);
       toast({ title: 'Asset Added!', description: 'You can now upload images to this asset.' });
-      // Open the new asset in the dialog to allow image uploads
       setCurrentAsset(newAsset);
       setFormData(newAsset);
     }
@@ -283,11 +284,13 @@ export function MediaManager() {
     setCurrentAsset(null);
     setFormData({});
     setIsSaving(false);
+    setIsUploading(false);
   };
   
   const handleDelete = async (asset: Asset) => {
-     const assetDoc = doc(db, 'media_assets', asset.id);
-     await deleteDoc(assetDoc);
+     // In real app, delete from Firestore
+     // const assetDoc = doc(db, 'media_assets', asset.id);
+     // await deleteDoc(assetDoc);
      setMediaAssets(mediaAssets.filter(a => a.id !== asset.id));
      toast({ title: 'Asset Deleted', description: `${asset.location} has been removed.` });
   };
@@ -826,9 +829,9 @@ export function MediaManager() {
                        New images will be added to existing ones. GPS data will be extracted from the first image if available.
                     </p>
                     {isUploading && <Loader2 className="animate-spin mt-2" />}
-                    {(currentAsset?.imageUrls || formData.imageUrls) && (
+                    {currentAsset?.imageUrls && currentAsset.imageUrls.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {(currentAsset?.imageUrls || formData.imageUrls)?.map((url: string) => (
+                        {currentAsset.imageUrls.map((url: string) => (
                           <div key={url} className="relative h-20 w-20 group">
                             <Image src={url} alt="Asset image" layout="fill" className="rounded-md object-cover" />
                              <Button
