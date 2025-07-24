@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -5,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { firebaseApp } from '@/lib/firebase';
 import { MediaManager } from '@/components/admin/media-manager';
-import { Loader2 }s from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 export default function AdminDashboard() {
   const [user, setUser] = useState(null);
