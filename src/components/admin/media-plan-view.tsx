@@ -15,7 +15,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MediaPlan } from '@/types/media-plan';
 import { format } from 'date-fns';
-import { ChevronLeft, MoreVertical, Edit, Trash2, Ban, Copy, Share, List, Link as LinkIcon, Download, FileText } from 'lucide-react';
+import { ChevronLeft, MoreVertical, Edit, Trash2, Ban, Copy, Share, List, Link as LinkIcon, Download, FileText, Send } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { cn } from '@/lib/utils';
 import { MediaPlanFormDialog } from './media-plan-form-dialog';
@@ -116,7 +116,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
           toast({ variant: 'destructive', title: 'Error', description: 'Plan not found.' });
           return;
       }
-      const planData = planDocSnap.data();
+      const planData = planDocSnap.data() as MediaPlan;
       
       const planAssets = (planData as any).mediaAssets || sampleAssets.slice(0, 5); 
 
@@ -166,7 +166,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
       toast({ variant: 'destructive', title: 'Error', description: 'Plan not found.' });
       return;
     }
-    const planData = planDoc.data();
+    const planData = planDoc.data() as MediaPlan;
     
     const assets = (planData as any).mediaAssets || sampleAssets.slice(0, 5); 
 
@@ -215,7 +215,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
         toast({ variant: 'destructive', title: 'Error', description: 'Plan not found.' });
         return;
      }
-     const planData = docRef.data();
+     const planData = docRef.data() as MediaPlan;
      const assets = (planData as any).mediaAssets || sampleAssets.slice(0, 7);
      const customer = customers.find(c => c.id === plan.customerId);
 
@@ -299,6 +299,24 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
      const filename = `${planData.displayName || 'MediaPlan'}_${planId}.pdf`;
      pdf.save(filename);
   };
+
+  const handleSendToClient = async () => {
+    // This is a client-side simulation.
+    // A real implementation would use a backend service to send emails.
+    toast({ title: 'Generating all files...', description: 'Your downloads will begin shortly.' });
+
+    await exportPlanToPPT();
+    await exportPlanToExcel();
+    await exportPlanToPDF(pdfTemplate);
+
+    const clientEmail = customers.find(c => c.id === plan.customerId)?.contactPersons?.[0]?.name || 'the client';
+
+    toast({
+        title: 'Files Ready for Sending!',
+        description: `Please manually attach the downloaded PPT, Excel, and PDF files to an email for ${clientEmail}.`,
+        duration: 9000,
+    });
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -451,9 +469,14 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                         </Select>
                     </div>
                     <div className="flex flex-col space-y-2">
-                        <Button onClick={exportPlanToPPT}>Download PPT</Button>
-                        <Button onClick={exportPlanToExcel}>Download Excel</Button>
-                        <Button onClick={() => exportPlanToPDF(pdfTemplate)}>Download PDF (Work Order)</Button>
+                        <Button onClick={handleSendToClient} variant="default">
+                            <Send className="mr-2 h-4 w-4" />
+                            Send to Client
+                        </Button>
+                        <Separator />
+                        <Button onClick={exportPlanToPPT} variant="outline">Download PPT</Button>
+                        <Button onClick={exportPlanToExcel} variant="outline">Download Excel</Button>
+                        <Button onClick={() => exportPlanToPDF(pdfTemplate)} variant="outline">Download PDF (Work Order)</Button>
                     </div>
                 </CardContent>
             </Card>
