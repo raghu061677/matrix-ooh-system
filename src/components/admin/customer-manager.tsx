@@ -39,6 +39,13 @@ import {
 } from "@/components/ui/tooltip"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Edit, Trash2, Loader2, Search, SlidersHorizontal, ArrowUpDown, Upload, Download } from 'lucide-react';
 import { Customer } from '@/types/firestore';
@@ -53,6 +60,8 @@ type SortConfig = {
   direction: 'ascending' | 'descending';
 } | null;
 
+type SearchableField = 'name' | 'gst' | 'pocName' | 'pocPhone';
+
 
 export function CustomerManager() {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -63,6 +72,7 @@ export function CustomerManager() {
   const [isFetchingGst, startGstTransition] = useTransition();
 
   const [filter, setFilter] = useState('');
+  const [searchField, setSearchField] = useState<SearchableField>('name');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [columnVisibility, setColumnVisibility] = useState({
@@ -206,11 +216,23 @@ export function CustomerManager() {
   const sortedAndFilteredCustomers = useMemo(() => {
     let sortableCustomers = [...customers];
     if (filter) {
-      sortableCustomers = sortableCustomers.filter(customer =>
-        Object.values(customer).some(val => 
-          String(val).toLowerCase().includes(filter.toLowerCase())
-        )
-      );
+      sortableCustomers = sortableCustomers.filter(customer => {
+        const searchTerm = filter.toLowerCase();
+        switch (searchField) {
+          case 'name':
+            return customer.name?.toLowerCase().includes(searchTerm);
+          case 'gst':
+            return customer.gst?.toLowerCase().includes(searchTerm);
+          case 'pocName':
+            return customer.contactPersons?.some(p => p.name?.toLowerCase().includes(searchTerm));
+          case 'pocPhone':
+            return customer.contactPersons?.some(p => p.phone?.toLowerCase().includes(searchTerm));
+          default:
+            return Object.values(customer).some(val =>
+              String(val).toLowerCase().includes(searchTerm)
+            );
+        }
+      });
     }
     if (sortConfig !== null) {
       sortableCustomers.sort((a, b) => {
@@ -227,7 +249,7 @@ export function CustomerManager() {
       });
     }
     return sortableCustomers;
-  }, [customers, filter, sortConfig]);
+  }, [customers, filter, sortConfig, searchField]);
 
   const getSortIcon = (key: keyof Customer) => {
     if (!sortConfig || sortConfig.key !== key) {
@@ -377,6 +399,17 @@ export function CustomerManager() {
     <TooltipProvider>
       <div className="flex justify-between items-center mb-6 gap-4">
         <div className="flex items-center gap-2">
+            <Select onValueChange={(value: SearchableField) => setSearchField(value)} defaultValue={searchField}>
+                <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Search by..." />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="name">Customer Name</SelectItem>
+                    <SelectItem value="gst">GST</SelectItem>
+                    <SelectItem value="pocName">POC Name</SelectItem>
+                    <SelectItem value="pocPhone">POC Number</SelectItem>
+                </SelectContent>
+            </Select>
            <Input
             placeholder="Filter customers..."
             value={filter}
@@ -524,7 +557,7 @@ export function CustomerManager() {
               </div>
               <div>
                 <Label htmlFor="code">Customer Code</Label>
-                <Input id="code" name="code" value={formData.code || ''} onChange={handleFormChange} readOnly={!currentCustomer} />
+                <Input id="code" name="code" value={formData.code || ''} onChange={handleFormChange} readOnly={!!currentCustomer} />
               </div>
               <div>
                 <Label htmlFor="gst">GST Number</Label>
@@ -592,4 +625,5 @@ export function CustomerManager() {
   );
 }
 
+    
     
