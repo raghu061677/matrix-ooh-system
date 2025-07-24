@@ -2,15 +2,14 @@
 'use client';
 
 import Link from 'next/link';
-import { Projector, Menu, X } from 'lucide-react';
+import { Projector, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Sheet,
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet"
-import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '#portfolio', label: 'Portfolio' },
@@ -20,7 +19,16 @@ const navItems = [
 ];
 
 export function Header() {
+  const [isMounted, setIsMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) {
+    return null; // or a loading skeleton
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -41,36 +49,38 @@ export function Header() {
           ))}
         </nav>
         <div className="flex flex-1 items-center justify-end">
-          <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" className="md:hidden">
-                <Menu />
-                <span className="sr-only">Open Menu</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left">
-                <div className="flex flex-col h-full">
-                  <div className="flex items-center justify-between border-b pb-4">
-                     <Link href="/" className="flex items-center space-x-2" onClick={() => setIsMobileMenuOpen(false)}>
-                      <Projector className="h-6 w-6 text-primary" />
-                      <span className="font-bold font-headline text-lg">Matrix Network Solutions</span>
-                    </Link>
+           <div className="md:hidden">
+              <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost">
+                    <Menu />
+                    <span className="sr-only">Open Menu</span>
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left">
+                    <div className="flex flex-col h-full">
+                      <div className="flex items-center justify-between border-b pb-4">
+                         <Link href="/" className="flex items-center space-x-2" onClick={() => setIsMobileMenuOpen(false)}>
+                          <Projector className="h-6 w-6 text-primary" />
+                          <span className="font-bold font-headline text-lg">Matrix Network Solutions</span>
+                        </Link>
+                      </div>
+                      <nav className="flex flex-col gap-4 mt-6">
+                        {navItems.map((item) => (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="text-lg font-medium transition-colors hover:text-primary"
+                          >
+                            {item.label}
+                          </Link>
+                        ))}
+                      </nav>
                   </div>
-                  <nav className="flex flex-col gap-4 mt-6">
-                    {navItems.map((item) => (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="text-lg font-medium transition-colors hover:text-primary"
-                      >
-                        {item.label}
-                      </Link>
-                    ))}
-                  </nav>
-              </div>
-            </SheetContent>
-          </Sheet>
+                </SheetContent>
+              </Sheet>
+            </div>
           <Button asChild className="hidden md:flex">
             <Link href="#contact">Get a Quote</Link>
           </Button>
