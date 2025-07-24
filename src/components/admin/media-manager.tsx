@@ -287,6 +287,18 @@ export function MediaManager() {
     { key: 'longitude', label: 'Longitude' },
     { key: 'status', label: 'Status', sortable: true },
   ];
+
+  const exportTemplateToExcel = () => {
+    const headers = [
+      'mediaId', 'district', 'area', 'location', 'trafficDirection', 
+      'dimensions', 'totalSqft', 'lighting', 'basePrice', 'cardRate', 
+      'latitude', 'longitude', 'status'
+    ];
+    const worksheet = XLSX.utils.aoa_to_sheet([headers]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Media Assets Template');
+    XLSX.writeFile(workbook, 'media-assets-template.xlsx');
+  };
   
   const exportToExcel = () => {
     const worksheet = XLSX.utils.json_to_sheet(sortedAndFilteredAssets);
@@ -393,6 +405,16 @@ export function MediaManager() {
             className="hidden"
             accept=".xlsx, .xls"
           />
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="icon" onClick={exportTemplateToExcel}>
+                  <Download className="h-4 w-4" />
+                  <span className="sr-only">Download Template</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Download Excel Template</TooltipContent>
+          </Tooltip>
 
           <DropdownMenu>
             <Tooltip>
