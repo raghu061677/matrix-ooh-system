@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -25,10 +25,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, Search } from 'lucide-react';
 import { Customer } from '@/types/firestore';
 import { statesAndDistricts } from '@/lib/india-states';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { getGstDetails } from '@/lib/actions';
 
 export function CustomerManager() {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -36,6 +37,7 @@ export function CustomerManager() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
   const [formData, setFormData] = useState<Partial<Customer>>({});
+  const [isFetchingGst, startGstTransition] = useTransition();
 
   const { toast } = useToast();
   const customersCollectionRef = collection(db, 'customers');
@@ -73,6 +75,45 @@ export function CustomerManager() {
         if(!updatedArray[index]) updatedArray[index] = {} as any;
         (updatedArray[index] as any)[name] = value;
         return { ...prev, [objectName]: updatedArray };
+    });
+  };
+
+  const handleGstFetch = () => {
+    const gstNumber = formData.gst;
+    if (!gstNumber) {
+        toast({
+            variant: 'destructive',
+            title: 'GST Number required',
+            description: 'Please enter a GST number to fetch details.',
+        });
+        return;
+    }
+    startGstTransition(async () => {
+        const result = await getGstDetails({ gstNumber });
+        if (result.error) {
+            toast({
+                variant: 'destructive',
+                title: 'Error fetching GST details',
+                description: result.error,
+            });
+        } else if (result.data) {
+            const { legalName, address, city, state, pincode } = result.data;
+            setFormData(prev => ({
+                ...prev,
+                name: legalName,
+                addresses: [{
+                    type: 'billing',
+                    street: address,
+                    city: city,
+                    state: state,
+                    postalCode: pincode,
+                }]
+            }));
+            toast({
+                title: 'Details Fetched!',
+                description: 'Customer name and address have been populated.',
+            });
+        }
     });
   };
 
@@ -180,7 +221,12 @@ export function CustomerManager() {
               </div>
               <div>
                 <Label htmlFor="gst">GST Number</Label>
-                <Input id="gst" name="gst" value={formData.gst || ''} onChange={handleFormChange} />
+                <div className="flex items-center gap-2">
+                    <Input id="gst" name="gst" value={formData.gst || ''} onChange={handleFormChange} />
+                    <Button type="button" variant="outline" size="icon" onClick={handleGstFetch} disabled={isFetchingGst}>
+                        {isFetchingGst ? <Loader2 className="animate-spin" /> : <Search />}
+                    </Button>
+                </div>
               </div>
 
               <div className="md:col-span-2">
