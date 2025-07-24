@@ -12,12 +12,12 @@ export default function PrintingExpensesPage() {
                 Printing Expenses
             </CardTitle>
              <CardDescription>
-                Track all costs associated with printing flex and other campaign materials.
+                This section displays costs associated with printing jobs. The expense data is pulled from the "Media Plans" or "Operations" sections.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">
-                This section will contain a detailed log of all printing expenses, including vendor details, costs per square foot, and associated campaigns.
+                To log a printing expense, please go to the relevant Media Plan or Operation Task and add the cost details there. This ensures that financial data and campaign activities are always in sync.
             </p>
           </CardContent>
         </Card>
