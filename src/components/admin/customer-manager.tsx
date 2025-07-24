@@ -111,7 +111,7 @@ export function CustomerManager() {
             }));
             toast({
                 title: 'Details Fetched!',
-                description: 'Customer name and address have been populated.',
+                description: 'Business name and address have been populated.',
             });
         }
     });
@@ -212,7 +212,7 @@ export function CustomerManager() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 py-4">
               
               <div className="md:col-span-2">
-                <Label htmlFor="name">Customer Name</Label>
+                <Label htmlFor="name">Business Name</Label>
                 <Input id="name" name="name" value={formData.name || ''} onChange={handleFormChange} required />
               </div>
               <div>
