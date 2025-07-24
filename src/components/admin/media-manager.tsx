@@ -2,8 +2,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
+import Image from 'next/image';
+import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -32,7 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, Image as ImageIcon } from 'lucide-react';
 
 export function MediaManager() {
   const [mediaAssets, setMediaAssets] = useState<any[]>([]);
@@ -40,6 +42,7 @@ export function MediaManager() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentAsset, setCurrentAsset] = useState<any>(null);
   const [status, setStatus] = useState<string | undefined>(undefined);
+  const [imageFiles, setImageFiles] = useState<FileList | null>(null);
   const { toast } = useToast();
   const mediaAssetsCollectionRef = collection(db, 'media_assets');
 
@@ -54,15 +57,35 @@ export function MediaManager() {
     getMediaAssets();
   }, []);
 
+  const handleImageUpload = async () => {
+    if (!imageFiles) return [];
+    
+    const imageUrls: string[] = [];
+    for (const file of Array.from(imageFiles)) {
+      const imageRef = ref(storage, `media-assets/${file.name}_${Date.now()}`);
+      await uploadBytes(imageRef, file);
+      const downloadURL = await getDownloadURL(imageRef);
+      imageUrls.push(downloadURL);
+    }
+    return imageUrls;
+  };
+
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setLoading(true);
     const formData = new FormData(e.target as HTMLFormElement);
     const assetData: any = Object.fromEntries(formData.entries());
     if (status) {
       assetData.status = status;
     }
     
-    setLoading(true);
+    const newImageUrls = await handleImageUpload();
+    if (newImageUrls.length > 0) {
+      assetData.imageUrls = [...(currentAsset?.imageUrls || []), ...newImageUrls];
+    } else {
+      assetData.imageUrls = currentAsset?.imageUrls || [];
+    }
+
     if (currentAsset) {
       // Edit existing asset
       const assetDoc = doc(db, 'media_assets', currentAsset.id);
@@ -89,6 +112,7 @@ export function MediaManager() {
     setIsDialogOpen(false);
     setCurrentAsset(null);
     setStatus(undefined);
+    setImageFiles(null);
   };
   
   const handleDelete = async (asset: any) => {
@@ -119,6 +143,7 @@ export function MediaManager() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Image</TableHead>
               <TableHead>Media ID</TableHead>
               <TableHead>District</TableHead>
               <TableHead>Area</TableHead>
@@ -132,6 +157,21 @@ export function MediaManager() {
           <TableBody>
             {mediaAssets.map(asset => (
               <TableRow key={asset.id}>
+                <TableCell>
+                  {asset.imageUrls && asset.imageUrls.length > 0 ? (
+                    <Image
+                      src={asset.imageUrls[0]}
+                      alt={asset.location}
+                      width={64}
+                      height={64}
+                      className="rounded-md object-cover h-16 w-16"
+                    />
+                  ) : (
+                    <div className="h-16 w-16 bg-muted rounded-md flex items-center justify-center">
+                       <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                  )}
+                </TableCell>
                 <TableCell className="font-medium">{asset.mediaId}</TableCell>
                 <TableCell>{asset.district}</TableCell>
                 <TableCell>{asset.area}</TableCell>
@@ -225,14 +265,26 @@ export function MediaManager() {
                   </SelectContent>
                 </Select>
               </div>
-               <div>
-                <Label htmlFor="imageUrl">Image URL</Label>
-                <Input id="imageUrl" name="imageUrl" defaultValue={currentAsset?.imageUrl} />
+               <div className="col-span-full">
+                <Label htmlFor="images">Asset Images</Label>
+                <Input id="images" type="file" multiple onChange={(e) => setImageFiles(e.target.files)} />
+                 <p className="text-sm text-muted-foreground mt-1">
+                  Upload one or more images. New images will be added to the existing ones.
+                </p>
+                {currentAsset?.imageUrls && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {currentAsset.imageUrls.map((url: string) => (
+                      <div key={url} className="relative h-20 w-20">
+                        <Image src={url} alt="Asset image" layout="fill" className="rounded-md object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             <DialogFooter>
               <DialogClose asChild>
-                <Button type="button" variant="secondary">Cancel</Button>
+                <Button type="button" variant="secondary" onClick={closeDialog}>Cancel</Button>
               </DialogClose>
               <Button type="submit" disabled={loading}>
                 {loading ? <Loader2 className="animate-spin" /> : 'Save'}
