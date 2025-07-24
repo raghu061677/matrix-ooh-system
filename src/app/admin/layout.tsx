@@ -350,36 +350,21 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                 </CollapsibleContent>
              </Collapsible>
 
-             <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
-                <SidebarGroup>
-                    <SidebarGroupLabel>Settings</SidebarGroupLabel>
-                    <SidebarGroupContent>
-                    <SidebarMenu>
-                       <SidebarMenuItem>
-                        <CollapsibleTrigger asChild>
-                          <SidebarMenuButton>
-                            <Settings />
-                            <span className="whitespace-nowrap">Settings</span>
-                             <ChevronDown className={cn("ml-auto transition-transform", settingsOpen && "rotate-180")}/>
-                          </SidebarMenuButton>
-                        </CollapsibleTrigger>
-                      </SidebarMenuItem>
-                    </SidebarMenu>
-                    </SidebarGroupContent>
-                </SidebarGroup>
-                <CollapsibleContent>
-                    <SidebarMenuSub>
-                        <SidebarMenuSubItem>
-                        <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/users')}>
-                            <Link href="/admin/users">
-                            <Users />
-                            <span>Users</span>
-                            </Link>
-                        </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                    </SidebarMenuSub>
-                </CollapsibleContent>
-             </Collapsible>
+            <SidebarGroup>
+              <SidebarGroupLabel>Settings</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/users')}>
+                        <Link href="/admin/users">
+                          <Users />
+                          <span>Users</span>
+                        </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
 
 
           </SidebarContent>
