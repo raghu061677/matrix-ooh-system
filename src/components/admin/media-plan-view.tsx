@@ -25,7 +25,7 @@ import { SelectAssetsDialog } from './select-assets-dialog';
 import { Asset, sampleAssets } from './media-manager-types';
 import PptxGenJS from 'pptxgenjs';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { db, storage } from '@/lib/firebase';
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
@@ -117,7 +117,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
       
       // In a real app, you would have a list of asset IDs in the plan document.
       // Here, we'll continue using sample assets for demonstration.
-      const planAssets = sampleAssets.slice(0, 5); 
+      const planAssets = (planData as any).mediaAssets || sampleAssets.slice(0, 5); 
 
       for (const asset of planAssets) {
           const slide = pptx.addSlide();
@@ -169,8 +169,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
     
     // NOTE: Using sampleAssets because planData.mediaAssets is not yet implemented in the data structure.
     // In a real implementation, you would use:
-    // const assets = planData.mediaAssets || []; 
-    const assets = sampleAssets.slice(0, 5);
+    const assets = (planData as any).mediaAssets || sampleAssets.slice(0, 5); 
 
     const worksheetData: (string | number)[][] = [
       [
@@ -178,7 +177,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
       ],
     ];
 
-    assets.forEach((asset, index) => {
+    assets.forEach((asset: Asset, index: number) => {
       // These costs would ideally come from the asset object within the plan
       const rate = asset.baseRate || 0;
       const printing = 0; // Replace with actual printing cost for the asset in the plan
@@ -210,74 +209,97 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
     XLSX.writeFile(workbook, filename);
   };
 
-  const exportPlanToPDF = () => {
+  const exportPlanToPDF = async (templateStyle = 'classic') => {
      toast({ title: 'Generating PDF...', description: 'Please wait while we prepare your work order.' });
-     const doc = new jsPDF();
+     const planId = plan.id;
+     const docRef = await getDoc(doc(db, "plans", planId));
+     if (!docRef.exists()) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Plan not found.' });
+        return;
+     }
+     const planData = docRef.data();
+     const assets = (planData as any).mediaAssets || sampleAssets.slice(0, 7);
      const customer = customers.find(c => c.id === plan.customerId);
 
-     // Header
-     doc.setFontSize(20);
-     doc.setFont("helvetica", "bold");
-     doc.text("MediaVenue", 14, 22);
-     doc.setFontSize(10);
-     doc.setFont("helvetica", "normal");
-     doc.text("GSTIN: YOUR_GSTIN_HERE", 14, 28);
-     doc.text("123 Media Lane, Ad City, HYD 500081", 14, 34);
+     const pdf = new jsPDF();
 
-     // Title
-     doc.setFontSize(16);
-     doc.setFont("helvetica", "bold");
-     doc.text("Work Order / Quotation", 105, 45, { align: "center" });
+     // Company branding
+      const companyName = "Matrix Network Solutions";
+      const companyAddress = "H.No: 7-1-19/5/201, Jyothi Bhopal Apartments, Near Begumpet Metro Station, Opp Country Club, Begumpet, Hyderabad 500016, Telangana, India";
+      const gstin = "GSTIN: 36AATFM4107H2Z3";
+      const pan = "PAN: AATFM4107H";
 
-     // Client Details
-     doc.setFontSize(11);
-     doc.setFont("helvetica", "normal");
-     doc.text(`To: ${customer?.name || plan.customerName}`, 14, 60);
-     const address = customer?.addresses?.[0];
-     if(address) doc.text(`${address.street}, ${address.city}, ${address.state} ${address.postalCode}`, 14, 66);
-     doc.text(`GST: ${customer?.gst || 'N/A'}`, 14, 72);
+      // Add branding based on template style
+      if (templateStyle === 'classic') {
+        pdf.setFontSize(16);
+        pdf.text(companyName, 14, 20);
+        pdf.setFontSize(10);
+        pdf.text(companyAddress, 14, 26);
+        pdf.text(gstin, 14, 31);
+        pdf.text(pan, 14, 36);
+      }
+      
+      // Plan info
+      const startDate = planData.startDate?.seconds ? new Date(planData.startDate.seconds * 1000) : new Date(plan.startDate);
+      const endDate = planData.endDate?.seconds ? new Date(planData.endDate.seconds * 1000) : new Date(plan.endDate);
+      
+      pdf.setFontSize(12);
+      pdf.text(`Quotation: ${planData.displayName || planId}`, 14, 46);
+      pdf.text(`Client: ${planData.customerName || 'Client Name'}`, 14, 52);
+      pdf.text(`Start Date: ${format(startDate, 'dd/MM/yyyy')}`, 14, 58);
+      pdf.text(`End Date: ${format(endDate, 'dd/MM/yyyy')}`, 14, 64);
 
-     // Plan Details
-     doc.text(`Campaign: ${plan.displayName}`, 130, 60);
-     doc.text(`Start Date: ${format(new Date(plan.startDate), 'dd/MM/yyyy')}`, 130, 66);
-     doc.text(`End Date: ${format(new Date(plan.endDate), 'dd/MM/yyyy')}`, 130, 72);
-     
-     // Table
-     const planAssets = sampleAssets.slice(0, 5);
-     const tableColumn = ["S.No", "Location", "Size", "Rate", "Total"];
-     const tableRows: (string|number)[][] = [];
-     planAssets.forEach((asset, index) => {
-        const row = [
-            index + 1,
-            asset.location || 'N/A',
-            asset.dimensions || 'N/A',
-            formatCurrency(asset.baseRate) || '0',
-            formatCurrency(asset.baseRate) || '0'
+
+      // Table setup
+      const body = assets.map((asset: any, index: number) => {
+        const rate = asset.rate || asset.baseRate || 0;
+        const printing = asset.printing || 0;
+        const mounting = asset.mounting || 0;
+        const total = rate + printing + mounting;
+        const gst = total * 0.18;
+        const grandTotal = total + gst;
+
+        return [
+          index + 1,
+          asset.area,
+          asset.city,
+          `${asset.width1 || asset.width} x ${asset.height1 || asset.height}`,
+          asset.quantity || 1,
+          rate.toFixed(2),
+          printing.toFixed(2),
+          mounting.toFixed(2),
+          total.toFixed(2),
+          gst.toFixed(2),
+          grandTotal.toFixed(2)
         ];
-        tableRows.push(row);
-     });
-     
-     (doc as any).autoTable({
-        head: [tableColumn],
-        body: tableRows,
-        startY: 80,
-     });
-     
-     const finalY = (doc as any).lastAutoTable.finalY;
+      });
+
+      autoTable(pdf, {
+        startY: 70,
+        head: [[
+          "S.No", "Location", "City", "Size", "Qty", "Rate", "Printing", "Mounting", "Total", "GST", "Grand Total"
+        ]],
+        body,
+        theme: templateStyle === 'modern' ? 'grid' : 'striped',
+        headStyles: { fillColor: templateStyle === 'modern' ? [41, 128, 185] : [0, 0, 0] }
+      });
+
+      const finalY = (pdf as any).lastAutoTable.finalY;
 
      // Summary
-     doc.text(`Total Before Tax: ${formatCurrency(plan.costSummary?.totalBeforeTax)}`, 140, finalY + 10);
-     doc.text(`GST (18%): ${formatCurrency(plan.costSummary?.gst)}`, 140, finalY + 16);
-     doc.setFont("helvetica", "bold");
-     doc.text(`Grand Total: ${formatCurrency(plan.costSummary?.grandTotal)}`, 140, finalY + 22);
+     pdf.text(`Total Before Tax: ${formatCurrency(plan.costSummary?.totalBeforeTax)}`, 140, finalY + 10);
+     pdf.text(`GST (18%): ${formatCurrency(plan.costSummary?.gst)}`, 140, finalY + 16);
+     pdf.setFont("helvetica", "bold");
+     pdf.text(`Grand Total: ${formatCurrency(plan.costSummary?.grandTotal)}`, 140, finalY + 22);
 
      // Footer
-     doc.setFontSize(10);
-     doc.setFont("helvetica", "normal");
-     doc.text("For MediaVenue", 30, finalY + 50);
-     doc.text("Client Signature", 150, finalY + 50);
+     pdf.setFontSize(10);
+     pdf.setFont("helvetica", "normal");
+     pdf.text("For MediaVenue", 30, finalY + 50);
+     pdf.text("Client Signature", 150, finalY + 50);
 
-     doc.save(`WorkOrder-${plan.displayName}.pdf`);
+     const filename = `${planData.displayName || 'MediaPlan'}_${planId}.pdf`;
+     pdf.save(filename);
   };
 
   return (
@@ -304,7 +326,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                     <DropdownMenuItem onSelect={exportPlanToExcel}>
                       <FileText className="mr-2" /> Export as Excel
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={exportPlanToPDF}>
+                    <DropdownMenuItem onSelect={() => exportPlanToPDF()}>
                       <FileText className="mr-2" /> Export as PDF Work Order
                     </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -462,4 +484,5 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
       />
     </div>
   );
-}
+
+    
