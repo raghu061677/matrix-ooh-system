@@ -20,11 +20,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Edit, Trash2, Loader2 } from 'lucide-react';
 
@@ -33,6 +39,7 @@ export function MediaManager() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentAsset, setCurrentAsset] = useState<any>(null);
+  const [status, setStatus] = useState<string | undefined>(undefined);
   const { toast } = useToast();
   const mediaAssetsCollectionRef = collection(db, 'media_assets');
 
@@ -51,6 +58,9 @@ export function MediaManager() {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
     const assetData: any = Object.fromEntries(formData.entries());
+    if (status) {
+      assetData.status = status;
+    }
     
     if (currentAsset) {
       // Edit existing asset
@@ -70,12 +80,14 @@ export function MediaManager() {
 
   const openDialog = (asset: any = null) => {
     setCurrentAsset(asset);
+    setStatus(asset?.status);
     setIsDialogOpen(true);
   };
 
   const closeDialog = () => {
     setIsDialogOpen(false);
     setCurrentAsset(null);
+    setStatus(undefined);
   };
   
   const handleDelete = async (asset: any) => {
@@ -108,7 +120,9 @@ export function MediaManager() {
             <TableRow>
               <TableHead>Title</TableHead>
               <TableHead>Location</TableHead>
-              <TableHead>Category</TableHead>
+              <TableHead>Dimensions</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Card Rate</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -117,7 +131,9 @@ export function MediaManager() {
               <TableRow key={asset.id}>
                 <TableCell className="font-medium">{asset.title}</TableCell>
                 <TableCell>{asset.location}</TableCell>
-                <TableCell>{asset.category}</TableCell>
+                <TableCell>{asset.dimensions}</TableCell>
+                <TableCell>{asset.status}</TableCell>
+                <TableCell>{asset.cardRate}</TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" onClick={() => openDialog(asset)}>
                     <Edit className="h-4 w-4" />
@@ -133,7 +149,7 @@ export function MediaManager() {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{currentAsset ? 'Edit Media Asset' : 'Add New Media Asset'}</DialogTitle>
             <DialogDescription>
@@ -141,26 +157,64 @@ export function MediaManager() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSave}>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="title" className="text-right">Title</Label>
-                <Input id="title" name="title" defaultValue={currentAsset?.title} className="col-span-3" required />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+              <div>
+                <Label htmlFor="title">Title</Label>
+                <Input id="title" name="title" defaultValue={currentAsset?.title} required />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="location" className="text-right">Location</Label>
-                <Input id="location" name="location" defaultValue={currentAsset?.location} className="col-span-3" required />
+              <div>
+                <Label htmlFor="location">Location</Label>
+                <Input id="location" name="location" defaultValue={currentAsset?.location} required />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="category" className="text-right">Category</Label>
-                <Input id="category" name="category" defaultValue={currentAsset?.category} className="col-span-3" required />
+              <div>
+                <Label htmlFor="trafficDirection">Traffic Direction</Label>
+                <Input id="trafficDirection" name="trafficDirection" defaultValue={currentAsset?.trafficDirection} />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="description" className="text-right">Description</Label>
-                <Input id="description" name="description" defaultValue={currentAsset?.description} className="col-span-3" required />
+               <div>
+                <Label htmlFor="dimensions">Dimensions (e.g. 14' x 48')</Label>
+                <Input id="dimensions" name="dimensions" defaultValue={currentAsset?.dimensions} />
               </div>
-               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="imageUrl" className="text-right">Image URL</Label>
-                <Input id="imageUrl" name="imageUrl" defaultValue={currentAsset?.imageUrl} className="col-span-3" required />
+              <div>
+                <Label htmlFor="totalSqft">Total Sqft</Label>
+                <Input id="totalSqft" name="totalSqft" type="number" defaultValue={currentAsset?.totalSqft} />
+              </div>
+              <div>
+                <Label htmlFor="lighting">Lighting</Label>
+                <Input id="lighting" name="lighting" defaultValue={currentAsset?.lighting} />
+              </div>
+              <div>
+                <Label htmlFor="basePrice">Base Price</Label>
+                <Input id="basePrice" name="basePrice" type="number" step="0.01" defaultValue={currentAsset?.basePrice} />
+              </div>
+              <div>
+                <Label htmlFor="cardRate">Card Rate</Label>
+                <Input id="cardRate" name="cardRate" type="number" step="0.01" defaultValue={currentAsset?.cardRate} />
+              </div>
+              <div>
+                <Label htmlFor="latitude">Latitude</Label>
+                <Input id="latitude" name="latitude" type="number" step="any" defaultValue={currentAsset?.latitude} />
+              </div>
+              <div>
+                <Label htmlFor="longitude">Longitude</Label>
+                <Input id="longitude" name="longitude" type="number" step="any" defaultValue={currentAsset?.longitude} />
+              </div>
+              <div>
+                <Label htmlFor="status">Status</Label>
+                 <Select onValueChange={setStatus} defaultValue={currentAsset?.status}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Available">Available</SelectItem>
+                    <SelectItem value="Booked">Booked</SelectItem>
+                    <SelectItem value="Blocked">Blocked</SelectItem>
+                    <SelectItem value="Inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+               <div>
+                <Label htmlFor="imageUrl">Image URL</Label>
+                <Input id="imageUrl" name="imageUrl" defaultValue={currentAsset?.imageUrl} />
               </div>
             </div>
             <DialogFooter>
@@ -175,3 +229,5 @@ export function MediaManager() {
     </>
   );
 }
+
+    
