@@ -58,6 +58,7 @@ export type MediaPlan = {
     others?: number;
   };
   status: MediaPlanStatus;
+  exportReady?: boolean;
 };
 
 // Campaigns have an identical structure to plans.

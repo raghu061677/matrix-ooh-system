@@ -30,9 +30,11 @@ import PptxGenJS from 'pptxgenjs';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 const sampleCampaigns: Campaign[] = [
-    { id: '4', projectId: 'P00106', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerName: 'MediaVenue', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, inventorySummary: { totalSqft: 1280 }, costSummary: { grandTotal: 224200 }, statistics: { qos: '42.5%' }, status: 'Active' },
+    { id: '4', projectId: 'P00106', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerName: 'MediaVenue', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, inventorySummary: { totalSqft: 1280 }, costSummary: { grandTotal: 224200 }, statistics: { qos: '42.5%' }, status: 'Active', exportReady: true },
+     { id: '5', projectId: 'P00110', employee: { id: 'user-002', name: 'Sunil Reddy', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026705d' }, customerName: 'Founding Years', displayName: 'KIDO', startDate: new Date('2025-08-01'), endDate: new Date('2025-08-30'), days: 30, inventorySummary: { totalSqft: 800 }, costSummary: { grandTotal: 150000 }, statistics: { qos: 'N/A' }, status: 'Pending', exportReady: false },
 ];
 
 // Helper to fetch an image and convert it to a base64 data URI
@@ -171,7 +173,7 @@ export function CampaignManager() {
 
 
   return (
-    <div>
+    <TooltipProvider>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold">Campaigns</h1>
         <div className="flex items-center gap-2">
@@ -235,18 +237,48 @@ export function CampaignManager() {
                            View
                          </Link>
                       </DropdownMenuItem>
-                       <DropdownMenuItem onClick={() => downloadCampaignPPT(campaign)}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Export to PPT
-                      </DropdownMenuItem>
-                       <DropdownMenuItem onClick={() => downloadCampaignPDF(campaign)}>
-                         <Download className="mr-2 h-4 w-4" />
-                        Export to PDF
-                      </DropdownMenuItem>
-                       <DropdownMenuItem onClick={() => downloadCampaignExcel(campaign)}>
-                         <Download className="mr-2 h-4 w-4" />
-                        Export to Excel
-                      </DropdownMenuItem>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className='w-full'>
+                            <DropdownMenuItem 
+                              onSelect={(e) => e.preventDefault()}
+                              disabled={!campaign.exportReady}
+                              onClick={() => campaign.exportReady && downloadCampaignPPT(campaign)}>
+                              <Download className="mr-2 h-4 w-4" />
+                              Export to PPT
+                            </DropdownMenuItem>
+                           </div>
+                        </TooltipTrigger>
+                        {!campaign.exportReady && <TooltipContent>Campaign not ready for export</TooltipContent>}
+                      </Tooltip>
+                      <Tooltip>
+                         <TooltipTrigger asChild>
+                          <div className='w-full'>
+                            <DropdownMenuItem 
+                              onSelect={(e) => e.preventDefault()}
+                              disabled={!campaign.exportReady}
+                              onClick={() => campaign.exportReady && downloadCampaignPDF(campaign)}>
+                               <Download className="mr-2 h-4 w-4" />
+                              Export to PDF
+                            </DropdownMenuItem>
+                          </div>
+                        </TooltipTrigger>
+                         {!campaign.exportReady && <TooltipContent>Campaign not ready for export</TooltipContent>}
+                      </Tooltip>
+                       <Tooltip>
+                         <TooltipTrigger asChild>
+                            <div className='w-full'>
+                              <DropdownMenuItem 
+                                onSelect={(e) => e.preventDefault()}
+                                disabled={!campaign.exportReady}
+                                onClick={() => campaign.exportReady && downloadCampaignExcel(campaign)}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Export to Excel
+                              </DropdownMenuItem>
+                            </div>
+                        </TooltipTrigger>
+                        {!campaign.exportReady && <TooltipContent>Campaign not ready for export</TooltipContent>}
+                      </Tooltip>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
@@ -255,6 +287,6 @@ export function CampaignManager() {
           </TableBody>
         </Table>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
