@@ -5,8 +5,8 @@ import React from 'react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { List } from 'lucide-react';
 
