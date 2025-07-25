@@ -191,7 +191,6 @@ export function MediaManager() {
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-
     if (!currentAsset?.id) {
         toast({
             variant: 'destructive',
@@ -200,58 +199,51 @@ export function MediaManager() {
         });
         return;
     }
-    
-    for (const file of Array.from(files)) {
-      if (file.size > 2 * 1024 * 1024) { // 2MB limit
-        toast({
-          variant: 'destructive',
-          title: 'File Too Large',
-          description: `${file.name} is larger than 2MB. Please compress it before uploading.`,
-        });
-        if (imageInputRef.current) {
-            imageInputRef.current.value = '';
-        }
-        return;
-      }
-    }
 
     setIsUploading(true);
-    toast({ title: `Uploading ${files.length} image(s)...`, description: 'Please wait.' });
-    
+    toast({ title: `Uploading ${files.length} image(s)...` });
+
     const assetId = currentAsset.id;
     const uploadedUrls: string[] = [];
-
-    // Attempt to extract EXIF from the first file
-    try {
-        const firstFile = files[0];
-        const buffer = await firstFile.arrayBuffer();
-        const parser = exifParser.create(buffer);
-        const result = parser.parse();
-        if (result.tags.GPSLatitude && result.tags.GPSLongitude) {
-            setFormData(prev => ({
-                ...prev,
-                latitude: result.tags.GPSLatitude,
-                longitude: result.tags.GPSLongitude,
-            }));
-            toast({
-                title: 'Coordinates Found!',
-                description: 'GPS data has been extracted from the image.',
-            });
-        }
-    } catch (error) {
-        console.warn('Could not parse EXIF data or no data found:', error);
-    }
+    let gpsExtracted = false;
 
     for (const file of Array.from(files)) {
-      const imageRef = ref(storage, `media-assets/${assetId}/${file.name}_${Date.now()}`);
-      try {
-        await uploadBytes(imageRef, file);
-        const downloadURL = await getDownloadURL(imageRef);
-        uploadedUrls.push(downloadURL);
-      } catch (uploadError) {
-          console.error("Error uploading image:", uploadError);
-          toast({ variant: 'destructive', title: 'Upload Failed', description: `Could not upload ${file.name}.` });
-      }
+        if (file.size > 2 * 1024 * 1024) { // 2MB limit
+            toast({
+                variant: 'destructive',
+                title: 'File Too Large',
+                description: `${file.name} is larger than 2MB and was skipped.`,
+            });
+            continue;
+        }
+
+        if (!gpsExtracted) {
+            try {
+                const buffer = await file.arrayBuffer();
+                const parser = exifParser.create(buffer);
+                const result = parser.parse();
+                if (result.tags.GPSLatitude && result.tags.GPSLongitude) {
+                    setFormData(prev => ({
+                        ...prev,
+                        latitude: result.tags.GPSLatitude,
+                        longitude: result.tags.GPSLongitude,
+                    }));
+                    gpsExtracted = true; // Only extract from the first valid image
+                }
+            } catch (error) {
+                console.warn('Could not parse EXIF data:', error);
+            }
+        }
+        
+        try {
+            const imageRef = ref(storage, `media-assets/${assetId}/${file.name}_${Date.now()}`);
+            await uploadBytes(imageRef, file);
+            const downloadURL = await getDownloadURL(imageRef);
+            uploadedUrls.push(downloadURL);
+        } catch (uploadError) {
+            console.error("Error uploading image:", uploadError);
+            toast({ variant: 'destructive', title: 'Upload Failed', description: `Could not upload ${file.name}.` });
+        }
     }
     
     if (uploadedUrls.length > 0) {
@@ -260,12 +252,14 @@ export function MediaManager() {
         
         const newImageUrls = [...(formData.imageUrls || []), ...uploadedUrls];
         setFormData(prev => ({ ...prev, imageUrls: newImageUrls }));
-        
         setMediaAssets(prev => prev.map(a => a.id === assetId ? { ...a, imageUrls: newImageUrls } : a));
     }
 
     setIsUploading(false);
-    toast({ title: 'Upload complete!', description: `${uploadedUrls.length} of ${files.length} image(s) have been added.` });
+    toast({
+        title: 'Upload Complete!',
+        description: `${uploadedUrls.length} of ${files.length} image(s) uploaded. ${gpsExtracted ? 'GPS data extracted.' : ''}`,
+    });
     
     if (imageInputRef.current) {
         imageInputRef.current.value = '';
