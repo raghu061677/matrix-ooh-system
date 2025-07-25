@@ -1,7 +1,7 @@
 
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, enableIndexedDbPersistence, enableNetwork, disableNetwork, clearIndexedDbPersistence } from 'firebase/firestore';
+import { getFirestore, enableIndexedDbPersistence, enableNetwork, disableNetwork } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
@@ -25,9 +25,6 @@ const storage = getStorage(firebaseApp);
 if (typeof window !== 'undefined') {
     const setupPersistence = async () => {
         try {
-            // It's often better to clear persistence on startup in complex apps
-            // to avoid issues with stale data or query conflicts.
-            await clearIndexedDbPersistence(db);
             await enableIndexedDbPersistence(db);
             console.log('📦 Firestore persistence enabled');
         } catch (err) {
