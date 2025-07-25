@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, arrayRemove, arrayUnion } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, arrayRemove, arrayUnion, query, orderBy, startAfter, limit, endBefore, limitToLast, DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { Button } from '@/components/ui/button';
 import {
@@ -64,6 +64,8 @@ type SortConfig = {
   direction: 'ascending' | 'descending';
 } | null;
 
+const PAGE_SIZE = 10;
+
 export function MediaManager() {
   const [mediaAssets, setMediaAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,6 +79,14 @@ export function MediaManager() {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [filter, setFilter] = useState('');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
+
+  // Pagination state
+  const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [firstVisible, setFirstVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [isLastPage, setIsLastPage] = useState(false);
+  const [isFirstPage, setIsFirstPage] = useState(true);
+
+
   const [columnVisibility, setColumnVisibility] = useState({
     image: true,
     mid: true,
@@ -103,32 +113,56 @@ export function MediaManager() {
   const { toast } = useToast();
   const mediaAssetsCollectionRef = collection(db, 'media_assets');
 
-  useEffect(() => {
-    const getMediaAssets = async () => {
+  const fetchMediaAssets = async (direction: 'next' | 'prev' | 'initial' = 'initial') => {
       setLoading(true);
       try {
-        const data = await getDocs(mediaAssetsCollectionRef);
-        const dbAssets = data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Asset));
-        if (dbAssets.length > 0) {
-            setMediaAssets(dbAssets);
-        } else {
-            setMediaAssets(sampleAssets);
-        }
-      } catch (e) {
-        console.error("Error fetching media assets:", e);
-        toast({
-            variant: 'destructive',
-            title: 'Error fetching assets',
-            description: 'Could not retrieve asset data. Using sample data.'
-        });
-        setMediaAssets(sampleAssets);
-      } finally {
-        setLoading(false);
-      }
-    };
+          let q;
+          if (direction === 'next' && lastVisible) {
+              q = query(mediaAssetsCollectionRef, orderBy('mid'), startAfter(lastVisible), limit(PAGE_SIZE));
+          } else if (direction === 'prev' && firstVisible) {
+              q = query(mediaAssetsCollectionRef, orderBy('mid'), endBefore(firstVisible), limitToLast(PAGE_SIZE));
+          } else {
+              q = query(mediaAssetsCollectionRef, orderBy('mid'), limit(PAGE_SIZE));
+          }
 
-    getMediaAssets();
-  }, [toast]);
+          const data = await getDocs(q);
+          
+          if (!data.empty) {
+              const dbAssets = data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Asset));
+              setMediaAssets(dbAssets);
+              setLastVisible(data.docs[data.docs.length - 1]);
+              setFirstVisible(data.docs[0]);
+              setIsFirstPage(direction === 'initial');
+              
+              // Check if it's the last page
+              const nextQuery = query(mediaAssetsCollectionRef, orderBy('mid'), startAfter(data.docs[data.docs.length - 1]), limit(1));
+              const nextSnap = await getDocs(nextQuery);
+              setIsLastPage(nextSnap.empty);
+
+          } else if (direction === 'initial') {
+              setMediaAssets(sampleAssets.slice(0, PAGE_SIZE));
+              setLastVisible(null);
+              setFirstVisible(null);
+              setIsLastPage(true);
+          } else if (direction === 'next') {
+              setIsLastPage(true);
+          }
+      } catch (e) {
+          console.error("Error fetching media assets:", e);
+          toast({
+              variant: 'destructive',
+              title: 'Error fetching assets',
+              description: 'Could not retrieve asset data. Using sample data.'
+          });
+          setMediaAssets(sampleAssets.slice(0, PAGE_SIZE));
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  useEffect(() => {
+    fetchMediaAssets('initial');
+  }, []); // Eslint will complain but we want it to run only once.
   
   useEffect(() => {
     const { structure, width1, height1, width2, height2 } = formData;
@@ -261,7 +295,6 @@ export function MediaManager() {
     e.preventDefault();
     setIsSaving(true);
     
-    // Create a clean data object by removing undefined values
     const dataToSave = Object.fromEntries(Object.entries(formData).filter(([_, v]) => v !== undefined));
 
     if (currentAsset?.id) {
@@ -278,7 +311,7 @@ export function MediaManager() {
       const docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, imageUrls: [] });
       const newAsset = { ...dataToSave, imageUrls: [], id: docRef.id } as Asset;
 
-      setMediaAssets(prev => [...prev, newAsset]);
+      setMediaAssets(prev => [newAsset, ...prev].slice(0, PAGE_SIZE));
       setCurrentAsset(newAsset);
       setFormData(newAsset);
       toast({ title: 'Asset Added!', description: 'You can now upload images to this asset.' });
@@ -449,8 +482,7 @@ export function MediaManager() {
             await addDoc(mediaAssetsCollectionRef, item);
         }
         
-        const updatedData = await getDocs(mediaAssetsCollectionRef);
-        setMediaAssets(updatedData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Asset)));
+        await fetchMediaAssets('initial');
         setLoading(false);
         toast({ title: 'Import Successful', description: `${json.length} assets have been imported.` });
     };
@@ -477,7 +509,7 @@ export function MediaManager() {
       <div className="flex justify-between items-center mb-6 gap-4">
         <div className="flex items-center gap-2">
            <Input
-            placeholder="Filter assets..."
+            placeholder="Filter assets on this page..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             className="max-w-sm"
@@ -635,6 +667,22 @@ export function MediaManager() {
           </TableBody>
         </Table>
       </div>
+      <div className="flex justify-end items-center gap-2 mt-4">
+        <Button
+            variant="outline"
+            onClick={() => fetchMediaAssets('prev')}
+            disabled={isFirstPage || loading}
+        >
+            Previous
+        </Button>
+        <Button
+            variant="outline"
+            onClick={() => fetchMediaAssets('next')}
+            disabled={isLastPage || loading}
+        >
+            Next
+        </Button>
+      </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-4xl h-[90vh] flex flex-col">
@@ -735,7 +783,7 @@ export function MediaManager() {
                   </div>
                   
                   <div className="md:col-span-2">
-                    <Label htmlFor="direction">Traffic Direction</Label>
+                    <Label htmlFor="direction">Direction</Label>
                     <Input id="direction" name="direction" value={formData.direction || ''} onChange={handleFormChange} />
                   </div>
 
