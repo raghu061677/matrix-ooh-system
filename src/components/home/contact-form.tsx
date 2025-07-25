@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useTransition } from 'react';
@@ -18,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { getSuggestedLocations } from '@/lib/actions';
+import { suggestMediaLocations } from '@/ai/flows/suggest-media-locations';
 import { Loader2 } from 'lucide-react';
 import { 
   AlertDialog,
@@ -62,20 +63,20 @@ export function ContactForm() {
 
   function onSubmit(values: FormData) {
     startTransition(async () => {
-      const result = await getSuggestedLocations(values);
+      const { suggestedLocations } = await suggestMediaLocations({ clientRequirements: values.clientRequirements });
 
-      if (result.error) {
+      if (!suggestedLocations) {
         toast({
           variant: 'destructive',
           title: 'An error occurred',
-          description: result.error,
+          description: 'Could not get suggestions',
         });
       } else {
         toast({
           title: 'Enquiry Sent!',
           description: 'We will be in touch shortly. Here are some initial suggestions for you.',
         });
-        setSuggestions(result.suggestions);
+        setSuggestions(suggestedLocations);
         form.reset();
       }
     });
