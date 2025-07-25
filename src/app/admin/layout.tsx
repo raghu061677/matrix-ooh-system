@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { firebaseApp } from '@/lib/firebase';
@@ -33,10 +33,10 @@ import { cn } from '@/lib/utils';
 import { ThemeProvider, useTheme } from '@/components/admin/theme-provider';
 import { ThemeToggle } from '@/components/admin/theme-toggle';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { AuthProvider, useAuth } from '@/hooks/use-auth';
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { firebaseUser, loading } = useAuth();
   const router = useRouter();
   const auth = getAuth(firebaseApp);
   const pathname = usePathname();
@@ -52,23 +52,17 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setUser(user);
-        setLoading(false);
-      } else {
-        router.push('/login');
-      }
-    });
-    return () => unsubscribe();
-  }, [auth, router]);
+    if (!loading && !firebaseUser) {
+      router.push('/login');
+    }
+  }, [firebaseUser, loading, router]);
   
   const handleLogout = async () => {
     await signOut(auth);
     router.push('/login');
   };
 
-  if (loading) {
+  if (loading || !firebaseUser) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -370,7 +364,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                 <CollapsibleContent>
                     <SidebarMenuSub>
                         <SidebarMenuSubItem>
-                            <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/settings/users')}>
+                            <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/users')}>
                                 <Link href="/admin/users">
                                     <Users />
                                     <span>Users</span>
@@ -420,11 +414,13 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 export default function AdminLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <ThemeProvider>
-      <AdminLayoutContent>{children}</AdminLayoutContent>
+      <AuthProvider>
+        <AdminLayoutContent>{children}</AdminLayoutContent>
+      </AuthProvider>
     </ThemeProvider>
   );
 }
