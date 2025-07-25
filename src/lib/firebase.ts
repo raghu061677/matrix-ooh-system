@@ -1,7 +1,7 @@
 
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, enableIndexedDbPersistence, enableNetwork, disableNetwork } from 'firebase/firestore';
+import { getFirestore, enableIndexedDbPersistence, enableNetwork, disableNetwork, clearIndexedDbPersistence } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
@@ -23,18 +23,30 @@ const storage = getStorage(firebaseApp);
 
 // Enable Firestore persistence and network management
 if (typeof window !== 'undefined') {
-    enableIndexedDbPersistence(db)
-      .catch((err) => {
-        if (err.code == 'failed-precondition') {
-          // Multiple tabs open, persistence can only be enabled
-          // in one tab at a time.
-          console.warn('Firestore persistence failed: multiple tabs open.');
-        } else if (err.code == 'unimplemented') {
-          // The current browser does not support all of the
-          // features required to enable persistence.
-          console.warn('Firestore persistence not supported in this browser.');
+    const setupPersistence = async () => {
+        try {
+            await enableIndexedDbPersistence(db);
+            console.log('Firebase persistence enabled');
+        } catch (err) {
+            if ((err as any).code === 'failed-precondition') {
+                console.warn('Firebase persistence failed: multiple tabs open. Attempting to clear and retry.');
+                // This is a more aggressive approach for single-tab applications or to recover from a bad state.
+                try {
+                    await clearIndexedDbPersistence(db);
+                    await enableIndexedDbPersistence(db);
+                    console.log('Firebase persistence enabled after clearing.');
+                } catch (e) {
+                    console.error('Firebase persistence failed even after clearing.', e);
+                }
+            } else if ((err as any).code === 'unimplemented') {
+                console.warn('Firebase persistence not supported in this browser.');
+            } else {
+                console.error("Firebase persistence error:", err);
+            }
         }
-      });
+    };
+
+    setupPersistence();
     
     // Manage network status
     window.addEventListener("online", () => {
