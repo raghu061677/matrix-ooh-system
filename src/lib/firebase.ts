@@ -1,7 +1,7 @@
 
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
+import { getFirestore, enableIndexedDbPersistence, enableNetwork, disableNetwork } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
@@ -21,7 +21,7 @@ const firebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp()
 const db = getFirestore(firebaseApp);
 const storage = getStorage(firebaseApp);
 
-// Enable Firestore persistence
+// Enable Firestore persistence and network management
 if (typeof window !== 'undefined') {
     enableIndexedDbPersistence(db)
       .catch((err) => {
@@ -35,6 +35,17 @@ if (typeof window !== 'undefined') {
           console.warn('Firestore persistence not supported in this browser.');
         }
       });
+    
+    // Manage network status
+    window.addEventListener("online", () => {
+        console.log("Browser is online, enabling Firestore network.");
+        enableNetwork(db);
+    });
+    
+    window.addEventListener("offline", () => {
+        console.log("Browser is offline, disabling Firestore network.");
+        disableNetwork(db);
+    });
 }
 
 
