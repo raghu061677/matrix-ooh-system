@@ -136,27 +136,22 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
     for (const asset of assets) {
         const slide = ppt.addSlide();
 
-        slide.addText(`Asset ID: ${asset.iid}`, { x: 0.5, y: 0.2, fontSize: 14, bold: true });
+        slide.addText(`Asset ID: ${asset.mid}`, { x: 0.5, y: 0.2, fontSize: 14, bold: true });
         slide.addText(`${asset.area}, ${asset.city}`, { x: 0.5, y: 0.5, fontSize: 12 });
-        slide.addText(`Size: ${asset.width}ft x ${asset.height}ft`, { x: 0.5, y: 0.8, fontSize: 12 });
+        slide.addText(`Size: ${asset.dimensions}`, { x: 0.5, y: 0.8, fontSize: 12 });
 
 
-        const q = query(collection(db, "photoLibrary/photos"), where("iid", "==", asset.iid));
-        const photoSnap = await getDocs(q);
-        const urls: string[] = [];
-
-        photoSnap.forEach(doc => {
-          const d = doc.data();
-          if (d.storagePath) urls.push(d.storagePath);
-        });
-
-        for (let i = 0; i < Math.min(2, urls.length); i++) {
-          try {
-            const url = await getDownloadURL(ref(storage, urls[i]));
-             slide.addImage({ data: url, x: 0.5 + i * 4.5, y: 1.2, w: 4, h: 3 });
-          } catch (err) {
-            console.warn("Image load error:", err);
-          }
+        if (asset.imageUrls && asset.imageUrls.length > 0) {
+            for (let i = 0; i < Math.min(2, asset.imageUrls.length); i++) {
+                try {
+                    const base64Image = await imageToBase64(asset.imageUrls[i]);
+                    if (base64Image) {
+                         slide.addImage({ data: base64Image, x: 0.5 + i * 4.5, y: 1.2, w: 4, h: 3 });
+                    }
+                } catch (err) {
+                    console.warn("Image load error:", err);
+                }
+            }
         }
     }
 
@@ -199,9 +194,9 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
       ];
 
       assets.forEach((asset: any, index: number) => {
-        const rate = asset.rate || 0;
-        const printing = asset.printing || 0;
-        const mounting = asset.mounting || 0;
+        const rate = asset.rate || asset.baseRate || 0;
+        const printing = asset.printingCost || 0;
+        const mounting = asset.installationCost || 0;
         const total = rate + printing + mounting;
         const gst = total * 0.18;
         const grandTotal = total + gst;
@@ -210,14 +205,14 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
           index + 1,
           asset.area,
           asset.city,
-          `${asset.width} x ${asset.height}`,
+          `${asset.dimensions}`,
           asset.quantity || 1,
           rate,
           printing,
           mounting,
           total,
-          gst,
-          grandTotal
+          gst.toFixed(2),
+          grandTotal.toFixed(2)
         ]);
       });
 
@@ -288,9 +283,9 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
 
       // Table setup
       const body = assets.map((asset: any, index: number) => {
-        const rate = asset.rate || 0;
-        const printing = asset.printing || 0;
-        const mounting = asset.mounting || 0;
+        const rate = asset.rate || asset.baseRate || 0;
+        const printing = asset.printingCost || 0;
+        const mounting = asset.installationCost || 0;
         const total = rate + printing + mounting;
         const gst = total * 0.18;
         const grandTotal = total + gst;
@@ -299,7 +294,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
           index + 1,
           asset.area,
           asset.city,
-          `${asset.width} x ${asset.height}`,
+          asset.dimensions,
           asset.quantity || 1,
           rate.toFixed(2),
           printing.toFixed(2),
