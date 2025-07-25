@@ -1,15 +1,20 @@
+
 import Image from 'next/image';
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MapPin } from 'lucide-react';
+import { Button } from '../ui/button';
+import Link from 'next/link';
 
 type LocationCardProps = {
+  id: string;
   title: string;
   location: string;
   imageUrl: string;
@@ -19,6 +24,7 @@ type LocationCardProps = {
 };
 
 export function LocationCard({
+  id,
   title,
   location,
   imageUrl,
@@ -27,7 +33,7 @@ export function LocationCard({
   category,
 }: LocationCardProps) {
   return (
-    <Card className="overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1 duration-300 ease-in-out">
+    <Card className="overflow-hidden transition-all hover:shadow-lg hover:-translate-y-1 duration-300 ease-in-out flex flex-col">
       <CardHeader className="p-0">
         <div className="relative h-56 w-full">
           <Image
@@ -39,7 +45,7 @@ export function LocationCard({
           />
         </div>
       </CardHeader>
-      <CardContent className="p-6">
+      <CardContent className="p-6 flex-grow">
         <div className="flex justify-between items-start mb-2">
             <CardTitle className="text-xl font-headline">{title}</CardTitle>
             <Badge variant={category === 'Digital' ? 'default' : 'secondary'}>{category}</Badge>
@@ -50,6 +56,11 @@ export function LocationCard({
         </CardDescription>
         <p className="text-sm text-muted-foreground">{description}</p>
       </CardContent>
+       <CardFooter className="p-6 pt-0">
+        <Button asChild className="w-full">
+          <Link href={`/enquiry/${id}`}>Enquire Now</Link>
+        </Button>
+      </CardFooter>
     </Card>
   );
 }

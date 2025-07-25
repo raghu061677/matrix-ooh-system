@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { LocationCard } from './location-card';
 import { Asset } from '@/components/admin/media-manager-types';
@@ -16,13 +16,13 @@ export function Portfolio() {
     const fetchAssets = async () => {
       try {
         const assetsCollection = collection(db, 'media_assets');
-        const q = query(assetsCollection, where('status', '==', 'active'));
+        // Fetch all active assets from all companies. We can limit this for performance.
+        const q = query(assetsCollection, where('status', '==', 'active'), limit(20));
         const querySnapshot = await getDocs(q);
         const fetchedAssets = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Asset));
         setLocations(fetchedAssets);
       } catch (error) {
         console.error("Error fetching media assets:", error);
-        // Optionally, set some default/error state
       } finally {
         setLoading(false);
       }
@@ -53,7 +53,8 @@ export function Portfolio() {
           ) : (
             locations.map((location) => (
               <LocationCard 
-                key={location.id} 
+                key={location.id}
+                id={location.id}
                 title={location.area || 'Untitled'}
                 location={`${location.location}, ${location.city}`}
                 imageUrl={location.imageUrls?.[0] || 'https://placehold.co/600x400.png'}

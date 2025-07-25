@@ -24,7 +24,7 @@ export function Hero() {
         </p>
         <div className="mt-8 flex justify-center gap-4">
           <Button size="lg" asChild>
-            <Link href="/home#portfolio">Explore Our Portfolio</Link>
+            <Link href="/explore-media">Explore Our Portfolio</Link>
           </Button>
           <Button size="lg" variant="secondary" asChild>
             <Link href="/home#contact">Request a Quote</Link>
