@@ -2,9 +2,9 @@
 'use client';
 
 import * as React from 'react';
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, limit, startAfter, endBefore, limitToLast, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -50,6 +50,8 @@ type SortConfig = {
   key: keyof MediaPlan;
   direction: 'ascending' | 'descending';
 } | null;
+
+const PAGE_SIZE = 10;
 
 // Mock data until real data fetching is implemented
 const mockEmployees: User[] = [
@@ -106,25 +108,75 @@ export function MediaPlansManager() {
     qos: true,
     status: true,
   });
+  
+  // Pagination state
+  const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [firstVisible, setFirstVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [isLastPage, setIsLastPage] = useState(false);
+  const [isFirstPage, setIsFirstPage] = useState(true);
 
   const { toast } = useToast();
   
-  React.useEffect(() => {
-    const getData = async () => {
-        setLoading(true);
+  const fetchPlans = async (direction: 'next' | 'prev' | 'initial' = 'initial') => {
+      setLoading(true);
+      try {
+          const plansCollectionRef = collection(db, 'plans');
+          let q;
+
+          if (direction === 'next' && lastVisible) {
+              q = query(plansCollectionRef, orderBy('projectId'), startAfter(lastVisible), limit(PAGE_SIZE));
+          } else if (direction === 'prev' && firstVisible) {
+              q = query(plansCollectionRef, orderBy('projectId'), endBefore(firstVisible), limitToLast(PAGE_SIZE));
+          } else {
+              q = query(plansCollectionRef, orderBy('projectId'), limit(PAGE_SIZE));
+          }
+
+          const data = await getDocs(q);
+          
+          if (!data.empty) {
+              const dbPlans = data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as MediaPlan));
+              setMediaPlans(dbPlans);
+              setFirstVisible(data.docs[0]);
+              setLastVisible(data.docs[data.docs.length - 1]);
+              
+              const prevSnap = await getDocs(query(plansCollectionRef, orderBy('projectId'), endBefore(data.docs[0]), limitToLast(1)));
+              setIsFirstPage(prevSnap.empty);
+
+              const nextSnap = await getDocs(query(plansCollectionRef, orderBy('projectId'), startAfter(data.docs[data.docs.length-1]), limit(1)));
+              setIsLastPage(nextSnap.empty);
+          } else if (direction === 'initial') {
+              setMediaPlans(sampleData.slice(0, PAGE_SIZE));
+              setIsLastPage(sampleData.length <= PAGE_SIZE);
+          }
+      } catch (e) {
+          console.error("Error fetching media plans:", e);
+          toast({ variant: 'destructive', title: 'Error fetching plans' });
+          setMediaPlans(sampleData.slice(0, PAGE_SIZE));
+      } finally {
+          setLoading(false);
+      }
+  };
+  
+  useEffect(() => {
+    fetchPlans('initial');
+    // Fetch customers only once
+    const getCustomers = async () => {
         try {
-            // In a real app, you would fetch plans from firestore.
-            setMediaPlans(sampleData);
-            setCustomers(sampleCustomers);
+            const customersCollectionRef = collection(db, 'customers');
+            const data = await getDocs(customersCollectionRef);
+            if (!data.empty) {
+                setCustomers(data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Customer)));
+            } else {
+                setCustomers(sampleCustomers);
+            }
         } catch (error) {
-            console.error("Error fetching data:", error);
-            toast({ variant: 'destructive', title: 'Failed to fetch data' });
-        } finally {
-            setLoading(false);
+            console.error("Error fetching customers:", error);
+            setCustomers(sampleCustomers);
         }
     };
-    getData();
-  }, [toast]);
+    getCustomers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSave = (planToSave: MediaPlan) => {
     setLoading(true);
@@ -233,8 +285,8 @@ export function MediaPlansManager() {
   const exportToExcel = () => {
     const dataToExport = sortedAndFilteredPlans.map(p => ({
       ...p,
-      startDate: format(new Date(p.startDate), 'yyyy-MM-dd'),
-      endDate: format(new Date(p.endDate), 'yyyy-MM-dd'),
+      startDate: format(new Date(p.startDate as any), 'yyyy-MM-dd'),
+      endDate: format(new Date(p.endDate as any), 'yyyy-MM-dd'),
     }));
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
@@ -252,8 +304,8 @@ export function MediaPlansManager() {
       columns
         .filter(c => columnVisibility[c.key])
         .map(col => {
-            if (col.key === 'from') return format(new Date(plan.startDate), 'ddMMMyy');
-            if (col.key === 'to') return format(new Date(plan.endDate), 'ddMMMyy');
+            if (col.key === 'from') return format(new Date(plan.startDate as any), 'ddMMMyy');
+            if (col.key === 'to') return format(new Date(plan.endDate as any), 'ddMMMyy');
             if (col.key === 'employee') return plan.employee?.name;
             if (col.key === 'display') return plan.displayName;
             if (col.key === 'customer') return plan.customerName;
@@ -277,8 +329,8 @@ export function MediaPlansManager() {
       columns.forEach(col => {
         if (columnVisibility[col.key]) {
             let value;
-            if (col.key === 'from') value = format(new Date(plan.startDate), 'ddMMMyy');
-            else if (col.key === 'to') value = format(new Date(plan.endDate), 'ddMMMyy');
+            if (col.key === 'from') value = format(new Date(plan.startDate as any), 'ddMMMyy');
+            else if (col.key === 'to') value = format(new Date(plan.endDate as any), 'ddMMMyy');
             else if (col.key === 'employee') value = plan.employee?.name;
             else if (col.key === 'display') value = plan.displayName;
             else if (col.key === 'customer') value = plan.customerName;
@@ -347,7 +399,7 @@ export function MediaPlansManager() {
         </h1>
         <div className="flex items-center gap-2">
           <Input
-            placeholder="Filter by Project Id, Employee..."
+            placeholder="Filter on this page..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             className="w-64"
@@ -434,8 +486,8 @@ export function MediaPlansManager() {
                         {plan.displayName}
                     </Link>
                 </TableCell>}
-                {columnVisibility.from && <TableCell>{format(new Date(plan.startDate), 'dd MMM yy')}</TableCell>}
-                {columnVisibility.to && <TableCell>{format(new Date(plan.endDate), 'dd MMM yy')}</TableCell>}
+                {columnVisibility.from && <TableCell>{format(new Date(plan.startDate as any), 'dd MMM yy')}</TableCell>}
+                {columnVisibility.to && <TableCell>{format(new Date(plan.endDate as any), 'dd MMM yy')}</TableCell>}
                 {columnVisibility.days && <TableCell>{plan.days}</TableCell>}
                 {columnVisibility.sqft && <TableCell>{plan.inventorySummary?.totalSqft}</TableCell>}
                 {columnVisibility.amount && <TableCell>{plan.costSummary?.grandTotal?.toLocaleString('en-IN')}</TableCell>}
@@ -467,6 +519,23 @@ export function MediaPlansManager() {
           </TableBody>
         </Table>
       </div>
+      
+       <div className="flex justify-end items-center gap-2 mt-4">
+        <Button
+            variant="outline"
+            onClick={() => fetchPlans('prev')}
+            disabled={isFirstPage || loading}
+        >
+            Previous
+        </Button>
+        <Button
+            variant="outline"
+            onClick={() => fetchPlans('next')}
+            disabled={isLastPage || loading}
+        >
+            Next
+        </Button>
+      </div>
 
       <SelectAssetsDialog
         isOpen={isAssetSelectorOpen}
@@ -485,3 +554,5 @@ export function MediaPlansManager() {
     </TooltipProvider>
   );
 }
+
+    

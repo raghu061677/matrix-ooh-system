@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo, useTransition, useRef } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, limit, startAfter, endBefore, limitToLast, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -63,6 +63,8 @@ type SortConfig = {
 
 type SearchableField = 'name' | 'gst' | 'pocName' | 'pocPhone';
 
+const PAGE_SIZE = 10;
+
 const sampleCustomers: Customer[] = [
     { id: 'customer-1', code: 'CUST-001', name: 'MediaVenue', gst: '29AAACN1234F1Z5', contactPersons: [{ name: 'Anil Kumar', phone: '9876543210', designation: 'Manager' }], addresses: [{ type: 'billing', street: '123 Cyberabad', city: 'Hyderabad', state: 'Telangana', postalCode: '500081' }] },
     { id: 'customer-2', code: 'CUST-002', name: 'Founding Years Learning', gst: '36ABCFY1234G1Z2', contactPersons: [{ name: 'Sunitha Reddy', phone: '9876543211', designation: 'Director' }], addresses: [{ type: 'billing', street: '456 Jubilee Hills', city: 'Hyderabad', state: 'Telangana', postalCode: '500033' }] },
@@ -93,37 +95,69 @@ export function CustomerManager() {
     state: true,
     postalCode: false,
   });
+  
+  // Pagination state
+  const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [firstVisible, setFirstVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [isLastPage, setIsLastPage] = useState(false);
+  const [isFirstPage, setIsFirstPage] = useState(true);
+  const [page, setPage] = useState(1);
 
   const { toast } = useToast();
   const customersCollectionRef = collection(db, 'customers');
-
-  useEffect(() => {
-    const getCustomers = async () => {
+  
+  const fetchCustomers = async (direction: 'next' | 'prev' | 'initial' = 'initial') => {
       setLoading(true);
       try {
-        const data = await getDocs(customersCollectionRef);
-        const dbCustomers = data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Customer));
-        if(dbCustomers.length > 0) {
-            setCustomers(dbCustomers);
-        } else {
-            // Use sample data if firestore is empty
-            setCustomers(sampleCustomers);
-        }
-      } catch (error) {
-        console.error("Error fetching customers:", error);
-        toast({
-            variant: 'destructive',
-            title: 'Error fetching customers',
-            description: 'Could not retrieve customer data. Using sample data.'
-        });
-        setCustomers(sampleCustomers);
-      } finally {
-        setLoading(false);
-      }
-    };
+          let q;
+          const mainQuery = query(customersCollectionRef, orderBy('code'), limit(PAGE_SIZE));
 
-    getCustomers();
-  }, [toast]);
+          if (direction === 'next' && lastVisible) {
+              q = query(customersCollectionRef, orderBy('code'), startAfter(lastVisible), limit(PAGE_SIZE));
+              setPage(prev => prev + 1);
+          } else if (direction === 'prev' && firstVisible) {
+              q = query(customersCollectionRef, orderBy('code'), endBefore(firstVisible), limitToLast(PAGE_SIZE));
+              setPage(prev => prev - 1);
+          } else {
+              q = mainQuery;
+              setPage(1);
+          }
+
+          const data = await getDocs(q);
+          
+          if (!data.empty) {
+              const dbCustomers = data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Customer));
+              setCustomers(dbCustomers);
+              setFirstVisible(data.docs[0]);
+              setLastVisible(data.docs[data.docs.length - 1]);
+              
+              const prevSnap = await getDocs(query(customersCollectionRef, orderBy('code'), endBefore(data.docs[0]), limitToLast(1)));
+              setIsFirstPage(prevSnap.empty);
+
+              const nextSnap = await getDocs(query(customersCollectionRef, orderBy('code'), startAfter(data.docs[data.docs.length - 1]), limit(1)));
+              setIsLastPage(nextSnap.empty);
+
+          } else if (direction === 'initial') {
+              setCustomers(sampleCustomers.slice(0, PAGE_SIZE));
+              setIsLastPage(sampleCustomers.length <= PAGE_SIZE);
+          }
+      } catch (e) {
+          console.error("Error fetching customers:", e);
+          toast({
+              variant: 'destructive',
+              title: 'Error fetching customers',
+              description: 'Could not retrieve customer data. Using sample data.'
+          });
+          setCustomers(sampleCustomers.slice(0, PAGE_SIZE));
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  useEffect(() => {
+    fetchCustomers('initial');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -394,8 +428,7 @@ export function CustomerManager() {
             await addDoc(customersCollectionRef, customerData);
         }
         
-        const updatedData = await getDocs(customersCollectionRef);
-        setCustomers(updatedData.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Customer)));
+        await fetchCustomers('initial');
         setLoading(false);
         toast({ title: 'Import Successful', description: `${json.length} customers have been imported.` });
     };
@@ -427,7 +460,7 @@ export function CustomerManager() {
                 </SelectContent>
             </Select>
            <Input
-            placeholder="Filter customers..."
+            placeholder="Filter customers on this page..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             className="max-w-sm"
@@ -558,6 +591,23 @@ export function CustomerManager() {
           </TableBody>
         </Table>
       </div>
+       <div className="flex justify-end items-center gap-2 mt-4">
+        <span className="text-sm text-muted-foreground">Page {page}</span>
+        <Button
+            variant="outline"
+            onClick={() => fetchCustomers('prev')}
+            disabled={isFirstPage || loading}
+        >
+            Previous
+        </Button>
+        <Button
+            variant="outline"
+            onClick={() => fetchCustomers('next')}
+            disabled={isLastPage || loading}
+        >
+            Next
+        </Button>
+      </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-4xl h-[90vh] flex flex-col">
@@ -642,3 +692,5 @@ export function CustomerManager() {
     </TooltipProvider>
   );
 }
+
+    
