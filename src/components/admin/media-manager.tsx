@@ -74,6 +74,7 @@ export function MediaManager() {
   const [formData, setFormData] = useState<Partial<Asset>>({});
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const [filter, setFilter] = useState('');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const [columnVisibility, setColumnVisibility] = useState({
@@ -138,12 +139,13 @@ export function MediaManager() {
     } else if (structure === 'multi' && width1 && height1) {
       totalSqft = width1 * height1;
     }
-    setFormData(prev => ({ ...prev, sqft: totalSqft }));
+    setFormData(prev => ({ ...prev, sqft: totalSqft > 0 ? parseFloat(totalSqft.toFixed(2)) : undefined }));
   }, [formData.structure, formData.width1, formData.height1, formData.width2, formData.height2]);
+
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
-    setFormData(prev => ({ ...prev, [name]: type === 'number' ? parseFloat(value) || 0 : value }));
+    setFormData(prev => ({ ...prev, [name]: type === 'number' ? parseFloat(value) || undefined : value }));
   };
 
   const handleSelectChange = (name: keyof Asset, value: string) => {
@@ -158,90 +160,92 @@ export function MediaManager() {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    if (!currentAsset) {
+    if (!currentAsset?.id) {
         toast({
             variant: 'destructive',
-            title: 'No Asset Selected',
+            title: 'Save Asset First',
             description: 'Please save the asset details before uploading images.',
         });
         return;
     }
-
-    setIsUploading(true);
-    toast({ title: 'Uploading image...', description: 'Please wait.' });
     
-    // EXIF data extraction from the first file
-    const firstFile = files[0];
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const buffer = event.target?.result;
-      if (buffer instanceof ArrayBuffer) {
-        try {
-          const parser = exifParser.create(buffer);
-          const result = parser.parse();
-          if (result.tags.GPSLatitude && result.tags.GPSLongitude) {
-             setFormData(prev => ({
-              ...prev,
-              latitude: result.tags.GPSLatitude,
-              longitude: result.tags.GPSLongitude,
-            }));
-            toast({
-              title: 'Coordinates Found!',
-              description: 'GPS data has been extracted and pre-filled.',
-            });
-          }
-        } catch (error) {
-          console.warn('Could not parse EXIF data:', error);
-        }
-      }
-    };
-    reader.readAsArrayBuffer(firstFile);
-
-    // Upload all selected files
+    setIsUploading(true);
+    toast({ title: `Uploading ${files.length} image(s)...`, description: 'Please wait.' });
+    
     const assetId = currentAsset.id;
     const uploadedUrls: string[] = [];
+
+    // Attempt to extract EXIF from the first file
+    try {
+        const firstFile = files[0];
+        const buffer = await firstFile.arrayBuffer();
+        const parser = exifParser.create(buffer);
+        const result = parser.parse();
+        if (result.tags.GPSLatitude && result.tags.GPSLongitude) {
+            setFormData(prev => ({
+                ...prev,
+                latitude: result.tags.GPSLatitude,
+                longitude: result.tags.GPSLongitude,
+            }));
+            toast({
+                title: 'Coordinates Found!',
+                description: 'GPS data has been extracted from the image.',
+            });
+        }
+    } catch (error) {
+        console.warn('Could not parse EXIF data or no data found:', error);
+    }
+
+    // Upload all files
     for (const file of Array.from(files)) {
       const imageRef = ref(storage, `media-assets/${assetId}/${file.name}_${Date.now()}`);
-      await uploadBytes(imageRef, file);
-      const downloadURL = await getDownloadURL(imageRef);
-      uploadedUrls.push(downloadURL);
+      try {
+        await uploadBytes(imageRef, file);
+        const downloadURL = await getDownloadURL(imageRef);
+        uploadedUrls.push(downloadURL);
+      } catch (uploadError) {
+          console.error("Error uploading image:", uploadError);
+          toast({ variant: 'destructive', title: 'Upload Failed', description: `Could not upload ${file.name}.` });
+      }
     }
     
-    
-    const assetDoc = doc(db, 'media_assets', assetId);
-    await updateDoc(assetDoc, { imageUrls: arrayUnion(...uploadedUrls) });
-    
-    const newImageUrls = [...(currentAsset.imageUrls || []), ...uploadedUrls];
-    const updatedAsset = { ...currentAsset, imageUrls: newImageUrls };
-    
-    setMediaAssets(prev => prev.map(a => a.id === assetId ? updatedAsset : a));
-    setCurrentAsset(updatedAsset);
-    setFormData(prev => ({ ...prev, imageUrls: newImageUrls }));
+    if (uploadedUrls.length > 0) {
+        const assetDoc = doc(db, 'media_assets', assetId);
+        await updateDoc(assetDoc, { imageUrls: arrayUnion(...uploadedUrls) });
+        
+        const newImageUrls = [...(formData.imageUrls || []), ...uploadedUrls];
+        setFormData(prev => ({ ...prev, imageUrls: newImageUrls }));
+        
+        // Also update the main state to reflect changes in the table
+        setMediaAssets(prev => prev.map(a => a.id === assetId ? { ...a, imageUrls: newImageUrls } : a));
+    }
 
     setIsUploading(false);
-    toast({ title: 'Upload complete!', description: `${files.length} image(s) have been added.` });
+    toast({ title: 'Upload complete!', description: `${uploadedUrls.length} of ${files.length} image(s) have been added.` });
+    
+    // Clear the file input
+    if (imageInputRef.current) {
+        imageInputRef.current.value = '';
+    }
   };
 
   const handleDeleteImage = async (imageUrlToDelete: string) => {
-    if (!currentAsset) return;
-    setIsUploading(true); // Re-use spinner for deletion feedback
+    if (!currentAsset?.id) return;
+    setIsUploading(true);
     toast({ title: 'Deleting image...', description: 'Please wait.' });
 
     try {
         const assetId = currentAsset.id;
-        
         const imageRef = ref(storage, imageUrlToDelete);
         await deleteObject(imageRef);
 
         const assetDoc = doc(db, 'media_assets', assetId);
         await updateDoc(assetDoc, { imageUrls: arrayRemove(imageUrlToDelete) });
 
-        const updatedImageUrls = currentAsset.imageUrls?.filter(url => url !== imageUrlToDelete);
-        const updatedAsset = { ...currentAsset, imageUrls: updatedImageUrls };
-        
-        setMediaAssets(prev => prev.map(a => a.id === assetId ? updatedAsset : a));
-        setCurrentAsset(updatedAsset);
+        const updatedImageUrls = formData.imageUrls?.filter(url => url !== imageUrlToDelete);
         setFormData(prev => ({ ...prev, imageUrls: updatedImageUrls }));
+        
+        setMediaAssets(prev => prev.map(a => a.id === assetId ? { ...a, imageUrls: updatedImageUrls } : a));
         
         toast({ title: 'Image deleted!', description: 'The image has been removed successfully.' });
     } catch(error) {
@@ -252,30 +256,31 @@ export function MediaManager() {
     }
   };
 
-
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSaving(true);
     
+    // Create a clean data object by removing undefined values
+    const dataToSave = Object.fromEntries(Object.entries(formData).filter(([_, v]) => v !== undefined));
+
     if (currentAsset?.id) {
       const assetDoc = doc(db, 'media_assets', currentAsset.id);
-      await updateDoc(assetDoc, formData);
+      await updateDoc(assetDoc, dataToSave);
 
-      const updatedAsset = { ...currentAsset, ...formData };
+      const updatedAsset = { ...currentAsset, ...dataToSave };
       setMediaAssets(mediaAssets.map(asset => 
         asset.id === currentAsset.id ? updatedAsset : asset
       ));
-      setCurrentAsset(updatedAsset); // Keep dialog populated with saved data
+      setCurrentAsset(updatedAsset);
       toast({ title: 'Asset Updated!', description: 'The media asset details have been saved.' });
     } else {
-      
-      const docRef = await addDoc(mediaAssetsCollectionRef, { ...formData, imageUrls: [] });
-      const newAsset = { ...formData, imageUrls: [], id: docRef.id } as Asset;
+      const docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, imageUrls: [] });
+      const newAsset = { ...dataToSave, imageUrls: [], id: docRef.id } as Asset;
 
-      setMediaAssets([...mediaAssets, newAsset]);
-      toast({ title: 'Asset Added!', description: 'You can now upload images to this asset.' });
+      setMediaAssets(prev => [...prev, newAsset]);
       setCurrentAsset(newAsset);
       setFormData(newAsset);
+      toast({ title: 'Asset Added!', description: 'You can now upload images to this asset.' });
     }
     
     setIsSaving(false);
@@ -283,7 +288,7 @@ export function MediaManager() {
 
   const openDialog = (asset: Asset | null = null) => {
     setCurrentAsset(asset);
-    setFormData(asset || {});
+    setFormData(asset || { mid: `ASSET-${Date.now().toString().slice(-6)}`});
     setIsDialogOpen(true);
   };
 
@@ -296,6 +301,7 @@ export function MediaManager() {
   };
   
   const handleDelete = async (asset: Asset) => {
+     if(!confirm(`Are you sure you want to delete asset ${asset.mid} (${asset.location})?`)) return;
      const assetDoc = doc(db, 'media_assets', asset.id);
      await deleteDoc(assetDoc);
      setMediaAssets(mediaAssets.filter(a => a.id !== asset.id));
@@ -338,10 +344,7 @@ export function MediaManager() {
 
   const getSortIcon = (key: keyof Asset) => {
     if (!sortConfig || sortConfig.key !== key) {
-      return <ArrowUpDown className="ml-2 h-4 w-4" />;
-    }
-    if (sortConfig.direction === 'ascending') {
-      return <ArrowUpDown className="ml-2 h-4 w-4" />; 
+      return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />;
     }
     return <ArrowUpDown className="ml-2 h-4 w-4" />; 
   };
@@ -633,9 +636,9 @@ export function MediaManager() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-4xl h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>{currentAsset ? 'Edit Media Asset' : 'Add New Media Asset'}</DialogTitle>
+            <DialogTitle>{currentAsset?.id ? 'Edit Media Asset' : 'Add New Media Asset'}</DialogTitle>
             <DialogDescription>
-              {currentAsset ? 'Update the details for this media asset.' : 'Fill in the details for the new media asset.'}
+              {currentAsset?.id ? 'Update the details for this media asset.' : 'Fill in the details for the new media asset.'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSave} className="flex-grow overflow-hidden flex flex-col">
@@ -831,30 +834,28 @@ export function MediaManager() {
                   </div>
                    <div className="col-span-full">
                     <Label htmlFor="images">Asset Images</Label>
-                    <Input id="images" type="file" multiple onChange={handleImageFileChange} disabled={!currentAsset || isUploading}/>
+                    <Input ref={imageInputRef} id="images" type="file" multiple onChange={handleImageFileChange} disabled={!currentAsset?.id || isUploading}/>
                      <p className="text-sm text-muted-foreground mt-1">
                        New images will be added to existing ones. GPS data will be extracted from the first image if available.
                     </p>
                     {isUploading && <Loader2 className="animate-spin mt-2" />}
-                    {currentAsset?.imageUrls && currentAsset.imageUrls.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {currentAsset.imageUrls.map((url: string) => (
-                          <div key={url} className="relative h-20 w-20 group">
-                            <Image src={url} alt="Asset image" layout="fill" className="rounded-md object-cover" />
-                             <Button
-                                type="button"
-                                variant="destructive"
-                                size="icon"
-                                className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={() => handleDeleteImage(url)}
-                                disabled={isUploading}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {(formData.imageUrls || []).map((url: string) => (
+                        <div key={url} className="relative h-20 w-20 group">
+                          <Image src={url} alt="Asset image" layout="fill" className="rounded-md object-cover" />
+                           <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => handleDeleteImage(url)}
+                              disabled={isUploading}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
             </ScrollArea>
