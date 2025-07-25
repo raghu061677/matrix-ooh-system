@@ -105,7 +105,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                         <SidebarMenuItem>
                           <CollapsibleTrigger asChild>
                             <SidebarMenuButton>
-                              <LayoutGrid />
+                              <Projector />
                               <span className="whitespace-nowrap">Media</span>
                               <ChevronDown className={cn("ml-auto transition-transform", mediaOpen && "rotate-180")}/>
                             </SidebarMenuButton>
