@@ -201,7 +201,6 @@ export function MediaManager() {
         return;
     }
     
-    // Check file sizes before proceeding
     for (const file of Array.from(files)) {
       if (file.size > 2 * 1024 * 1024) { // 2MB limit
         toast({
@@ -209,7 +208,6 @@ export function MediaManager() {
           title: 'File Too Large',
           description: `${file.name} is larger than 2MB. Please compress it before uploading.`,
         });
-        // Clear the file input
         if (imageInputRef.current) {
             imageInputRef.current.value = '';
         }
@@ -244,7 +242,6 @@ export function MediaManager() {
         console.warn('Could not parse EXIF data or no data found:', error);
     }
 
-    // Upload all files
     for (const file of Array.from(files)) {
       const imageRef = ref(storage, `media-assets/${assetId}/${file.name}_${Date.now()}`);
       try {
@@ -264,14 +261,12 @@ export function MediaManager() {
         const newImageUrls = [...(formData.imageUrls || []), ...uploadedUrls];
         setFormData(prev => ({ ...prev, imageUrls: newImageUrls }));
         
-        // Also update the main state to reflect changes in the table
         setMediaAssets(prev => prev.map(a => a.id === assetId ? { ...a, imageUrls: newImageUrls } : a));
     }
 
     setIsUploading(false);
     toast({ title: 'Upload complete!', description: `${uploadedUrls.length} of ${files.length} image(s) have been added.` });
     
-    // Clear the file input
     if (imageInputRef.current) {
         imageInputRef.current.value = '';
     }

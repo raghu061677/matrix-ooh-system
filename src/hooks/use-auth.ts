@@ -1,2 +1,2 @@
-// This file has been renamed to use-auth.tsx to resolve a build issue.
-// The content has been moved to the new file.
+// This file's content has been moved to use-auth.tsx to resolve a build issue.
+// This file can be safely deleted.
