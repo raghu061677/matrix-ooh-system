@@ -201,6 +201,22 @@ export function MediaManager() {
         return;
     }
     
+    // Check file sizes before proceeding
+    for (const file of Array.from(files)) {
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit
+        toast({
+          variant: 'destructive',
+          title: 'File Too Large',
+          description: `${file.name} is larger than 2MB. Please compress it before uploading.`,
+        });
+        // Clear the file input
+        if (imageInputRef.current) {
+            imageInputRef.current.value = '';
+        }
+        return;
+      }
+    }
+
     setIsUploading(true);
     toast({ title: `Uploading ${files.length} image(s)...`, description: 'Please wait.' });
     
