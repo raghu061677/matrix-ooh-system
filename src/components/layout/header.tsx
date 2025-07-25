@@ -76,4 +76,6 @@ export function Header() {
           </Button>
         </div>
       </div>
-    </
+    </header>
+  );
+}
