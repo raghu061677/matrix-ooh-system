@@ -164,13 +164,24 @@ export function MediaManager() {
 
     const assetId = currentAsset.id;
     const uploadedUrls: string[] = [];
+    let uploadCount = 0;
 
     for (const file of Array.from(files)) {
+        if (file.size > 2 * 1024 * 1024) {
+            toast({
+                variant: 'destructive',
+                title: 'File Too Large',
+                description: `${file.name} is larger than 2MB. Please compress it.`,
+            });
+            continue; // Skip this file
+        }
+
         try {
             const imageRef = ref(storage, `media-assets/${assetId}/${file.name}_${Date.now()}`);
             await uploadBytes(imageRef, file);
             const downloadURL = await getDownloadURL(imageRef);
             uploadedUrls.push(downloadURL);
+            uploadCount++;
         } catch (uploadError) {
             console.error("Error uploading image:", uploadError);
             toast({ variant: 'destructive', title: 'Upload Failed', description: `Could not upload ${file.name}.` });
@@ -189,7 +200,7 @@ export function MediaManager() {
     setIsUploading(false);
     toast({
         title: 'Upload Complete!',
-        description: `${uploadedUrls.length} of ${files.length} image(s) uploaded.`,
+        description: `${uploadCount} of ${files.length} image(s) uploaded successfully.`,
     });
   };
 

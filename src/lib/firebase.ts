@@ -25,30 +25,25 @@ const storage = getStorage(firebaseApp);
 if (typeof window !== 'undefined') {
     const setupPersistence = async () => {
         try {
+            // It's often better to clear persistence on startup in complex apps
+            // to avoid issues with stale data or query conflicts.
+            await clearIndexedDbPersistence(db);
             await enableIndexedDbPersistence(db);
-            console.log('Firebase persistence enabled');
+            console.log('📦 Firestore persistence enabled');
         } catch (err) {
             if ((err as any).code === 'failed-precondition') {
-                console.warn('Firebase persistence failed: multiple tabs open. Attempting to clear and retry.');
-                // This is a more aggressive approach for single-tab applications or to recover from a bad state.
-                try {
-                    await clearIndexedDbPersistence(db);
-                    await enableIndexedDbPersistence(db);
-                    console.log('Firebase persistence enabled after clearing.');
-                } catch (e) {
-                    console.error('Firebase persistence failed even after clearing.', e);
-                }
+                console.warn('⚠️ Firestore persistence failed: multiple tabs open or other issue.');
             } else if ((err as any).code === 'unimplemented') {
-                console.warn('Firebase persistence not supported in this browser.');
+                console.warn('⚠️ Firestore persistence not supported in this browser.');
             } else {
-                console.error("Firebase persistence error:", err);
+                console.error("⚠️ Firestore persistence error:", err);
             }
         }
     };
 
     setupPersistence();
     
-    // Manage network status
+    // Manage network status based on browser connectivity
     window.addEventListener("online", () => {
         console.log("Browser is online, enabling Firestore network.");
         enableNetwork(db);
