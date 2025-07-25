@@ -48,7 +48,7 @@ export function LocationCard({
       <CardContent className="p-6 flex-grow">
         <div className="flex justify-between items-start mb-2">
             <CardTitle className="text-xl font-headline">{title}</CardTitle>
-            <Badge variant={category === 'Digital' ? 'default' : 'secondary'}>{category}</Badge>
+            <Badge variant={'secondary'}>{category}</Badge>
         </div>
         <CardDescription className="flex items-center gap-2 text-muted-foreground mb-4">
             <MapPin className="w-4 h-4" />
@@ -56,9 +56,9 @@ export function LocationCard({
         </CardDescription>
         <p className="text-sm text-muted-foreground">{description}</p>
       </CardContent>
-       <CardFooter className="p-6 pt-0">
+       <CardFooter className="p-6 pt-0 mt-auto">
         <Button asChild className="w-full">
-          <Link href={`/enquiry/${id}`}>Enquire Now</Link>
+          <Link href={`/enquiry/${id}`}>Enquire Now →</Link>
         </Button>
       </CardFooter>
     </Card>

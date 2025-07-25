@@ -7,6 +7,8 @@ import { db } from '@/lib/firebase';
 import { LocationCard } from './location-card';
 import { Asset } from '@/components/admin/media-manager-types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '../ui/button';
+import Link from 'next/link';
 
 export function Portfolio() {
   const [locations, setLocations] = useState<Asset[]>([]);
@@ -16,8 +18,8 @@ export function Portfolio() {
     const fetchAssets = async () => {
       try {
         const assetsCollection = collection(db, 'media_assets');
-        // Fetch all active assets from all companies. We can limit this for performance.
-        const q = query(assetsCollection, where('status', '==', 'active'), limit(20));
+        // Fetch a limited number of assets for the homepage portfolio
+        const q = query(assetsCollection, where('status', '==', 'active'), limit(6));
         const querySnapshot = await getDocs(q);
         const fetchedAssets = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Asset));
         setLocations(fetchedAssets);
@@ -57,13 +59,18 @@ export function Portfolio() {
                 id={location.id}
                 title={location.area || 'Untitled'}
                 location={`${location.location}, ${location.city}`}
-                imageUrl={location.imageUrls?.[0] || 'https://placehold.co/600x400.png'}
+                imageUrl={location.imageUrls?.[0] || '/placeholder.png'}
                 aiHint="city street billboard"
-                description={`A premium ${location.media || 'asset'}. Dimensions: ${location.dimensions || 'N/A'}`}
-                category={location.light || 'Static'}
+                description={`A premium ${location.media || 'asset'} facing ${location.direction || 'N/A'}.`}
+                category={`${location.dimensions} (${location.sqft} sqft)`}
               />
             ))
           )}
+        </div>
+         <div className="mt-12 text-center">
+            <Button size="lg" asChild>
+                <Link href="/explore-media">Explore All Locations</Link>
+            </Button>
         </div>
       </div>
     </section>
