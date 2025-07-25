@@ -1,6 +1,7 @@
 
 import Link from 'next/link';
-import { Projector, Twitter, Linkedin, Facebook } from 'lucide-react';
+import Image from 'next/image';
+import { Twitter, Linkedin, Facebook } from 'lucide-react';
 
 export function Footer() {
   const year = new Date().getFullYear();
@@ -10,8 +11,7 @@ export function Footer() {
       <div className="container flex flex-col items-center justify-between gap-6 py-10 md:h-24 md:flex-row md:py-0">
         <div className="flex flex-col items-center gap-4 px-8 md:flex-row md:gap-2 md:px-0">
           <Link href="/home" className="flex items-center space-x-2">
-            <Projector className="h-6 w-6 text-primary" />
-            <span className="font-bold font-headline text-lg">Matrix-OOH</span>
+             <Image src="/logo.png" alt="Matrix-OOH Logo" width={140} height={40} />
           </Link>
           <p className="text-center text-sm leading-loose text-muted-foreground md:text-left">
             © {year} Matrix-OOH, Inc. All rights reserved.

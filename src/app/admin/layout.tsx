@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { firebaseApp } from '@/lib/firebase';
+import Image from 'next/image';
 import {
   SidebarProvider,
   Sidebar,
@@ -46,7 +47,6 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const [expensesOpen, setExpensesOpen] = useState(pathname.startsWith('/admin/expenses'));
   const [salesOpen, setSalesOpen] = useState(pathname.startsWith('/admin/sales'));
   const [operationsOpen, setOperationsOpen] = useState(pathname.startsWith('/admin/operations'));
-  const [settingsOpen, setSettingsOpen] = useState(pathname.startsWith('/admin/users'));
 
 
   useEffect(() => {
@@ -81,8 +81,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
          <SidebarRail />
           <SidebarHeader>
             <div className="flex items-center gap-2">
-               <Projector className="h-6 w-6 text-primary" />
-               <h2 className="text-lg font-bold font-headline whitespace-nowrap">Matrix-OOH</h2>
+               <Image src="/logo.png" alt="Matrix-OOH Logo" width={140} height={40} className="dark:brightness-0 dark:invert" />
             </div>
           </SidebarHeader>
           <SidebarContent className="pt-4">

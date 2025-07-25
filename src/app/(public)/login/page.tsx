@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { firebaseApp } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -45,11 +46,14 @@ export default function LoginPage() {
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-12rem)]">
       <Card className="mx-auto max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-2xl">Admin Login</CardTitle>
-          <CardDescription>
-            Enter your email below to login to your account
-          </CardDescription>
+        <CardHeader className="space-y-4">
+          <Image src="/logo.png" alt="Matrix-OOH Logo" width={180} height={60} className="mx-auto" />
+          <div className="text-center">
+            <CardTitle className="text-2xl">Admin Login</CardTitle>
+            <CardDescription>
+              Enter your email below to login to your account
+            </CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="grid gap-4">
