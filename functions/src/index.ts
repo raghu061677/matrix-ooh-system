@@ -87,3 +87,46 @@ export const sendEnquiryNotification = functions.firestore
 
     return null;
   });
+
+
+export const onPlanConfirmed = functions.firestore
+  .document("plans/{planId}")
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+
+    if (before.status !== "confirmed" && after.status === "confirmed") {
+      const planId = context.params.planId;
+      const db = admin.firestore();
+
+      // Create Sales Order
+      const soRef = db.collection("salesEstimates").doc("approvedInvoices")
+                      .collection("entries").doc();
+      await soRef.set({
+        planId,
+        customerId: after.customerId,
+        employeeId: after.employeeId,
+        displayName: after.displayName,
+        fromDate: after.startDate,
+        toDate: after.endDate,
+        status: "approved",
+        invoiceAmount: after.costSummary.totalBeforeTax,
+        invoiceAmountWithTax: after.costSummary.grandTotal,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      // Create Purchase Order
+      const poRef = db.collection("purchaseOrders").doc("generatedPOs")
+                      .collection("entries").doc();
+      await poRef.set({
+        planId,
+        customerId: after.customerId,
+        employeeId: after.employeeId,
+        poStatus: "generated",
+        poAmount: after.costSummary.totalBeforeTax,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      console.log(`Auto-generated SO and PO for confirmed plan ${planId}`);
+    }
+  });
