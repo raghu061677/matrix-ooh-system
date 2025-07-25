@@ -17,7 +17,7 @@ export default function OfficeExpensesPage() {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">
-                This section is for tracking all administrative and office-related overhead costs to provide a complete financial overview.
+                This area will allow you to manage fuel expenses, vehicle maintenance, and other travel costs incurred during site visits, client meetings, and mounting tasks.
             </p>
           </CardContent>
         </Card>
