@@ -11,9 +11,9 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { initializeApp, getApps } from 'firebase-admin/app';
+import { db } from './assign-invoice-number'; // Import the shared db instance
 
 const firebaseConfig = {
   credential: undefined,
@@ -24,7 +24,6 @@ const firebaseConfig = {
 if (!getApps().length) {
     initializeApp(firebaseConfig);
 }
-const db = getFirestore();
 const storage = getStorage();
 
 const CompanySettingsSchema = z.object({

@@ -6,6 +6,7 @@
  * - assignInvoiceNumber - A function that takes a pending invoice ID, assigns the next available
  *   invoice number, and records the invoice date.
  * - AssignInvoiceNumberInput - The input type for the assignInvoiceNumber function.
+ * - db - Exported Firestore instance for use in other flows.
  */
 
 import { ai } from '@/ai/genkit';
@@ -20,7 +21,7 @@ const firebaseConfig = {
 if (!getApps().length) {
     initializeApp(firebaseConfig);
 }
-const db = getFirestore();
+export const db = getFirestore();
 
 const AssignInvoiceNumberInputSchema = z.object({
   pendingInvoiceId: z.string().describe("The ID of the document in the 'salesEstimates/pendingInvoices' collection."),

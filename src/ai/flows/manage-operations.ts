@@ -7,20 +7,9 @@
  * - receiveFlex - Updates the flex stock inventory.
  */
 
-import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { initializeApp, getApps } from 'firebase-admin/app';
-
-const firebaseConfig = {
-  credential: undefined,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-};
-if (!getApps().length) {
-    initializeApp(firebaseConfig);
-}
-const db = getFirestore();
-
+import { FieldValue } from 'firebase-admin/firestore';
+import { db } from './assign-invoice-number'; // Import the shared db instance
 
 // === MOUNTING TASK COMPLETION ===
 const CompleteMountingTaskSchema = z.object({

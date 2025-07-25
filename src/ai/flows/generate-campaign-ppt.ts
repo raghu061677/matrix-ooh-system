@@ -9,12 +9,14 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import PptxGenJS from 'pptxgenjs';
 import fetch from 'node-fetch';
+import { db } from './assign-invoice-number'; // Import the shared db instance
 
+// Note: Storage initialization is separate and can be done here.
+// Or it could be centralized as well if used more broadly.
 const firebaseConfig = {
   credential: undefined,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
@@ -25,7 +27,6 @@ if (!getApps().length) {
     initializeApp(firebaseConfig);
 }
 
-const db = getFirestore();
 const storage = getStorage();
 
 const GenerateCampaignPptInputSchema = z.object({
