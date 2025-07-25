@@ -25,13 +25,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, CalendarIcon } from 'lucide-react';
-import { MediaPlan } from '@/types/media-plan';
-import { Customer, User } from '@/types/firestore';
+import { MediaPlan, PlanStatus } from '@/types/media-plan';
+import { Customer } from '@/components/admin/customer-manager';
 import { format, differenceInDays } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { ScrollArea } from '../ui/scroll-area';
@@ -41,7 +39,6 @@ interface MediaPlanFormDialogProps {
   onOpenChange: (open: boolean) => void;
   plan: MediaPlan | null;
   customers: Customer[];
-  employees: User[];
   onSave: (plan: MediaPlan) => void;
 }
 
@@ -50,7 +47,6 @@ export function MediaPlanFormDialog({
   onOpenChange,
   plan,
   customers,
-  employees,
   onSave,
 }: MediaPlanFormDialogProps) {
   const [formData, setFormData] = React.useState<Partial<MediaPlan>>({});
@@ -69,23 +65,10 @@ export function MediaPlanFormDialog({
         });
       }
     } else {
-      setFormData({ projectId: `P-${Date.now().toString().slice(-5)}` });
+      setFormData({ status: 'Draft' });
       setDateRange(undefined);
     }
   }, [plan, isOpen]);
-
-  React.useEffect(() => {
-    if (dateRange?.from && dateRange?.to) {
-      setFormData((prev) => ({
-        ...prev,
-        startDate: dateRange.from,
-        endDate: dateRange.to,
-        days: differenceInDays(dateRange.to!, dateRange.from!) + 1,
-      }));
-    } else {
-      setFormData((prev) => ({ ...prev, days: undefined }));
-    }
-  }, [dateRange]);
 
   const handleFormChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -95,38 +78,19 @@ export function MediaPlanFormDialog({
   };
 
   const handleSelectChange = (name: keyof MediaPlan, value: string) => {
-    if (name === 'employeeId') {
-      const employee = employees.find((e) => e.id === value);
-      if (employee) {
-        setFormData((prev) => ({
-          ...prev,
-          employeeId: value,
-          employee: {
-            id: employee.id,
-            name: employee.name,
-            avatar: employee.avatar,
-          },
-        }));
-      }
-    } else if (name === 'customerId') {
-      const customer = customers.find((c) => c.id === value);
-       if (customer) {
-        setFormData((prev) => ({ ...prev, customerId: value, customerName: customer.name }));
-      }
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
-    }
-  };
-
-  const handleSwitchChange = (name: keyof MediaPlan, checked: boolean) => {
-    setFormData((prev) => ({ ...prev, [name]: checked }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     // Add any validation logic here
-    onSave(formData as MediaPlan);
+    const dataToSave = {
+        ...formData,
+        startDate: dateRange?.from,
+        endDate: dateRange?.to,
+    }
+    onSave(dataToSave as MediaPlan);
     setLoading(false);
   };
 
@@ -134,181 +98,115 @@ export function MediaPlanFormDialog({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>{plan ? 'Edit Plan' : 'Add to Plan'}</DialogTitle>
+          <DialogTitle>{plan ? 'Edit Plan' : 'Create New Plan'}</DialogTitle>
         </DialogHeader>
         <div className="flex-grow overflow-hidden">
-            <Tabs defaultValue="new-plan" className="h-full flex flex-col">
-              <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
-                <TabsTrigger value="new-plan">New Plan</TabsTrigger>
-                <TabsTrigger value="existing-plan">Existing Plan</TabsTrigger>
-              </TabsList>
-              <TabsContent value="new-plan" className="flex-grow overflow-hidden">
-                <form onSubmit={handleSubmit} className="h-full flex flex-col">
-                  <ScrollArea className="flex-grow pr-6">
-                      <div className="space-y-4 py-4">
-                        <div className="grid grid-cols-1 gap-4">
-                          <div>
-                            <Label htmlFor="displayName">
-                              Display Name <span className="text-red-500">*</span>
-                            </Label>
-                            <Input
-                              id="displayName"
-                              name="displayName"
-                              value={formData.displayName || ''}
-                              onChange={handleFormChange}
-                              required
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label htmlFor="employee">Employee</Label>
-                              <Select
-                                onValueChange={(value) =>
-                                  handleSelectChange('employeeId', value)
-                                }
-                                value={formData.employeeId}
+            <form onSubmit={handleSubmit} className="h-full flex flex-col">
+              <ScrollArea className="flex-grow pr-6">
+                  <div className="space-y-4 py-4">
+                    <div className="grid grid-cols-1 gap-4">
+                      <div>
+                        <Label htmlFor="clientId">Customer</Label>
+                          <Select
+                            onValueChange={(value) =>
+                              handleSelectChange('clientId', value)
+                            }
+                            value={formData.clientId}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select customer" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {customers.map((cust) => (
+                                <SelectItem key={cust.id} value={cust.id}>
+                                  {cust.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 items-center gap-2">
+                        <Label htmlFor="dates">
+                          Dates
+                        </Label>
+                        <div className="grid grid-cols-[1fr_auto] gap-2">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                id="date"
+                                variant={'outline'}
+                                className="w-full justify-start text-left font-normal"
                               >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select user" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {employees.map((emp) => (
-                                    <SelectItem key={emp.id} value={emp.id}>
-                                      {emp.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <Label htmlFor="customer">Customer</Label>
-                              <Select
-                                onValueChange={(value) =>
-                                  handleSelectChange('customerId', value)
-                                }
-                                value={formData.customerId}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select customer" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {customers.map((cust) => (
-                                    <SelectItem key={cust.id} value={cust.id}>
-                                      {cust.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-1 items-center gap-2">
-                            <Label htmlFor="dates">
-                              Dates <span className="text-red-500">*</span>
-                            </Label>
-                            <div className="grid grid-cols-[1fr_auto] gap-2">
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    id="date"
-                                    variant={'outline'}
-                                    className="w-full justify-start text-left font-normal"
-                                  >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {dateRange?.from ? (
-                                      dateRange.to ? (
-                                        <>
-                                          {format(dateRange.from, 'LLL dd, y')} -{' '}
-                                          {format(dateRange.to, 'LLL dd, y')}
-                                        </>
-                                      ) : (
-                                        format(dateRange.from, 'LLL dd, y')
-                                      )
-                                    ) : (
-                                      <span>Pick a date range</span>
-                                    )}
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                  <Calendar
-                                    initialFocus
-                                    mode="range"
-                                    defaultMonth={dateRange?.from}
-                                    selected={dateRange}
-                                    onSelect={setDateRange}
-                                    numberOfMonths={2}
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                              <Input
-                                id="days"
-                                name="days"
-                                value={formData.days || ''}
-                                placeholder="Days"
-                                readOnly
-                                className="w-20"
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {dateRange?.from ? (
+                                  dateRange.to ? (
+                                    <>
+                                      {format(dateRange.from, 'LLL dd, y')} -{' '}
+                                      {format(dateRange.to, 'LLL dd, y')}
+                                    </>
+                                  ) : (
+                                    format(dateRange.from, 'LLL dd, y')
+                                  )
+                                ) : (
+                                  <span>Pick a date range</span>
+                                )}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                initialFocus
+                                mode="range"
+                                defaultMonth={dateRange?.from}
+                                selected={dateRange}
+                                onSelect={setDateRange}
+                                numberOfMonths={2}
                               />
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Switch
-                              id="isRotational"
-                              checked={!!formData.isRotational}
-                              onCheckedChange={(checked) =>
-                                handleSwitchChange('isRotational', checked)
-                              }
-                            />
-                            <Label htmlFor="isRotational">Is Rotational</Label>
-                          </div>
-                          <div>
-                            <Label htmlFor="notes">Notes</Label>
-                            <Textarea
-                              id="notes"
-                              name="notes"
-                              value={formData.notes || ''}
-                              onChange={handleFormChange}
-                            />
-                          </div>
+                            </PopoverContent>
+                          </Popover>
                         </div>
                       </div>
-                  </ScrollArea>
-                  <DialogFooter className="flex-shrink-0 pt-4">
-                    <DialogClose asChild>
-                      <Button type="button" variant="secondary">
-                        Cancel
-                      </Button>
-                    </DialogClose>
-                    <Button type="submit" disabled={loading}>
-                      {loading ? (
-                        <Loader2 className="animate-spin" />
-                      ) : plan ? (
-                        'Save Changes'
-                      ) : (
-                        'Create Plan'
-                      )}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </TabsContent>
-              <TabsContent value="existing-plan" className="flex-grow">
-                <div className="py-4">
-                  <p className="text-muted-foreground">
-                    Select an existing plan to add assets to. This feature is coming
-                    soon.
-                  </p>
-                </div>
-                <DialogFooter className="flex-shrink-0 pt-4">
-                  <DialogClose asChild>
-                    <Button type="button" variant="secondary">
-                      Cancel
-                    </Button>
-                  </DialogClose>
-                </DialogFooter>
-              </TabsContent>
-            </Tabs>
+
+                       <div>
+                        <Label htmlFor="status">Status</Label>
+                          <Select
+                            onValueChange={(value) =>
+                              handleSelectChange('status', value as PlanStatus)
+                            }
+                            value={formData.status}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Draft">Draft</SelectItem>
+                                <SelectItem value="Approved">Approved</SelectItem>
+                                <SelectItem value="Rejected">Rejected</SelectItem>
+                            </SelectContent>
+                          </Select>
+                      </div>
+                    </div>
+                  </div>
+              </ScrollArea>
+              <DialogFooter className="flex-shrink-0 pt-4">
+                <DialogClose asChild>
+                  <Button type="button" variant="secondary">
+                    Cancel
+                  </Button>
+                </DialogClose>
+                <Button type="submit" disabled={loading}>
+                  {loading ? (
+                    <Loader2 className="animate-spin" />
+                  ) : plan ? (
+                    'Save Changes'
+                  ) : (
+                    'Create Plan'
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
         </div>
       </DialogContent>
     </Dialog>
   );
 }
-
-    
