@@ -124,7 +124,7 @@ export default function ExploreMediaPage() {
               id={location.id}
               title={location.area || 'Untitled'}
               location={`${location.location}, ${location.city}`}
-              imageUrl={location.imageUrls?.[0] || '/placeholder.png'}
+              imageUrl={location.imageUrls?.[0] || 'https://placehold.co/600x400.png'}
               aiHint="city street billboard"
               description={`A premium ${location.media || 'asset'} facing ${location.direction || 'N/A'}.`}
               category={`${location.dimensions} (${location.sqft} sqft)`}
