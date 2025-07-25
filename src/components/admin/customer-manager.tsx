@@ -66,7 +66,7 @@ type SearchableField = 'name' | 'gst' | 'pocName' | 'pocPhone';
 const PAGE_SIZE = 10;
 
 const sampleCustomers: Customer[] = [
-    { id: 'customer-1', code: 'CUST-001', name: 'MediaVenue', gst: '29AAACN1234F1Z5', contactPersons: [{ name: 'Anil Kumar', phone: '9876543210', designation: 'Manager' }], addresses: [{ type: 'billing', street: '123 Cyberabad', city: 'Hyderabad', state: 'Telangana', postalCode: '500081' }] },
+    { id: 'customer-1', code: 'CUST-001', name: 'Matrix-OOH', gst: '29AAACN1234F1Z5', contactPersons: [{ name: 'Anil Kumar', phone: '9876543210', designation: 'Manager' }], addresses: [{ type: 'billing', street: '123 Cyberabad', city: 'Hyderabad', state: 'Telangana', postalCode: '500081' }] },
     { id: 'customer-2', code: 'CUST-002', name: 'Founding Years Learning', gst: '36ABCFY1234G1Z2', contactPersons: [{ name: 'Sunitha Reddy', phone: '9876543211', designation: 'Director' }], addresses: [{ type: 'billing', street: '456 Jubilee Hills', city: 'Hyderabad', state: 'Telangana', postalCode: '500033' }] },
     { id: 'customer-3', code: 'CUST-003', name: 'ADMINDS', gst: '27AAAAA0000A1Z5', contactPersons: [{ name: 'Sunil Reddy', phone: '9876543212', designation: 'Proprietor' }], addresses: [{ type: 'billing', street: '789 Gachibowli', city: 'Hyderabad', state: 'Telangana', postalCode: '500032' }] },
     { id: 'customer-4', code: 'CUST-004', name: 'LAQSHYA MEDIA LIMITED', gst: '24AACCL5678B1Z9', contactPersons: [{ name: 'Vikram Singh', phone: '9876543213', designation: 'Head of Operations' }], addresses: [{ type: 'billing', street: '101 Madhapur', city: 'Hyderabad', state: 'Telangana', postalCode: '500081' }] },
@@ -692,5 +692,3 @@ export function CustomerManager() {
     </TooltipProvider>
   );
 }
-
-    

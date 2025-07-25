@@ -122,7 +122,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
 
   const exportPlanToPPT = async () => {
     const ppt = new PptxGenJS();
-    ppt.author = "OOH Media App";
+    ppt.author = "Matrix-OOH App";
 
     const planId = plan.id;
     const planSnap = await getDoc(doc(db, "plans", planId));
@@ -362,7 +362,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
 
     // Prepare mailto link
     const subject = encodeURIComponent(`Media Plan Quotation: ${plan.displayName}`);
-    const body = encodeURIComponent(`Dear ${clientName},\n\nPlease find the attached media plan proposal (PPT, Excel, and PDF) for your review.\n\nWe look forward to hearing from you.\n\nBest regards,\n\n${plan.employee?.name || 'Your contact at MediaVenue'}`);
+    const body = encodeURIComponent(`Dear ${clientName},\n\nPlease find the attached media plan proposal (PPT, Excel, and PDF) for your review.\n\nWe look forward to hearing from you.\n\nBest regards,\n\n${plan.employee?.name || 'Your contact at Matrix-OOH'}`);
     
     const mailtoLink = `mailto:${clientEmail}?subject=${subject}&body=${body}`;
     

@@ -82,7 +82,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
           <SidebarHeader>
             <div className="flex items-center gap-2">
                <Projector className="h-6 w-6 text-primary" />
-               <h2 className="text-lg font-bold font-headline whitespace-nowrap">MediaVenue</h2>
+               <h2 className="text-lg font-bold font-headline whitespace-nowrap">Matrix-OOH</h2>
             </div>
           </SidebarHeader>
           <SidebarContent className="pt-4">

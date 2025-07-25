@@ -37,7 +37,7 @@ import { collection, getDocs, query, orderBy, limit, startAfter, endBefore, limi
 const PAGE_SIZE = 10;
 
 const sampleCampaigns: Campaign[] = [
-    { id: '4', projectId: 'P00106', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerName: 'MediaVenue', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, inventorySummary: { totalSqft: 1280 }, costSummary: { grandTotal: 224200 }, statistics: { qos: '42.5%' }, status: 'Active', exportReady: true },
+    { id: '4', projectId: 'P00106', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerName: 'Matrix-OOH', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, inventorySummary: { totalSqft: 1280 }, costSummary: { grandTotal: 224200 }, statistics: { qos: '42.5%' }, status: 'Active', exportReady: true },
      { id: '5', projectId: 'P00110', employee: { id: 'user-002', name: 'Sunil Reddy', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026705d' }, customerName: 'Founding Years', displayName: 'KIDO', startDate: new Date('2025-08-01'), endDate: new Date('2025-08-30'), days: 30, inventorySummary: { totalSqft: 800 }, costSummary: { grandTotal: 150000 }, statistics: { qos: 'N/A' }, status: 'Pending', exportReady: false },
 ];
 
@@ -370,5 +370,3 @@ export function CampaignManager() {
     </TooltipProvider>
   );
 }
-
-    

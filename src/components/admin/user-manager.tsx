@@ -38,9 +38,9 @@ import { User } from '@/types/firestore';
 const PAGE_SIZE = 10;
 
 const sampleUsers: User[] = [
-    { id: 'user-1', uid: 'user-1', name: 'Admin User', email: 'admin@mediavenue.com', role: 'admin', avatar: 'https://i.pravatar.cc/150?u=admin' },
-    { id: 'user-2', uid: 'user-2', name: 'Sales Person', email: 'sales@mediavenue.com', role: 'sales', avatar: 'https://i.pravatar.cc/150?u=sales' },
-    { id: 'user-3', uid: 'user-3', name: 'Operations Manager', email: 'ops@mediavenue.com', role: 'operations', avatar: 'https://i.pravatar.cc/150?u=ops' },
+    { id: 'user-1', uid: 'user-1', name: 'Admin User', email: 'admin@matrix-ooh.com', role: 'admin', avatar: 'https://i.pravatar.cc/150?u=admin' },
+    { id: 'user-2', uid: 'user-2', name: 'Sales Person', email: 'sales@matrix-ooh.com', role: 'sales', avatar: 'https://i.pravatar.cc/150?u=sales' },
+    { id: 'user-3', uid: 'user-3', name: 'Operations Manager', email: 'ops@matrix-ooh.com', role: 'operations', avatar: 'https://i.pravatar.cc/150?u=ops' },
 ];
 
 
@@ -279,5 +279,3 @@ export function UserManager() {
     </div>
   );
 }
-
-    

@@ -68,15 +68,15 @@ const sampleData: MediaPlan[] = [
         documents: { emailConfirmations: 0, purchaseOrders: 0, others: 0 },
         status: 'Draft'
       },
-      { id: '2', projectId: 'P00108', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-1', customerName: 'MediaVenue', displayName: 'MediaVenue ®', startDate: new Date('2025-07-24'), endDate: new Date('2025-08-22'), days: 30, status: 'Draft' },
+      { id: '2', projectId: 'P00108', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-1', customerName: 'Matrix-OOH', displayName: 'Matrix-OOH ®', startDate: new Date('2025-07-24'), endDate: new Date('2025-08-22'), days: 30, status: 'Draft' },
       { id: '3', projectId: 'P00107', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-2', customerName: 'Founding Years Learning Solutions Pvt Ltd', displayName: 'Education', startDate: new Date('2025-07-25'), endDate: new Date('2025-10-22'), days: 90, status: 'Confirmed' },
-      { id: '4', projectId: 'P00106', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-1', customerName: 'MediaVenue', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, status: 'Active' },
+      { id: '4', projectId: 'P00106', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-1', customerName: 'Matrix-OOH', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, status: 'Active' },
       { id: '5', projectId: 'P00094', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-3', customerName: 'ADMINDS', displayName: 'Sunil Reddy', startDate: new Date('2025-07-01'), endDate: new Date('2025-07-31'), days: 31, status: 'Draft' },
       { id: '6', projectId: 'P00105', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-4', customerName: 'LAQSHYA MEDIA LIMITED', displayName: 'Quick delivery food campaign', startDate: new Date('2025-07-10'), endDate: new Date('2025-08-08'), days: 30, status: 'Draft' },
   ];
 
 const sampleCustomers: Customer[] = [
-    { id: 'customer-1', code: 'CUST-001', name: 'MediaVenue', gst: '29AAACN1234F1Z5', contactPersons: [{ name: 'Anil Kumar', phone: '9876543210', designation: 'Manager' }], addresses: [{ type: 'billing', street: '123 Cyberabad', city: 'Hyderabad', state: 'Telangana', postalCode: '500081' }] },
+    { id: 'customer-1', code: 'CUST-001', name: 'Matrix-OOH', gst: '29AAACN1234F1Z5', contactPersons: [{ name: 'Anil Kumar', phone: '9876543210', designation: 'Manager' }], addresses: [{ type: 'billing', street: '123 Cyberabad', city: 'Hyderabad', state: 'Telangana', postalCode: '500081' }] },
     { id: 'customer-2', code: 'CUST-002', name: 'Founding Years Learning', gst: '36ABCFY1234G1Z2', contactPersons: [{ name: 'Sunitha Reddy', phone: '9876543211', designation: 'Director' }], addresses: [{ type: 'billing', street: '456 Jubilee Hills', city: 'Hyderabad', state: 'Telangana', postalCode: '500033' }] },
     { id: 'customer-3', code: 'CUST-003', name: 'ADMINDS', gst: '27AAAAA0000A1Z5', contactPersons: [{ name: 'Sunil Reddy', phone: '9876543212', designation: 'Proprietor' }], addresses: [{ type: 'billing', street: '789 Gachibowli', city: 'Hyderabad', state: 'Telangana', postalCode: '500032' }] },
     { id: 'customer-4', code: 'CUST-004', name: 'LAQSHYA MEDIA LIMITED', gst: '24AACCL5678B1Z9', contactPersons: [{ name: 'Vikram Singh', phone: '9876543213', designation: 'Head of Operations' }], addresses: [{ type: 'billing', street: '101 Madhapur', city: 'Hyderabad', state: 'Telangana', postalCode: '500081' }] },
@@ -554,5 +554,3 @@ export function MediaPlansManager() {
     </TooltipProvider>
   );
 }
-
-    
