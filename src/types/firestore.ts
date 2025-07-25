@@ -130,16 +130,3 @@ export interface Photo {
     arrivalTimestamp?: Timestamp;
     storagePath?: string; // URL to image in Firebase Storage
 }
-
-// /mediaEnquiries/{id}
-export interface Enquiry {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  message: string;
-  assetId: string;
-  assetLocation?: string;
-  assetCity?: string;
-  submittedAt: Timestamp;
-}

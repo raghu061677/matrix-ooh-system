@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo, useTransition, useRef } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, limit, startAfter, endBefore, limitToLast, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -63,14 +63,12 @@ type SortConfig = {
 
 type SearchableField = 'name' | 'gst' | 'pocName' | 'pocPhone';
 
-const PAGE_SIZE = 10;
-
 const sampleCustomers: Customer[] = [
-    { id: 'customer-1', code: 'CUST-001', name: 'Matrix-OOH', gst: '29AAACN1234F1Z5', contactPersons: [{ name: 'Anil Kumar', phone: '9876543210', designation: 'Manager' }], addresses: [{ type: 'billing', street: '123 Cyberabad', city: 'Hyderabad', state: 'Telangana', postalCode: '500081' }] },
-    { id: 'customer-2', code: 'CUST-002', name: 'Founding Years Learning', gst: '36ABCFY1234G1Z2', contactPersons: [{ name: 'Sunitha Reddy', phone: '9876543211', designation: 'Director' }], addresses: [{ type: 'billing', street: '456 Jubilee Hills', city: 'Hyderabad', state: 'Telangana', postalCode: '500033' }] },
-    { id: 'customer-3', code: 'CUST-003', name: 'ADMINDS', gst: '27AAAAA0000A1Z5', contactPersons: [{ name: 'Sunil Reddy', phone: '9876543212', designation: 'Proprietor' }], addresses: [{ type: 'billing', street: '789 Gachibowli', city: 'Hyderabad', state: 'Telangana', postalCode: '500032' }] },
-    { id: 'customer-4', code: 'CUST-004', name: 'LAQSHYA MEDIA LIMITED', gst: '24AACCL5678B1Z9', contactPersons: [{ name: 'Vikram Singh', phone: '9876543213', designation: 'Head of Operations' }], addresses: [{ type: 'billing', street: '101 Madhapur', city: 'Hyderabad', state: 'Telangana', postalCode: '500081' }] },
-    { id: 'customer-5', code: 'CUST-005', name: 'CRI', gst: '33AACFC4321H1Z4', contactPersons: [{ name: 'Priya Sharma', phone: '9876543214', designation: 'Marketing Head' }], addresses: [{ type: 'billing', street: '212 Banjara Hills', city: 'Hyderabad', state: 'Telangana', postalCode: '500034' }] },
+    { id: 'customer-1', companyId: 'company-1', code: 'CUST-001', name: 'Matrix-OOH', gst: '29AAACN1234F1Z5', contactPersons: [{ name: 'Anil Kumar', phone: '9876543210', designation: 'Manager' }], addresses: [{ type: 'billing', street: '123 Cyberabad', city: 'Hyderabad', state: 'Telangana', postalCode: '500081' }] },
+    { id: 'customer-2', companyId: 'company-1', code: 'CUST-002', name: 'Founding Years Learning', gst: '36ABCFY1234G1Z2', contactPersons: [{ name: 'Sunitha Reddy', phone: '9876543211', designation: 'Director' }], addresses: [{ type: 'billing', street: '456 Jubilee Hills', city: 'Hyderabad', state: 'Telangana', postalCode: '500033' }] },
+    { id: 'customer-3', companyId: 'company-1', code: 'CUST-003', name: 'ADMINDS', gst: '27AAAAA0000A1Z5', contactPersons: [{ name: 'Sunil Reddy', phone: '9876543212', designation: 'Proprietor' }], addresses: [{ type: 'billing', street: '789 Gachibowli', city: 'Hyderabad', state: 'Telangana', postalCode: '500032' }] },
+    { id: 'customer-4', companyId: 'company-1', code: 'CUST-004', name: 'LAQSHYA MEDIA LIMITED', gst: '24AACCL5678B1Z9', contactPersons: [{ name: 'Vikram Singh', phone: '9876543213', designation: 'Head of Operations' }], addresses: [{ type: 'billing', street: '101 Madhapur', city: 'Hyderabad', state: 'Telangana', postalCode: '500081' }] },
+    { id: 'customer-5', companyId: 'company-1', code: 'CUST-005', name: 'CRI', gst: '33AACFC4321H1Z4', contactPersons: [{ name: 'Priya Sharma', phone: '9876543214', designation: 'Marketing Head' }], addresses: [{ type: 'billing', street: '212 Banjara Hills', city: 'Hyderabad', state: 'Telangana', postalCode: '500034' }] },
 ];
 
 
@@ -95,68 +93,33 @@ export function CustomerManager() {
     state: true,
     postalCode: false,
   });
-  
-  // Pagination state
-  const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-  const [firstVisible, setFirstVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-  const [isLastPage, setIsLastPage] = useState(false);
-  const [isFirstPage, setIsFirstPage] = useState(true);
-  const [page, setPage] = useState(1);
 
   const { toast } = useToast();
   const customersCollectionRef = collection(db, 'customers');
   
-  const fetchCustomers = async (direction: 'next' | 'prev' | 'initial' = 'initial') => {
-      setLoading(true);
-      try {
-          let q;
-          const mainQuery = query(customersCollectionRef, orderBy('code'), limit(PAGE_SIZE));
-
-          if (direction === 'next' && lastVisible) {
-              q = query(customersCollectionRef, orderBy('code'), startAfter(lastVisible), limit(PAGE_SIZE));
-              setPage(prev => prev + 1);
-          } else if (direction === 'prev' && firstVisible) {
-              q = query(customersCollectionRef, orderBy('code'), endBefore(firstVisible), limitToLast(PAGE_SIZE));
-              setPage(prev => prev - 1);
-          } else {
-              q = mainQuery;
-              setPage(1);
-          }
-
-          const data = await getDocs(q);
-          
-          if (!data.empty) {
-              const dbCustomers = data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Customer));
-              setCustomers(dbCustomers);
-              setFirstVisible(data.docs[0]);
-              setLastVisible(data.docs[data.docs.length - 1]);
-              
-              const prevSnap = await getDocs(query(customersCollectionRef, orderBy('code'), endBefore(data.docs[0]), limitToLast(1)));
-              setIsFirstPage(prevSnap.empty);
-
-              const nextSnap = await getDocs(query(customersCollectionRef, orderBy('code'), startAfter(data.docs[data.docs.length - 1]), limit(1)));
-              setIsLastPage(nextSnap.empty);
-
-          } else if (direction === 'initial') {
-              setCustomers(sampleCustomers.slice(0, PAGE_SIZE));
-              setIsLastPage(sampleCustomers.length <= PAGE_SIZE);
-          }
-      } catch (e) {
-          console.error("Error fetching customers:", e);
-          toast({
-              variant: 'destructive',
-              title: 'Error fetching customers',
-              description: 'Could not retrieve customer data. Using sample data.'
-          });
-          setCustomers(sampleCustomers.slice(0, PAGE_SIZE));
-      } finally {
-          setLoading(false);
-      }
+  const getCustomers = async () => {
+    setLoading(true);
+    try {
+        const data = await getDocs(customersCollectionRef);
+        if(!data.empty) {
+            setCustomers(data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Customer)));
+        } else {
+             setCustomers(sampleCustomers);
+        }
+    } catch(e) {
+         console.error("Error fetching customers:", e);
+         toast({
+            variant: 'destructive',
+            title: 'Error fetching customers',
+            description: 'Could not retrieve customer data. Using sample data.'
+        });
+        setCustomers(sampleCustomers);
+    }
+    setLoading(false);
   };
 
   useEffect(() => {
-    fetchCustomers('initial');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    getCustomers();
   }, []);
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -222,11 +185,11 @@ export function CustomerManager() {
     if (currentCustomer) {
       const customerDoc = doc(db, 'customers', currentCustomer.id);
       await updateDoc(customerDoc, formData);
-      setCustomers(customers.map(customer => customer.id === currentCustomer.id ? { ...customer, ...formData, id: currentCustomer.id } as Customer : customer));
+      await getCustomers();
       toast({ title: 'Customer Updated!', description: 'The customer has been successfully updated.' });
     } else {
-      const docRef = await addDoc(customersCollectionRef, formData);
-      setCustomers([...customers, { ...formData, id: docRef.id } as Customer]);
+      await addDoc(customersCollectionRef, formData);
+      await getCustomers();
       toast({ title: 'Customer Added!', description: 'The new customer has been added.' });
     }
     setLoading(false);
@@ -253,7 +216,7 @@ export function CustomerManager() {
   const handleDelete = async (customer: Customer) => {
      const customerDoc = doc(db, 'customers', customer.id);
      await deleteDoc(customerDoc);
-     setCustomers(customers.filter(c => c.id !== customer.id));
+     await getCustomers();
      toast({ title: 'Customer Deleted', description: `${customer.name} has been removed.` });
   };
 
@@ -430,7 +393,7 @@ export function CustomerManager() {
             await addDoc(customersCollectionRef, customerData);
         }
         
-        await fetchCustomers('initial');
+        await getCustomers();
         setLoading(false);
         toast({ title: 'Import Successful', description: `${json.length} customers have been imported.` });
     };
@@ -462,7 +425,7 @@ export function CustomerManager() {
                 </SelectContent>
             </Select>
            <Input
-            placeholder="Filter customers on this page..."
+            placeholder="Filter customers..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             className="max-w-sm"
@@ -592,23 +555,6 @@ export function CustomerManager() {
             ))}
           </TableBody>
         </Table>
-      </div>
-       <div className="flex justify-end items-center gap-2 mt-4">
-        <span className="text-sm text-muted-foreground">Page {page}</span>
-        <Button
-            variant="outline"
-            onClick={() => fetchCustomers('prev')}
-            disabled={isFirstPage || loading}
-        >
-            Previous
-        </Button>
-        <Button
-            variant="outline"
-            onClick={() => fetchCustomers('next')}
-            disabled={isLastPage || loading}
-        >
-            Next
-        </Button>
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

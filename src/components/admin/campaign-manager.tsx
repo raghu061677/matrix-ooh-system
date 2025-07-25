@@ -27,14 +27,13 @@ import { Campaign } from '@/types/media-plan';
 import { Asset, sampleAssets } from './media-manager-types';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
-import { db } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, limit, startAfter, endBefore, limitToLast, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
-
-const PAGE_SIZE = 10;
+import jsPDF from 'jspdf';
+import * as XLSX from 'xlsx';
+import PptxGenJS from 'pptxgenjs';
 
 const sampleCampaigns: Campaign[] = [
-    { id: '4', companyId: 'company-1', projectId: 'P00106', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerName: 'Matrix-OOH', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, inventorySummary: { totalSqft: 1280 }, costSummary: { grandTotal: 224200 }, statistics: { qos: '42.5%' }, status: 'Active', exportReady: true },
-     { id: '5', companyId: 'company-1', projectId: 'P00110', employee: { id: 'user-002', name: 'Sunil Reddy', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026705d' }, customerName: 'Founding Years', displayName: 'KIDO', startDate: new Date('2025-08-01'), endDate: new Date('2025-08-30'), days: 30, inventorySummary: { totalSqft: 800 }, costSummary: { grandTotal: 150000 }, statistics: { qos: 'N/A' }, status: 'Pending', exportReady: false },
+    { id: '4', projectId: 'P00106', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerName: 'Matrix-OOH', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, inventorySummary: { totalSqft: 1280 }, costSummary: { grandTotal: 224200 }, statistics: { qos: '42.5%' }, status: 'Active', exportReady: true },
+     { id: '5', projectId: 'P00110', employee: { id: 'user-002', name: 'Sunil Reddy', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026705d' }, customerName: 'Founding Years', displayName: 'KIDO', startDate: new Date('2025-08-01'), endDate: new Date('2025-08-30'), days: 30, inventorySummary: { totalSqft: 800 }, costSummary: { grandTotal: 150000 }, statistics: { qos: 'N/A' }, status: 'Pending', exportReady: false },
 ];
 
 // Helper to fetch an image and convert it to a base64 data URI
@@ -64,56 +63,10 @@ export function CampaignManager() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
 
-  // Pagination state
-  const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-  const [firstVisible, setFirstVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-  const [isLastPage, setIsLastPage] = useState(false);
-  const [isFirstPage, setIsFirstPage] = useState(true);
-
-  const fetchCampaigns = async (direction: 'next' | 'prev' | 'initial' = 'initial') => {
-    setLoading(true);
-    try {
-        const campaignsCollectionRef = collection(db, 'campaigns');
-        let q;
-
-        if (direction === 'next' && lastVisible) {
-            q = query(campaignsCollectionRef, orderBy('projectId'), startAfter(lastVisible), limit(PAGE_SIZE));
-        } else if (direction === 'prev' && firstVisible) {
-            q = query(campaignsCollectionRef, orderBy('projectId'), endBefore(firstVisible), limitToLast(PAGE_SIZE));
-        } else {
-            q = query(campaignsCollectionRef, orderBy('projectId'), limit(PAGE_SIZE));
-        }
-
-        const data = await getDocs(q);
-        
-        if (!data.empty) {
-            const dbCampaigns = data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Campaign));
-            setCampaigns(dbCampaigns);
-            setFirstVisible(data.docs[0]);
-            setLastVisible(data.docs[data.docs.length - 1]);
-            
-            const prevSnap = await getDocs(query(campaignsCollectionRef, orderBy('projectId'), endBefore(data.docs[0]), limitToLast(1)));
-            setIsFirstPage(prevSnap.empty);
-
-            const nextSnap = await getDocs(query(campaignsCollectionRef, orderBy('projectId'), startAfter(data.docs[data.docs.length-1]), limit(1)));
-            setIsLastPage(nextSnap.empty);
-
-        } else if (direction === 'initial') {
-            setCampaigns(sampleCampaigns.slice(0, PAGE_SIZE));
-            setIsLastPage(sampleCampaigns.length <= PAGE_SIZE);
-        }
-    } catch (e) {
-        console.error("Error fetching campaigns:", e);
-        toast({ variant: 'destructive', title: 'Error fetching campaigns' });
-        setCampaigns(sampleCampaigns.slice(0, PAGE_SIZE));
-    } finally {
-        setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchCampaigns('initial');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // In a real app, fetch from Firestore
+    setCampaigns(sampleCampaigns);
+    setLoading(false);
   }, []);
 
   const filteredCampaigns = useMemo(() => {
@@ -238,7 +191,7 @@ export function CampaignManager() {
         <h1 className="text-2xl font-semibold">Campaigns</h1>
         <div className="flex items-center gap-2">
            <Input
-            placeholder="Filter campaigns on this page..."
+            placeholder="Filter campaigns..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             className="w-64"
@@ -346,22 +299,6 @@ export function CampaignManager() {
             ))}
           </TableBody>
         </Table>
-      </div>
-       <div className="flex justify-end items-center gap-2 mt-4">
-        <Button
-            variant="outline"
-            onClick={() => fetchCampaigns('prev')}
-            disabled={isFirstPage || loading}
-        >
-            Previous
-        </Button>
-        <Button
-            variant="outline"
-            onClick={() => fetchCampaigns('next')}
-            disabled={isLastPage || loading}
-        >
-            Next
-        </Button>
       </div>
     </TooltipProvider>
   );

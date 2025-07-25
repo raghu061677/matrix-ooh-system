@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, arrayRemove, arrayUnion, query, orderBy, startAfter, limit, endBefore, limitToLast, DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, arrayRemove, arrayUnion } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,7 +50,6 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Edit, Trash2, Loader2, Image as ImageIcon, SlidersHorizontal, ArrowUpDown, Upload, Download, X } from 'lucide-react';
-import exifParser from 'exif-parser';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -63,8 +62,6 @@ type SortConfig = {
   key: keyof Asset;
   direction: 'ascending' | 'descending';
 } | null;
-
-const PAGE_SIZE = 10;
 
 export function MediaManager() {
   const [mediaAssets, setMediaAssets] = useState<Asset[]>([]);
@@ -79,13 +76,6 @@ export function MediaManager() {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [filter, setFilter] = useState('');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
-
-  // Pagination state
-  const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-  const [firstVisible, setFirstVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-  const [isLastPage, setIsLastPage] = useState(false);
-  const [isFirstPage, setIsFirstPage] = useState(true);
-
 
   const [columnVisibility, setColumnVisibility] = useState({
     image: true,
@@ -113,53 +103,30 @@ export function MediaManager() {
   const { toast } = useToast();
   const mediaAssetsCollectionRef = collection(db, 'media_assets');
 
-  const fetchMediaAssets = async (direction: 'next' | 'prev' | 'initial' = 'initial') => {
-      setLoading(true);
-      try {
-          let q;
-          if (direction === 'next' && lastVisible) {
-              q = query(mediaAssetsCollectionRef, orderBy('mid'), startAfter(lastVisible), limit(PAGE_SIZE));
-          } else if (direction === 'prev' && firstVisible) {
-              q = query(mediaAssetsCollectionRef, orderBy('mid'), endBefore(firstVisible), limitToLast(PAGE_SIZE));
-          } else {
-              q = query(mediaAssetsCollectionRef, orderBy('mid'), limit(PAGE_SIZE));
-          }
-
-          const data = await getDocs(q);
-          
-          if (!data.empty) {
-              const dbAssets = data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Asset));
-              setMediaAssets(dbAssets);
-              setFirstVisible(data.docs[0]);
-              setLastVisible(data.docs[data.docs.length - 1]);
-              
-              const prevSnap = await getDocs(query(mediaAssetsCollectionRef, orderBy('mid'), endBefore(data.docs[0]), limitToLast(1)));
-              setIsFirstPage(prevSnap.empty);
-              
-              const nextSnap = await getDocs(query(mediaAssetsCollectionRef, orderBy('mid'), startAfter(data.docs[data.docs.length - 1]), limit(1)));
-              setIsLastPage(nextSnap.empty);
-
-          } else if (direction === 'initial') {
-              setMediaAssets(sampleAssets.slice(0, PAGE_SIZE));
-              setIsLastPage(sampleAssets.length <= PAGE_SIZE);
-          }
-      } catch (e) {
-          console.error("Error fetching media assets:", e);
-          toast({
-              variant: 'destructive',
-              title: 'Error fetching assets',
-              description: 'Could not retrieve asset data. Using sample data.'
-          });
-          setMediaAssets(sampleAssets.slice(0, PAGE_SIZE));
-      } finally {
-          setLoading(false);
-      }
+  const getMediaAssets = async () => {
+    setLoading(true);
+    try {
+        const data = await getDocs(mediaAssetsCollectionRef);
+        if(!data.empty) {
+            setMediaAssets(data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Asset)));
+        } else {
+             setMediaAssets(sampleAssets);
+        }
+    } catch(e) {
+         console.error("Error fetching media assets:", e);
+         toast({
+            variant: 'destructive',
+            title: 'Error fetching assets',
+            description: 'Could not retrieve asset data. Using sample data.'
+        });
+        setMediaAssets(sampleAssets);
+    }
+    setLoading(false);
   };
 
   useEffect(() => {
-    fetchMediaAssets('initial');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+    getMediaAssets();
+  }, []);
   
   useEffect(() => {
     const { structure, width1, height1, width2, height2 } = formData;
@@ -190,51 +157,15 @@ export function MediaManager() {
 
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || files.length === 0) return;
-    if (!currentAsset?.id) {
-        toast({
-            variant: 'destructive',
-            title: 'Save Asset First',
-            description: 'Please save the asset details before uploading images.',
-        });
-        return;
-    }
+    if (!files || files.length === 0 || !currentAsset?.id) return;
 
     setIsUploading(true);
     toast({ title: `Uploading ${files.length} image(s)...` });
 
     const assetId = currentAsset.id;
     const uploadedUrls: string[] = [];
-    let gpsExtracted = false;
 
     for (const file of Array.from(files)) {
-        if (file.size > 2 * 1024 * 1024) { // 2MB limit
-            toast({
-                variant: 'destructive',
-                title: 'File Too Large',
-                description: `${file.name} is larger than 2MB and was skipped.`,
-            });
-            continue;
-        }
-
-        if (!gpsExtracted) {
-            try {
-                const buffer = await file.arrayBuffer();
-                const parser = exifParser.create(buffer);
-                const result = parser.parse();
-                if (result.tags.GPSLatitude && result.tags.GPSLongitude) {
-                    setFormData(prev => ({
-                        ...prev,
-                        latitude: result.tags.GPSLatitude,
-                        longitude: result.tags.GPSLongitude,
-                    }));
-                    gpsExtracted = true; // Only extract from the first valid image
-                }
-            } catch (error) {
-                console.warn('Could not parse EXIF data:', error);
-            }
-        }
-        
         try {
             const imageRef = ref(storage, `media-assets/${assetId}/${file.name}_${Date.now()}`);
             await uploadBytes(imageRef, file);
@@ -252,18 +183,14 @@ export function MediaManager() {
         
         const newImageUrls = [...(formData.imageUrls || []), ...uploadedUrls];
         setFormData(prev => ({ ...prev, imageUrls: newImageUrls }));
-        setMediaAssets(prev => prev.map(a => a.id === assetId ? { ...a, imageUrls: newImageUrls } : a));
     }
 
+    await getMediaAssets();
     setIsUploading(false);
     toast({
         title: 'Upload Complete!',
-        description: `${uploadedUrls.length} of ${files.length} image(s) uploaded. ${gpsExtracted ? 'GPS data extracted.' : ''}`,
+        description: `${uploadedUrls.length} of ${files.length} image(s) uploaded.`,
     });
-    
-    if (imageInputRef.current) {
-        imageInputRef.current.value = '';
-    }
   };
 
   const handleDeleteImage = async (imageUrlToDelete: string) => {
@@ -282,8 +209,7 @@ export function MediaManager() {
         const updatedImageUrls = formData.imageUrls?.filter(url => url !== imageUrlToDelete);
         setFormData(prev => ({ ...prev, imageUrls: updatedImageUrls }));
         
-        setMediaAssets(prev => prev.map(a => a.id === assetId ? { ...a, imageUrls: updatedImageUrls } : a));
-        
+        await getMediaAssets();
         toast({ title: 'Image deleted!', description: 'The image has been removed successfully.' });
     } catch(error) {
         console.error("Error deleting image: ", error);
@@ -302,23 +228,16 @@ export function MediaManager() {
     if (currentAsset?.id) {
       const assetDoc = doc(db, 'media_assets', currentAsset.id);
       await updateDoc(assetDoc, dataToSave);
-
-      const updatedAsset = { ...currentAsset, ...dataToSave };
-      setMediaAssets(mediaAssets.map(asset => 
-        asset.id === currentAsset.id ? updatedAsset : asset
-      ));
-      setCurrentAsset(updatedAsset);
       toast({ title: 'Asset Updated!', description: 'The media asset details have been saved.' });
     } else {
       const docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, imageUrls: [] });
       const newAsset = { ...dataToSave, imageUrls: [], id: docRef.id } as Asset;
-
-      setMediaAssets(prev => [newAsset, ...prev].slice(0, PAGE_SIZE));
       setCurrentAsset(newAsset);
       setFormData(newAsset);
       toast({ title: 'Asset Added!', description: 'You can now upload images to this asset.' });
     }
     
+    await getMediaAssets();
     setIsSaving(false);
   };
 
@@ -340,7 +259,7 @@ export function MediaManager() {
      if(!confirm(`Are you sure you want to delete asset ${asset.mid} (${asset.location})?`)) return;
      const assetDoc = doc(db, 'media_assets', asset.id);
      await deleteDoc(assetDoc);
-     setMediaAssets(mediaAssets.filter(a => a.id !== asset.id));
+     await getMediaAssets();
      toast({ title: 'Asset Deleted', description: `${asset.location} has been removed.` });
   };
   
@@ -484,7 +403,7 @@ export function MediaManager() {
             await addDoc(mediaAssetsCollectionRef, item);
         }
         
-        await fetchMediaAssets('initial');
+        await getMediaAssets();
         setLoading(false);
         toast({ title: 'Import Successful', description: `${json.length} assets have been imported.` });
     };
@@ -511,7 +430,7 @@ export function MediaManager() {
       <div className="flex justify-between items-center mb-6 gap-4">
         <div className="flex items-center gap-2">
            <Input
-            placeholder="Filter assets on this page..."
+            placeholder="Filter assets..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             className="max-w-sm"
@@ -668,22 +587,6 @@ export function MediaManager() {
             ))}
           </TableBody>
         </Table>
-      </div>
-      <div className="flex justify-end items-center gap-2 mt-4">
-        <Button
-            variant="outline"
-            onClick={() => fetchMediaAssets('prev')}
-            disabled={isFirstPage || loading}
-        >
-            Previous
-        </Button>
-        <Button
-            variant="outline"
-            onClick={() => fetchMediaAssets('next')}
-            disabled={isLastPage || loading}
-        >
-            Next
-        </Button>
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -893,9 +796,6 @@ export function MediaManager() {
                    <div className="col-span-full">
                     <Label htmlFor="images">Asset Images</Label>
                     <Input ref={imageInputRef} id="images" type="file" multiple onChange={handleImageFileChange} disabled={!currentAsset?.id || isUploading}/>
-                     <p className="text-sm text-muted-foreground mt-1">
-                       New images will be added to existing ones. GPS data will be extracted from the first image if available.
-                    </p>
                     {isUploading && <Loader2 className="animate-spin mt-2" />}
                     <div className="mt-2 flex flex-wrap gap-2">
                       {(formData.imageUrls || []).map((url: string) => (

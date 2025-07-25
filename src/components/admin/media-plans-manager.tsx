@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, limit, startAfter, endBefore, limitToLast, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -51,8 +51,6 @@ type SortConfig = {
   direction: 'ascending' | 'descending';
 } | null;
 
-const PAGE_SIZE = 10;
-
 // Mock data until real data fetching is implemented
 const mockEmployees: User[] = [
     { id: 'user-001', uid: 'user-001', name: 'Raghu Gajula', email: 'raghu@example.com', role: 'admin', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d', companyId: 'company-1' },
@@ -74,15 +72,6 @@ const sampleData: MediaPlan[] = [
       { id: '5', projectId: 'P00094', companyId: 'company-1', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-3', customerName: 'ADMINDS', displayName: 'Sunil Reddy', startDate: new Date('2025-07-01'), endDate: new Date('2025-07-31'), days: 31, status: 'Draft' },
       { id: '6', projectId: 'P00105', companyId: 'company-1', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-4', customerName: 'LAQSHYA MEDIA LIMITED', displayName: 'Quick delivery food campaign', startDate: new Date('2025-07-10'), endDate: new Date('2025-08-08'), days: 30, status: 'Draft' },
   ];
-
-const sampleCustomers: Customer[] = [
-    { id: 'customer-1', companyId: 'company-1', code: 'CUST-001', name: 'Matrix-OOH', gst: '29AAACN1234F1Z5', contactPersons: [{ name: 'Anil Kumar', phone: '9876543210', designation: 'Manager' }], addresses: [{ type: 'billing', street: '123 Cyberabad', city: 'Hyderabad', state: 'Telangana', postalCode: '500081' }] },
-    { id: 'customer-2', companyId: 'company-1', code: 'CUST-002', name: 'Founding Years Learning', gst: '36ABCFY1234G1Z2', contactPersons: [{ name: 'Sunitha Reddy', phone: '9876543211', designation: 'Director' }], addresses: [{ type: 'billing', street: '456 Jubilee Hills', city: 'Hyderabad', state: 'Telangana', postalCode: '500033' }] },
-    { id: 'customer-3', companyId: 'company-1', code: 'CUST-003', name: 'ADMINDS', gst: '27AAAAA0000A1Z5', contactPersons: [{ name: 'Sunil Reddy', phone: '9876543212', designation: 'Proprietor' }], addresses: [{ type: 'billing', street: '789 Gachibowli', city: 'Hyderabad', state: 'Telangana', postalCode: '500032' }] },
-    { id: 'customer-4', companyId: 'company-1', code: 'CUST-004', name: 'LAQSHYA MEDIA LIMITED', gst: '24AACCL5678B1Z9', contactPersons: [{ name: 'Vikram Singh', phone: '9876543213', designation: 'Head of Operations' }], addresses: [{ type: 'billing', street: '101 Madhapur', city: 'Hyderabad', state: 'Telangana', postalCode: '500081' }] },
-    { id: 'customer-5', companyId: 'company-1', code: 'CUST-005', name: 'CRI', gst: '33AACFC4321H1Z4', contactPersons: [{ name: 'Priya Sharma', phone: '9876543214', designation: 'Marketing Head' }], addresses: [{ type: 'billing', street: '212 Banjara Hills', city: 'Hyderabad', state: 'Telangana', postalCode: '500034' }] },
-];
-
 
 export function MediaPlansManager() {
   const [mediaPlans, setMediaPlans] = useState<MediaPlan[]>([]);
@@ -108,74 +97,20 @@ export function MediaPlansManager() {
     qos: true,
     status: true,
   });
-  
-  // Pagination state
-  const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-  const [firstVisible, setFirstVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-  const [isLastPage, setIsLastPage] = useState(false);
-  const [isFirstPage, setIsFirstPage] = useState(true);
 
   const { toast } = useToast();
   
-  const fetchPlans = async (direction: 'next' | 'prev' | 'initial' = 'initial') => {
-      setLoading(true);
-      try {
-          const plansCollectionRef = collection(db, 'plans');
-          let q;
-
-          if (direction === 'next' && lastVisible) {
-              q = query(plansCollectionRef, orderBy('projectId'), startAfter(lastVisible), limit(PAGE_SIZE));
-          } else if (direction === 'prev' && firstVisible) {
-              q = query(plansCollectionRef, orderBy('projectId'), endBefore(firstVisible), limitToLast(PAGE_SIZE));
-          } else {
-              q = query(plansCollectionRef, orderBy('projectId'), limit(PAGE_SIZE));
-          }
-
-          const data = await getDocs(q);
-          
-          if (!data.empty) {
-              const dbPlans = data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as MediaPlan));
-              setMediaPlans(dbPlans);
-              setFirstVisible(data.docs[0]);
-              setLastVisible(data.docs[data.docs.length - 1]);
-              
-              const prevSnap = await getDocs(query(plansCollectionRef, orderBy('projectId'), endBefore(data.docs[0]), limitToLast(1)));
-              setIsFirstPage(prevSnap.empty);
-
-              const nextSnap = await getDocs(query(plansCollectionRef, orderBy('projectId'), startAfter(data.docs[data.docs.length-1]), limit(1)));
-              setIsLastPage(nextSnap.empty);
-          } else if (direction === 'initial') {
-              setMediaPlans(sampleData.slice(0, PAGE_SIZE));
-              setIsLastPage(sampleData.length <= PAGE_SIZE);
-          }
-      } catch (e) {
-          console.error("Error fetching media plans:", e);
-          toast({ variant: 'destructive', title: 'Error fetching plans' });
-          setMediaPlans(sampleData.slice(0, PAGE_SIZE));
-      } finally {
-          setLoading(false);
-      }
-  };
-  
   useEffect(() => {
-    fetchPlans('initial');
-    // Fetch customers only once
+    // This would fetch from Firestore in a real app
+    setMediaPlans(sampleData);
+    setLoading(false);
+    
     const getCustomers = async () => {
-        try {
-            const customersCollectionRef = collection(db, 'customers');
-            const data = await getDocs(customersCollectionRef);
-            if (!data.empty) {
-                setCustomers(data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Customer)));
-            } else {
-                setCustomers(sampleCustomers);
-            }
-        } catch (error) {
-            console.error("Error fetching customers:", error);
-            setCustomers(sampleCustomers);
-        }
+        const customersCollectionRef = collection(db, 'customers');
+        const data = await getDocs(customersCollectionRef);
+        setCustomers(data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Customer)));
     };
     getCustomers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSave = (planToSave: MediaPlan) => {
@@ -399,7 +334,7 @@ export function MediaPlansManager() {
         </h1>
         <div className="flex items-center gap-2">
           <Input
-            placeholder="Filter on this page..."
+            placeholder="Filter plans..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             className="w-64"
@@ -518,23 +453,6 @@ export function MediaPlansManager() {
             ))}
           </TableBody>
         </Table>
-      </div>
-      
-       <div className="flex justify-end items-center gap-2 mt-4">
-        <Button
-            variant="outline"
-            onClick={() => fetchPlans('prev')}
-            disabled={isFirstPage || loading}
-        >
-            Previous
-        </Button>
-        <Button
-            variant="outline"
-            onClick={() => fetchPlans('next')}
-            disabled={isLastPage || loading}
-        >
-            Next
-        </Button>
       </div>
 
       <SelectAssetsDialog

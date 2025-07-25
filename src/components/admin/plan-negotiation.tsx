@@ -225,4 +225,3 @@ export function PlanNegotiation({ plan: initialPlan }: PlanNegotiationProps) {
         </div>
     );
 }
-

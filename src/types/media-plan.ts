@@ -6,7 +6,6 @@ export type MediaPlanStatus = 'Draft' | 'Confirmed' | 'Cancelled' | 'Active' | '
 
 export type MediaPlan = {
   id: string; // Firestore document ID
-  companyId: string;
   projectId: string;
   employeeId?: string; // Reference to users collection
   employee?: {
@@ -60,12 +59,6 @@ export type MediaPlan = {
   };
   status: MediaPlanStatus;
   exportReady?: boolean;
-  exports?: {
-    pptUrl?: string;
-    pdfUrl?: string;
-    excelUrl?: string;
-    lastGeneratedAt?: Timestamp;
-  }
 };
 
 // Campaigns have an identical structure to plans.

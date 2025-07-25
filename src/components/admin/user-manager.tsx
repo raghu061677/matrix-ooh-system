@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, limit, startAfter, endBefore, limitToLast, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -35,8 +35,6 @@ import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Edit, Trash2, Loader2, Users } from 'lucide-react';
 import { User } from '@/types/firestore';
 
-const PAGE_SIZE = 10;
-
 const sampleUsers: User[] = [
     { id: 'user-1', uid: 'user-1', name: 'Admin User', email: 'admin@matrix-ooh.com', role: 'admin', avatar: 'https://i.pravatar.cc/150?u=admin', companyId: 'company-1' },
     { id: 'user-2', uid: 'user-2', name: 'Sales Person', email: 'sales@matrix-ooh.com', role: 'sales', avatar: 'https://i.pravatar.cc/150?u=sales', companyId: 'company-1' },
@@ -51,63 +49,33 @@ export function UserManager() {
   const [isSaving, setIsSaving] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [formData, setFormData] = useState<Partial<User>>({});
-  
-    // Pagination state
-  const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-  const [firstVisible, setFirstVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-  const [isLastPage, setIsLastPage] = useState(false);
-  const [isFirstPage, setIsFirstPage] = useState(true);
 
   const { toast } = useToast();
   const usersCollectionRef = collection(db, 'users');
 
-  const fetchUsers = async (direction: 'next' | 'prev' | 'initial' = 'initial') => {
-      setLoading(true);
-      try {
-          let q;
-
-          if (direction === 'next' && lastVisible) {
-              q = query(usersCollectionRef, orderBy('name'), startAfter(lastVisible), limit(PAGE_SIZE));
-          } else if (direction === 'prev' && firstVisible) {
-              q = query(usersCollectionRef, orderBy('name'), endBefore(firstVisible), limitToLast(PAGE_SIZE));
-          } else {
-              q = query(usersCollectionRef, orderBy('name'), limit(PAGE_SIZE));
-          }
-
-          const data = await getDocs(q);
-          
-          if (!data.empty) {
-              const dbUsers = data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as User));
-              setUsers(dbUsers);
-              setFirstVisible(data.docs[0]);
-              setLastVisible(data.docs[data.docs.length - 1]);
-              
-              const prevSnap = await getDocs(query(usersCollectionRef, orderBy('name'), endBefore(data.docs[0]), limitToLast(1)));
-              setIsFirstPage(prevSnap.empty);
-
-              const nextSnap = await getDocs(query(usersCollectionRef, orderBy('name'), startAfter(data.docs[data.docs.length - 1]), limit(1)));
-              setIsLastPage(nextSnap.empty);
-
-          } else if (direction === 'initial') {
-              setUsers(sampleUsers.slice(0, PAGE_SIZE));
-              setIsLastPage(sampleUsers.length <= PAGE_SIZE);
-          }
-      } catch (e) {
-          console.error("Error fetching users:", e);
-          toast({
-              variant: 'destructive',
-              title: 'Error fetching users',
-              description: 'Could not retrieve user data. Using sample data.'
-          });
-          setUsers(sampleUsers.slice(0, PAGE_SIZE));
-      } finally {
-          setLoading(false);
-      }
+  const getUsers = async () => {
+    setLoading(true);
+    try {
+        const data = await getDocs(usersCollectionRef);
+        if(!data.empty) {
+            setUsers(data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as User)));
+        } else {
+             setUsers(sampleUsers);
+        }
+    } catch(e) {
+         console.error("Error fetching users:", e);
+         toast({
+            variant: 'destructive',
+            title: 'Error fetching users',
+            description: 'Could not retrieve user data. Using sample data.'
+        });
+        setUsers(sampleUsers);
+    }
+    setLoading(false);
   };
 
   useEffect(() => {
-    fetchUsers('initial');
-     // eslint-disable-next-line react-hooks/exhaustive-deps
+    getUsers();
   }, []);
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -127,11 +95,11 @@ export function UserManager() {
       if (currentUser) {
         const userDoc = doc(db, 'users', currentUser.id);
         await updateDoc(userDoc, formData);
-        setUsers(users.map(user => user.id === currentUser.id ? { ...user, ...formData, id: currentUser.id } as User : user));
+        await getUsers();
         toast({ title: 'User Updated!', description: 'The user has been successfully updated.' });
       } else {
-        const docRef = await addDoc(usersCollectionRef, { ...formData, uid: `new-user-${Date.now()}` }); // uid should come from auth
-        setUsers([...users, { ...formData, id: docRef.id } as User]);
+        await addDoc(usersCollectionRef, { ...formData, uid: `new-user-${Date.now()}` }); // uid should come from auth
+        await getUsers();
         toast({ title: 'User Added!', description: 'The new user has been added.' });
       }
       closeDialog();
@@ -157,7 +125,7 @@ export function UserManager() {
   const handleDelete = async (user: User) => {
      const userDoc = doc(db, 'users', user.id);
      await deleteDoc(userDoc);
-     setUsers(users.filter(u => u.id !== user.id));
+     await getUsers();
      toast({ title: 'User Deleted', description: `${user.name} has been removed.` });
   };
   
@@ -217,23 +185,6 @@ export function UserManager() {
             ))}
           </TableBody>
         </Table>
-      </div>
-      
-       <div className="flex justify-end items-center gap-2 mt-4">
-        <Button
-            variant="outline"
-            onClick={() => fetchUsers('prev')}
-            disabled={isFirstPage || loading}
-        >
-            Previous
-        </Button>
-        <Button
-            variant="outline"
-            onClick={() => fetchUsers('next')}
-            disabled={isLastPage || loading}
-        >
-            Next
-        </Button>
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
