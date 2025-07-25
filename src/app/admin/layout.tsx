@@ -42,7 +42,6 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const { theme } = useTheme();
   
   // State for collapsible sidebar sections
-  const [mediaOpen, setMediaOpen] = useState(pathname.startsWith('/admin/media'));
   const [reportsOpen, setReportsOpen] = useState(pathname.startsWith('/admin/reports'));
   const [expensesOpen, setExpensesOpen] = useState(pathname.startsWith('/admin/expenses'));
   const [salesOpen, setSalesOpen] = useState(pathname.startsWith('/admin/sales'));
@@ -96,54 +95,31 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                    </Link>
                  </SidebarMenuButton>
               </SidebarMenuItem>
+              <SidebarMenuItem>
+                 <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/media-assets')}>
+                    <Link href="/admin/media-assets">
+                    <LayoutGrid />
+                    <span className="whitespace-nowrap">Media Assets</span>
+                    </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+               <SidebarMenuItem>
+                 <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/media-plans')}>
+                    <Link href="/admin/media-plans">
+                    <FileText />
+                    <span className="whitespace-nowrap">Media Plans</span>
+                    </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+                <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/campaigns')}>
+                        <Link href="/admin/campaigns">
+                        <ListChecks />
+                        <span className="whitespace-nowrap">Campaigns</span>
+                        </Link>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
             </SidebarMenu>
-
-             <Collapsible open={mediaOpen} onOpenChange={setMediaOpen} className="w-full">
-                <SidebarGroup>
-                  <SidebarGroupLabel>Media</SidebarGroupLabel>
-                  <SidebarGroupContent>
-                      <SidebarMenu>
-                         <SidebarMenuItem>
-                          <CollapsibleTrigger asChild>
-                            <SidebarMenuButton>
-                              <LayoutGrid />
-                              <span className="whitespace-nowrap">Media</span>
-                              <ChevronDown className={cn("ml-auto transition-transform", mediaOpen && "rotate-180")}/>
-                            </SidebarMenuButton>
-                          </CollapsibleTrigger>
-                        </SidebarMenuItem>
-                      </SidebarMenu>
-                  </SidebarGroupContent>
-                </SidebarGroup>
-                <CollapsibleContent>
-                    <SidebarMenuSub>
-                       <SidebarMenuSubItem>
-                         <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/media-assets')}>
-                           <Link href="/admin/media-assets">
-                            <LayoutGrid />
-                            <span className="whitespace-nowrap">Media Assets</span>
-                           </Link>
-                         </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                         <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/media-plans')}>
-                           <Link href="/admin/media-plans">
-                            <FileText />
-                            <span className="whitespace-nowrap">Media Plans</span>
-                           </Link>
-                         </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                       <SidebarMenuSubItem>
-                         <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/campaigns')}>
-                           <Link href="/admin/campaigns">
-                            <ListChecks />
-                            <span className="whitespace-nowrap">Campaigns</span>
-                           </Link>
-                         </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    </SidebarMenuSub>
-                </CollapsibleContent>
-             </Collapsible>
 
             <Collapsible open={salesOpen} onOpenChange={setSalesOpen} className="w-full">
               <SidebarGroup>
@@ -393,7 +369,6 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
-
 
 export default function AdminLayout({
   children,
