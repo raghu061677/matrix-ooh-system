@@ -217,6 +217,7 @@ export function MediaPlanFormDialog({
                                 <SelectItem value="Rejected">Rejected</SelectItem>
                                 <SelectItem value="Confirmed">Confirmed</SelectItem>
                                 <SelectItem value="Active">Active</SelectItem>
+                                <SelectItem value="Converted">Converted</SelectItem>
                             </SelectContent>
                           </Select>
                       </div>

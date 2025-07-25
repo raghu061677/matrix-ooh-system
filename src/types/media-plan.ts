@@ -2,7 +2,7 @@
 import type { Timestamp } from 'firebase/firestore';
 import { User } from './firestore';
 
-export type PlanStatus = 'Draft' | 'Approved' | 'Rejected' | 'Confirmed' | 'Active';
+export type PlanStatus = 'Draft' | 'Approved' | 'Rejected' | 'Confirmed' | 'Active' | 'Converted';
 export type CampaignStatus = 'active' | 'inactive'; // Adjusted based on provided schema
 
 export interface MediaPlan {
