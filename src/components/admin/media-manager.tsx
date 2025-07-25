@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { Button } from '@/components/ui/button';
 import {
@@ -46,16 +46,9 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Edit, Trash2, Loader2, Image as ImageIcon, MoreHorizontal, X, Upload } from 'lucide-react';
-import { Asset, sampleAssets, AssetStatus } from './media-manager-types';
+import { Asset, sampleAssets, AssetStatus, AssetOwnership } from './media-manager-types';
 import { ScrollArea } from '../ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
-import { statesAndDistricts } from '@/lib/india-states';
-import ExifParser from 'exif-parser';
-
-type SortConfig = {
-  key: keyof Asset;
-  direction: 'ascending' | 'descending';
-} | null;
 
 export function MediaManager() {
   const { user } = useAuth();
@@ -69,24 +62,20 @@ export function MediaManager() {
   
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [filter, setFilter] = useState('');
-  const [sortConfig, setSortConfig] = useState<SortConfig>(null);
 
   const { toast } = useToast();
-  const mediaAssetsCollectionRef = collection(db, 'media_assets');
+  const mediaAssetsCollectionRef = collection(db, 'mediaAssets');
 
   const getMediaAssets = async () => {
     if (!user?.companyId) return;
     setLoading(true);
     try {
-        const data = await getDocs(mediaAssetsCollectionRef);
-        const companyAssets = data.docs
-            .map((doc) => ({ ...doc.data(), id: doc.id } as Asset))
-            .filter(asset => asset.companyId === user.companyId);
-
-        if (companyAssets.length > 0) {
-            setMediaAssets(companyAssets);
+        const q = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId));
+        const data = await getDocs(q);
+        if (!data.empty) {
+            setMediaAssets(data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Asset)));
         } else {
-             setMediaAssets(sampleAssets.filter(asset => asset.companyId === user.companyId));
+             setMediaAssets(sampleAssets.filter(asset => asset.companyId === user?.companyId));
         }
     } catch(e) {
          console.error("Error fetching media assets:", e);
@@ -95,7 +84,7 @@ export function MediaManager() {
             title: 'Error fetching assets',
             description: 'Could not retrieve asset data. Using sample data.'
         });
-        setMediaAssets(sampleAssets.filter(asset => asset.companyId === user.companyId));
+        setMediaAssets(sampleAssets.filter(asset => asset.companyId === user?.companyId));
     }
     setLoading(false);
   };
@@ -121,7 +110,7 @@ export function MediaManager() {
     toast({ title: `Uploading ${files.length} image(s)...` });
 
     const assetId = currentAsset.id;
-    let uploadCount = 0;
+    let currentImageUrls = formData.imageUrls || [];
 
     for (const file of Array.from(files)) {
       if (file.size > 2 * 1024 * 1024) { // 2MB limit
@@ -134,46 +123,26 @@ export function MediaManager() {
       }
       
       try {
-        // EXIF data extraction
-        const arrayBuffer = await file.arrayBuffer();
-        try {
-            const parser = ExifParser.create(arrayBuffer);
-            const result = parser.parse();
-            if (result.tags.GPSLatitude && result.tags.GPSLongitude) {
-                setFormData(prev => ({
-                    ...prev,
-                    latitude: result.tags.GPSLatitude,
-                    longitude: result.tags.GPSLongitude
-                }));
-                toast({ title: 'GPS Data Found!', description: `Coordinates extracted from ${file.name}` });
-            }
-        } catch (exifError) {
-            // Non-fatal, just log it.
-            console.warn(`Could not parse EXIF data for ${file.name}`, exifError);
-        }
-        
         const imageRef = ref(storage, `media-assets/${assetId}/${file.name}_${Date.now()}`);
         const snapshot = await uploadBytes(imageRef, file);
         const downloadURL = await getDownloadURL(snapshot.ref);
-
-        const assetDoc = doc(db, 'media_assets', assetId);
-        await updateDoc(assetDoc, {
-          imageUrls: (formData.imageUrls || []).concat(downloadURL)
-        });
-        setFormData(prev => ({...prev, imageUrls: [...(prev.imageUrls || []), downloadURL]}));
-
-        uploadCount++;
+        currentImageUrls.push(downloadURL);
       } catch (uploadError) {
         console.error("Error uploading image:", uploadError);
         toast({ variant: 'destructive', title: 'Upload Failed', description: `Could not upload ${file.name}.` });
       }
     }
     
+    // Batch update Firestore and local state once
+    const assetDoc = doc(db, 'mediaAssets', assetId);
+    await updateDoc(assetDoc, { imageUrls: currentImageUrls });
+    setFormData(prev => ({ ...prev, imageUrls: currentImageUrls }));
+    
     await getMediaAssets();
     setIsUploading(false);
     toast({
         title: 'Upload Complete!',
-        description: `${uploadCount} of ${files.length} image(s) uploaded successfully.`,
+        description: `Images uploaded successfully.`,
     });
     // Clear file input
     if (imageInputRef.current) {
@@ -192,10 +161,11 @@ export function MediaManager() {
         const imageRef = ref(storage, imageUrlToDelete);
         await deleteObject(imageRef);
 
-        const assetDoc = doc(db, 'media_assets', currentAsset.id);
-        await updateDoc(assetDoc, { imageUrls: (formData.imageUrls || []).filter(url => url !== imageUrlToDelete) });
+        const updatedImageUrls = (formData.imageUrls || []).filter(url => url !== imageUrlToDelete);
+        const assetDoc = doc(db, 'mediaAssets', currentAsset.id);
+        await updateDoc(assetDoc, { imageUrls: updatedImageUrls });
 
-        setFormData(prev => ({ ...prev, imageUrls: (prev.imageUrls || []).filter(url => url !== imageUrlToDelete) }));
+        setFormData(prev => ({ ...prev, imageUrls: updatedImageUrls }));
         
         await getMediaAssets();
         toast({ title: 'Image deleted!', description: 'The image has been removed successfully.' });
@@ -219,7 +189,7 @@ export function MediaManager() {
 
     try {
       if (currentAsset?.id) {
-        const assetDoc = doc(db, 'media_assets', currentAsset.id);
+        const assetDoc = doc(db, 'mediaAssets', currentAsset.id);
         await updateDoc(assetDoc, dataToSave);
         toast({ title: 'Asset Updated!', description: 'The media asset details have been saved.' });
       } else {
@@ -242,7 +212,7 @@ export function MediaManager() {
 
   const openDialog = (asset: Asset | null = null) => {
     setCurrentAsset(asset);
-    setFormData(asset || { status: 'active', companyId: user?.companyId });
+    setFormData(asset || { status: 'active', ownership: 'own', companyId: user?.companyId });
     setIsDialogOpen(true);
   };
 
@@ -255,21 +225,13 @@ export function MediaManager() {
   };
   
   const handleDelete = async (asset: Asset) => {
-     if(!confirm(`Are you sure you want to delete asset ${asset.area} (${asset.location})?`)) return;
-     const assetDoc = doc(db, 'media_assets', asset.id);
+     if(!confirm(`Are you sure you want to delete asset ${asset.name} (${asset.location})?`)) return;
+     const assetDoc = doc(db, 'mediaAssets', asset.id);
      await deleteDoc(assetDoc);
      await getMediaAssets();
-     toast({ title: 'Asset Deleted', description: `${asset.location} has been removed.` });
+     toast({ title: 'Asset Deleted', description: `${asset.name} has been removed.` });
   };
   
-  const requestSort = (key: keyof Asset) => {
-    let direction: 'ascending' | 'descending' = 'ascending';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
-    }
-    setSortConfig({ key, direction });
-  };
-
   const sortedAndFilteredAssets = useMemo(() => {
     let sortableAssets = [...mediaAssets];
     if (filter) {
@@ -279,22 +241,8 @@ export function MediaManager() {
         )
       );
     }
-    if (sortConfig !== null) {
-      sortableAssets.sort((a, b) => {
-        const aValue = a[sortConfig.key] || '';
-        const bValue = b[sortConfig.key] || '';
-
-        if (aValue < bValue) {
-          return sortConfig.direction === 'ascending' ? -1 : 1;
-        }
-        if (aValue > bValue) {
-          return sortConfig.direction === 'ascending' ? 1 : -1;
-        }
-        return 0;
-      });
-    }
     return sortableAssets;
-  }, [mediaAssets, filter, sortConfig]);
+  }, [mediaAssets, filter]);
 
   if (loading && !isDialogOpen) {
     return (
@@ -327,10 +275,10 @@ export function MediaManager() {
           <TableHeader>
             <TableRow>
               <TableHead>Image</TableHead>
+              <TableHead>Name</TableHead>
               <TableHead>Location</TableHead>
-              <TableHead>City</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Card Rate</TableHead>
+              <TableHead>Rate</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -352,10 +300,10 @@ export function MediaManager() {
                     </div>
                   )}
                 </TableCell>
-                <TableCell className="font-medium">{asset.location}</TableCell>
-                <TableCell>{asset.city}</TableCell>
+                <TableCell className="font-medium">{asset.name}</TableCell>
+                <TableCell>{asset.location}</TableCell>
                 <TableCell>{asset.status}</TableCell>
-                <TableCell>{asset.cardRate?.toLocaleString('en-IN')}</TableCell>
+                <TableCell>{asset.rate?.toLocaleString('en-IN')}</TableCell>
 
                 <TableCell className="text-right">
                    <DropdownMenu>
@@ -393,54 +341,15 @@ export function MediaManager() {
           <form onSubmit={handleSave} className="flex-grow overflow-hidden flex flex-col">
             <ScrollArea className="flex-grow pr-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 py-4">
-                  <div className="md:col-span-2">
+                  <div>
+                    <Label htmlFor="name">Name</Label>
+                    <Input id="name" name="name" value={formData.name || ''} onChange={handleFormChange} required />
+                  </div>
+                  <div>
                     <Label htmlFor="location">Location</Label>
-                    <Input id="location" name="location" value={formData.location || ''} onChange={handleFormChange} required />
+                    <Input id="location" name="location" value={formData.location || ''} onChange={handleFormChange} />
                   </div>
-                  <div>
-                    <Label htmlFor="area">Area/Landmark</Label>
-                    <Input id="area" name="area" value={formData.area || ''} onChange={handleFormChange} />
-                  </div>
-                  <div>
-                    <Label htmlFor="direction">Direction Facing</Label>
-                    <Input id="direction" name="direction" value={formData.direction || ''} onChange={handleFormChange} />
-                  </div>
-                   <div>
-                    <Label htmlFor="state">State</Label>
-                    <Select onValueChange={(value) => handleSelectChange('state', value)} value={formData.state}>
-                        <SelectTrigger><SelectValue placeholder="Select state..."/></SelectTrigger>
-                        <SelectContent>
-                            {statesAndDistricts.states.map(s => <SelectItem key={s.name} value={s.name}>{s.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="city">City</Label>
-                    <Select onValueChange={(value) => handleSelectChange('city', value)} value={formData.city}>
-                        <SelectTrigger><SelectValue placeholder="Select city..."/></SelectTrigger>
-                        <SelectContent>
-                            {statesAndDistricts.states.find(s => s.name === formData.state)?.districts.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="md:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div>
-                        <Label htmlFor="width1">Width (ft)</Label>
-                        <Input id="width1" name="width1" type="number" value={formData.width1 || ''} onChange={handleFormChange} />
-                      </div>
-                      <div>
-                        <Label htmlFor="height1">Height (ft)</Label>
-                        <Input id="height1" name="height1" type="number" value={formData.height1 || ''} onChange={handleFormChange} />
-                      </div>
-                      <div>
-                        <Label htmlFor="sqft">Total Sqft</Label>
-                        <Input id="sqft" name="sqft" type="number" value={formData.sqft || (formData.width1 || 0) * (formData.height1 || 0)} onChange={handleFormChange} />
-                      </div>
-                      <div>
-                         <Label htmlFor="units">Units</Label>
-                         <Input id="units" name="units" type="number" value={formData.units || 1} onChange={handleFormChange} />
-                      </div>
-                  </div>
+
                   <div>
                     <Label htmlFor="status">Status</Label>
                      <Select onValueChange={(value) => handleSelectChange('status', value as AssetStatus)} value={formData.status}>
@@ -448,44 +357,29 @@ export function MediaManager() {
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="active">Available</SelectItem>
                         <SelectItem value="booked">Booked</SelectItem>
                         <SelectItem value="blocked">Blocked</SelectItem>
-                         <SelectItem value="deleted">Deleted</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                   <div>
+                    <Label htmlFor="ownership">Ownership</Label>
+                     <Select onValueChange={(value) => handleSelectChange('ownership', value as AssetOwnership)} value={formData.ownership}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select ownership" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="own">Own</SelectItem>
+                        <SelectItem value="rented">Rented</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div>
-                    <Label htmlFor="cardRate">Card Rate (per month)</Label>
-                    <Input id="cardRate" name="cardRate" type="number" value={formData.cardRate || ''} onChange={handleFormChange} />
+                    <Label htmlFor="rate">Rate (per month)</Label>
+                    <Input id="rate" name="rate" type="number" value={formData.rate || ''} onChange={handleFormChange} />
                   </div>
-                   <div>
-                    <Label htmlFor="baseRate">Base Rate (per month)</Label>
-                    <Input id="baseRate" name="baseRate" type="number" value={formData.baseRate || ''} onChange={handleFormChange} />
-                  </div>
-
-                   <div>
-                    <Label htmlFor="media">Media Type</Label>
-                    <Input id="media" name="media" value={formData.media || 'Hoarding'} onChange={handleFormChange} />
-                  </div>
-                  <div>
-                    <Label htmlFor="light">Lighting</Label>
-                    <Input id="light" name="light" value={formData.light || 'Frontlit'} onChange={handleFormChange} />
-                  </div>
-                  <div>
-                    <Label htmlFor="supplierId">Supplier</Label>
-                    <Input id="supplierId" name="supplierId" value={formData.supplierId || ''} onChange={handleFormChange} />
-                  </div>
-                   <div>
-                    <Label htmlFor="latitude">Latitude</Label>
-                    <Input id="latitude" name="latitude" type="number" value={formData.latitude || ''} onChange={handleFormChange} />
-                  </div>
-                   <div>
-                    <Label htmlFor="longitude">Longitude</Label>
-                    <Input id="longitude" name="longitude" type="number" value={formData.longitude || ''} onChange={handleFormChange} />
-                  </div>
-                  
 
                   <div className="md:col-span-2">
                     <Label htmlFor="images">Asset Images</Label>
@@ -499,7 +393,7 @@ export function MediaManager() {
                     <div className="mt-2 flex flex-wrap gap-2">
                       {(formData.imageUrls || []).map(url => (
                         <div key={url} className="relative h-24 w-24 group">
-                          <Image src={url} alt="Asset image" layout="fill" className="rounded-md object-cover" />
+                          <Image src={url} alt="Asset image" fill className="rounded-md object-cover" />
                            <Button
                               type="button"
                               variant="destructive"

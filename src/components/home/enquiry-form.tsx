@@ -72,8 +72,6 @@ export function EnquiryForm({ asset }: EnquiryFormProps) {
         await addDoc(collection(db, 'mediaEnquiries'), {
             ...values,
             assetId: asset.id,
-            assetLocation: asset.location,
-            assetCity: asset.city,
             submittedAt: serverTimestamp(),
         });
         toast({

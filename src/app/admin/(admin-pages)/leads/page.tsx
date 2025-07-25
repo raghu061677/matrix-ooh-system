@@ -14,9 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { Loader2, Mail, MessageSquare } from 'lucide-react';
+import { Loader2, MessageSquare } from 'lucide-react';
 import { Enquiry } from '@/types/firestore';
 
 export default function AdminLeadsPage() {
@@ -66,7 +65,7 @@ export default function AdminLeadsPage() {
                 <TableRow>
                     <TableHead>Submitted</TableHead>
                     <TableHead>Contact Info</TableHead>
-                    <TableHead>Asset Location</TableHead>
+                    <TableHead>Asset ID</TableHead>
                     <TableHead>Message</TableHead>
                 </TableRow>
             </TableHeader>
@@ -89,8 +88,7 @@ export default function AdminLeadsPage() {
                             <div className="text-sm text-muted-foreground">{enquiry.phone}</div>
                         </TableCell>
                         <TableCell>
-                            <div>{enquiry.assetLocation}</div>
-                            <div className="text-xs text-muted-foreground">{enquiry.assetCity}</div>
+                            <div>{enquiry.assetId}</div>
                         </TableCell>
                         <TableCell className="max-w-xs truncate">
                             <span title={enquiry.message}>{enquiry.message}</span>

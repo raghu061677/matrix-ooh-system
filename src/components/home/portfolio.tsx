@@ -11,38 +11,29 @@ import Link from 'next/link';
 const sampleLocations: Asset[] = [
   {
     id: 'sample-1',
-    area: 'Jubilee Hills',
-    location: 'Road No. 36, High-Traffic Junction',
-    city: 'Hyderabad',
+    name: 'Jubilee Hills Hoarding',
+    location: 'Road No. 36, High-Traffic Junction, Hyderabad',
     media: 'Hoarding',
-    direction: 'Towards Madhapur',
-    dimensions: '40x20',
-    sqft: 800,
     status: 'active',
+    rate: 120000,
     imageUrls: ['https://placehold.co/600x400.png?text=Prime+Location+1'],
   },
   {
     id: 'sample-2',
-    area: 'Koramangala',
-    location: 'Near Sony World Signal',
-    city: 'Bengaluru',
+    name: 'Koramangala Unipole',
+    location: 'Near Sony World Signal, Bengaluru',
     media: 'Unipole',
-    direction: 'Towards Inner Ring Road',
-    dimensions: '30x15',
-    sqft: 450,
     status: 'active',
+    rate: 95000,
     imageUrls: ['https://placehold.co/600x400.png?text=Prime+Location+2'],
   },
   {
     id: 'sample-3',
-    area: 'Bandra West',
-    location: 'Linking Road, Shopper\'s Hub',
-    city: 'Mumbai',
+    name: 'Bandra Gantry',
+    location: 'Linking Road, Shopper\'s Hub, Mumbai',
     media: 'Gantry',
-    direction: 'Facing West',
-    dimensions: '60x10',
-    sqft: 600,
     status: 'active',
+    rate: 150000,
     imageUrls: ['https://placehold.co/600x400.png?text=Prime+Location+3'],
   },
 ];
@@ -64,12 +55,12 @@ export function Portfolio() {
               <LocationCard 
                 key={location.id}
                 id={location.id}
-                title={location.area || 'Untitled'}
-                location={`${location.location}, ${location.city}`}
+                title={location.name || 'Untitled'}
+                location={location.location || 'Unknown Location'}
                 imageUrl={location.imageUrls?.[0] || 'https://placehold.co/600x400.png'}
                 aiHint="city street billboard"
-                description={`A premium ${location.media || 'asset'} facing ${location.direction || 'N/A'}.`}
-                category={`${location.dimensions} (${location.sqft} sqft)`}
+                description={`A premium ${location.media || 'asset'} available for booking.`}
+                category={`₹${(location.rate || 0).toLocaleString('en-IN')}/month`}
               />
             ))}
         </div>

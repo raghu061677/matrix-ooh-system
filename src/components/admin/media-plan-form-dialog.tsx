@@ -25,12 +25,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Loader2, CalendarIcon } from 'lucide-react';
 import { MediaPlan, PlanStatus } from '@/types/media-plan';
 import { Customer, User } from '@/types/firestore';
-import { format, differenceInDays } from 'date-fns';
+import { format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { ScrollArea } from '../ui/scroll-area';
 
@@ -66,6 +65,8 @@ export function MediaPlanFormDialog({
           from: new Date(plan.startDate as any),
           to: new Date(plan.endDate as any),
         });
+      } else {
+        setDateRange(undefined);
       }
     } else {
       setFormData({ status: 'Draft' });
@@ -74,33 +75,23 @@ export function MediaPlanFormDialog({
   }, [plan, isOpen]);
 
   const handleFormChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement>
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSelectChange = (name: keyof MediaPlan, value: string) => {
-    if (name === 'customerId') {
-      const customer = customers.find(c => c.id === value);
-      setFormData((prev) => ({ ...prev, customerId: value, customerName: customer?.name }));
-    } else if (name === 'employeeId') {
-      const employee = employees.find(e => e.id === value);
-       setFormData((prev) => ({ ...prev, employeeId: value, employee: {id: employee!.id, name: employee!.name, avatar: employee!.avatar }}));
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
-    }
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
-    const days = dateRange?.from && dateRange?.to ? differenceInDays(dateRange.to, dateRange.from) : 0;
     const dataToSave: Partial<MediaPlan> = {
         ...formData,
         startDate: dateRange?.from,
         endDate: dateRange?.to,
-        days,
     }
     onSave(dataToSave);
   };
@@ -215,8 +206,6 @@ export function MediaPlanFormDialog({
                                 <SelectItem value="Draft">Draft</SelectItem>
                                 <SelectItem value="Approved">Approved</SelectItem>
                                 <SelectItem value="Rejected">Rejected</SelectItem>
-                                <SelectItem value="Confirmed">Confirmed</SelectItem>
-                                <SelectItem value="Active">Active</SelectItem>
                                 <SelectItem value="Converted">Converted</SelectItem>
                             </SelectContent>
                           </Select>

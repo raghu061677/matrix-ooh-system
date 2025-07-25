@@ -48,27 +48,25 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Edit, Trash2, Loader2, Search, SlidersHorizontal, ArrowUpDown, Upload, Download } from 'lucide-react';
-import { Customer } from '@/types/firestore';
+import { Customer, Address } from '@/types/firestore';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import PptxGenJS from 'pptxgenjs';
 import { fetchGstDetails } from '@/ai/flows/fetch-gst-details';
 import { ScrollArea } from '../ui/scroll-area';
+import { useAuth } from '@/hooks/use-auth';
 
 type SortConfig = {
   key: keyof Customer;
   direction: 'ascending' | 'descending';
 } | null;
 
-type SearchableField = 'name' | 'gst' | 'pocName' | 'pocPhone';
+type SearchableField = 'name' | 'gst' | 'email' | 'phone';
 
 const sampleCustomers: Customer[] = [
-    { id: 'customer-1', companyId: 'company-1', code: 'CUST-001', name: 'Matrix-OOH', gst: '29AAACN1234F1Z5', contactPersons: [{ name: 'Anil Kumar', phone: '9876543210', designation: 'Manager' }], addresses: [{ type: 'billing', street: '123 Cyberabad', city: 'Hyderabad', state: 'Telangana', postalCode: '500081' }] },
-    { id: 'customer-2', companyId: 'company-1', code: 'CUST-002', name: 'Founding Years Learning', gst: '36ABCFY1234G1Z2', contactPersons: [{ name: 'Sunitha Reddy', phone: '9876543211', designation: 'Director' }], addresses: [{ type: 'billing', street: '456 Jubilee Hills', city: 'Hyderabad', state: 'Telangana', postalCode: '500033' }] },
-    { id: 'customer-3', companyId: 'company-1', code: 'CUST-003', name: 'ADMINDS', gst: '27AAAAA0000A1Z5', contactPersons: [{ name: 'Sunil Reddy', phone: '9876543212', designation: 'Proprietor' }], addresses: [{ type: 'billing', street: '789 Gachibowli', city: 'Hyderabad', state: 'Telangana', postalCode: '500032' }] },
-    { id: 'customer-4', companyId: 'company-1', code: 'CUST-004', name: 'LAQSHYA MEDIA LIMITED', gst: '24AACCL5678B1Z9', contactPersons: [{ name: 'Vikram Singh', phone: '9876543213', designation: 'Head of Operations' }], addresses: [{ type: 'billing', street: '101 Madhapur', city: 'Hyderabad', state: 'Telangana', postalCode: '500081' }] },
-    { id: 'customer-5', companyId: 'company-1', code: 'CUST-005', name: 'CRI', gst: '33AACFC4321H1Z4', contactPersons: [{ name: 'Priya Sharma', phone: '9876543214', designation: 'Marketing Head' }], addresses: [{ type: 'billing', street: '212 Banjara Hills', city: 'Hyderabad', state: 'Telangana', postalCode: '500034' }] },
+    { id: 'customer-1', companyId: 'company-1', name: 'Matrix-OOH', gst: '29AAACN1234F1Z5', email: 'contact@matrix.com', phone: '9876543210', billingAddress: { street: '123 Cyberabad', city: 'Hyderabad', state: 'Telangana', postalCode: '500081' } },
+    { id: 'customer-2', companyId: 'company-1', name: 'Founding Years Learning', gst: '36ABCFY1234G1Z2', email: 'info@foundingyears.com', phone: '9876543211', billingAddress: { street: '456 Jubilee Hills', city: 'Hyderabad', state: 'Telangana', postalCode: '500033' } },
 ];
 
 
@@ -83,24 +81,16 @@ export function CustomerManager() {
   const [filter, setFilter] = useState('');
   const [searchField, setSearchField] = useState<SearchableField>('name');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [columnVisibility, setColumnVisibility] = useState({
-    code: true,
-    name: true,
-    gst: true,
-    primaryContact: true,
-    city: false,
-    state: true,
-    postalCode: false,
-  });
-
   const { toast } = useToast();
+  const { user } = useAuth();
   const customersCollectionRef = collection(db, 'customers');
   
   const getCustomers = async () => {
+    if (!user?.companyId) return;
     setLoading(true);
     try {
-        const data = await getDocs(customersCollectionRef);
+        const q = query(collection(db, "customers"), where("companyId", "==", user.companyId));
+        const data = await getDocs(q);
         if(!data.empty) {
             setCustomers(data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Customer)));
         } else {
@@ -120,21 +110,22 @@ export function CustomerManager() {
 
   useEffect(() => {
     getCustomers();
-  }, []);
+  }, [user]);
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleNestedChange = (e: React.ChangeEvent<HTMLInputElement>, objectName: 'contactPersons' | 'addresses', index: number) => {
+  const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>, addressType: 'billingAddress' | 'shippingAddress') => {
     const { name, value } = e.target;
-    setFormData(prev => {
-        const updatedArray = [...(prev[objectName] || [])];
-        if(!updatedArray[index]) updatedArray[index] = {} as any;
-        (updatedArray[index] as any)[name] = value;
-        return { ...prev, [objectName]: updatedArray };
-    });
+    setFormData(prev => ({
+        ...prev,
+        [addressType]: {
+            ...(prev[addressType] || {}),
+            [name]: value
+        }
+    }));
   };
 
   const handleGstFetch = () => {
@@ -155,13 +146,12 @@ export function CustomerManager() {
                 setFormData(prev => ({
                     ...prev,
                     name: legalName,
-                    addresses: [{
-                        type: 'billing',
+                    billingAddress: {
                         street: address,
                         city: city,
                         state: state,
                         postalCode: pincode,
-                    }]
+                    }
                 }));
                 toast({
                     title: 'Details Fetched!',
@@ -180,18 +170,20 @@ export function CustomerManager() {
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!user?.companyId) return;
     setLoading(true);
+
+    const dataToSave: Partial<Customer> = { ...formData, companyId: user.companyId };
 
     if (currentCustomer) {
       const customerDoc = doc(db, 'customers', currentCustomer.id);
-      await updateDoc(customerDoc, formData);
-      await getCustomers();
+      await updateDoc(customerDoc, dataToSave);
       toast({ title: 'Customer Updated!', description: 'The customer has been successfully updated.' });
     } else {
-      await addDoc(customersCollectionRef, formData);
-      await getCustomers();
+      await addDoc(customersCollectionRef, dataToSave);
       toast({ title: 'Customer Added!', description: 'The new customer has been added.' });
     }
+    await getCustomers();
     setLoading(false);
     closeDialog();
   };
@@ -199,9 +191,8 @@ export function CustomerManager() {
   const openDialog = (customer: Customer | null = null) => {
     setCurrentCustomer(customer);
     const initialFormData = customer || { 
-      code: `CUST-${Math.floor(Date.now() / 1000)}`,
-      contactPersons: [{}], 
-      addresses: [{ type: 'billing' }] 
+      billingAddress: { street: '', city: ''}, 
+      shippingAddress: { street: '', city: ''}
     };
     setFormData(initialFormData);
     setIsDialogOpen(true);
@@ -219,187 +210,21 @@ export function CustomerManager() {
      await getCustomers();
      toast({ title: 'Customer Deleted', description: `${customer.name} has been removed.` });
   };
-
-  const requestSort = (key: keyof Customer) => {
-    let direction: 'ascending' | 'descending' = 'ascending';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
-    }
-    setSortConfig({ key, direction });
-  };
-
+  
   const sortedAndFilteredCustomers = useMemo(() => {
     let sortableCustomers = [...customers];
     if (filter) {
       sortableCustomers = sortableCustomers.filter(customer => {
         const searchTerm = filter.toLowerCase();
-        switch (searchField) {
-          case 'name':
-            return customer.name?.toLowerCase().includes(searchTerm);
-          case 'gst':
-            return customer.gst?.toLowerCase().includes(searchTerm);
-          case 'pocName':
-            return customer.contactPersons?.some(p => p.name?.toLowerCase().includes(searchTerm));
-          case 'pocPhone':
-            return customer.contactPersons?.some(p => p.phone?.toLowerCase().includes(searchTerm));
-          default:
-            return Object.values(customer).some(val =>
-              String(val).toLowerCase().includes(searchTerm)
-            );
-        }
-      });
-    }
-    if (sortConfig !== null) {
-      sortableCustomers.sort((a, b) => {
-        const aValue = a[sortConfig.key] || '';
-        const bValue = b[sortConfig.key] || '';
-
-        if (aValue < bValue) {
-          return sortConfig.direction === 'ascending' ? -1 : 1;
-        }
-        if (aValue > bValue) {
-          return sortConfig.direction === 'ascending' ? 1 : -1;
-        }
-        return 0;
+        return customer.name?.toLowerCase().includes(searchTerm) ||
+               customer.gst?.toLowerCase().includes(searchTerm) ||
+               customer.email?.toLowerCase().includes(searchTerm) ||
+               customer.phone?.toLowerCase().includes(searchTerm);
       });
     }
     return sortableCustomers;
-  }, [customers, filter, sortConfig, searchField]);
+  }, [customers, filter]);
 
-  const getSortIcon = (key: keyof Customer) => {
-    if (!sortConfig || sortConfig.key !== key) {
-      return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />;
-    }
-    return <ArrowUpDown className="ml-2 h-4 w-4" />; 
-  };
-  
-  const columns: { key: keyof typeof columnVisibility, label: string, sortable?: boolean }[] = [
-    { key: 'code', label: 'Code', sortable: true },
-    { key: 'name', label: 'Name', sortable: true },
-    { key: 'gst', label: 'GST', sortable: true },
-    { key: 'primaryContact', label: 'Primary Contact' },
-    { key: 'city', label: 'City', sortable: true },
-    { key: 'state', label: 'State', sortable: true },
-    { key: 'postalCode', label: 'Postal Code' },
-  ];
-
-  const exportTemplateToExcel = () => {
-    const headers = [
-      'code', 'name', 'gst', 
-      'contactPersonName', 'contactPersonPhone', 'contactPersonDesignation', 
-      'addressType', 'addressStreet', 'addressCity', 'addressState', 'addressPostalCode'
-    ];
-    const worksheet = XLSX.utils.aoa_to_sheet([headers]);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Customers Template');
-    XLSX.writeFile(workbook, 'customers-template.xlsx');
-  };
-  
-  const exportToExcel = () => {
-    const dataToExport = sortedAndFilteredCustomers.map(c => ({
-      ...c,
-      primaryContact: c.contactPersons?.[0]?.name,
-      city: c.addresses?.[0]?.city,
-      state: c.addresses?.[0]?.state,
-      postalCode: c.addresses?.[0]?.postalCode,
-    }));
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Customers');
-    XLSX.writeFile(workbook, 'customers.xlsx');
-  };
-
-  const exportToPdf = () => {
-    const doc = new jsPDF();
-    doc.text('Customers', 20, 10);
-    const head = columns
-      .filter(c => columnVisibility[c.key])
-      .map(c => c.label);
-    const body = sortedAndFilteredCustomers.map(customer => 
-      columns
-        .filter(c => columnVisibility[c.key])
-        .map(col => {
-            if (col.key === 'primaryContact') return customer.contactPersons?.[0]?.name ?? '';
-            if (col.key === 'city') return customer.addresses?.[0]?.city ?? '';
-            if (col.key === 'state') return customer.addresses?.[0]?.state ?? '';
-            if (col.key === 'postalCode') return customer.addresses?.[0]?.postalCode ?? '';
-            return customer[col.key as keyof Customer] ?? '';
-        })
-    );
-    (doc as any).autoTable({ head: [head], body });
-    doc.save('customers.pdf');
-  };
-
-   const exportToPpt = () => {
-    const pptx = new PptxGenJS();
-    sortedAndFilteredCustomers.forEach(customer => {
-      const slide = pptx.addSlide();
-      slide.addText(`Customer: ${customer.name || 'N/A'}`, { x: 0.5, y: 0.5, fontSize: 18, bold: true });
-      let y = 1.0;
-      columns.forEach(col => {
-        if (columnVisibility[col.key]) {
-            let value;
-            if (col.key === 'primaryContact') value = customer.contactPersons?.[0]?.name;
-            else if (col.key === 'city') value = customer.addresses?.[0]?.city;
-            else if (col.key === 'state') value = customer.addresses?.[0]?.state;
-            else if (col.key === 'postalCode') value = customer.addresses?.[0]?.postalCode;
-            else value = customer[col.key as keyof Customer];
-
-           if (value) {
-            slide.addText(`${col.label}: ${value}`, { x: 0.5, y, fontSize: 12 });
-            y += 0.4;
-           }
-        }
-      });
-    });
-    pptx.writeFile({ fileName: 'customers.pptx' });
-  };
-  
-  const handleImport = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-        const data = event.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const json: any[] = XLSX.utils.sheet_to_json(worksheet);
-
-        setLoading(true);
-        for (const item of json) {
-            const customerData: Partial<Customer> = {
-                code: item.code,
-                name: item.name,
-                gst: item.gst,
-                contactPersons: [{
-                    name: item.contactPersonName,
-                    phone: item.contactPersonPhone,
-                    designation: item.contactPersonDesignation
-                }],
-                addresses: [{
-                    type: item.addressType,
-                    street: item.addressStreet,
-                    city: item.addressCity,
-                    state: item.addressState,
-                    postalCode: item.addressPostalCode
-                }]
-            };
-            await addDoc(customersCollectionRef, customerData);
-        }
-        
-        await getCustomers();
-        setLoading(false);
-        toast({ title: 'Import Successful', description: `${json.length} customers have been imported.` });
-    };
-    reader.readAsBinaryString(file);
-    if(fileInputRef.current) fileInputRef.current.value = '';
-  };
   
   if (loading && !isDialogOpen) {
     return (
@@ -413,17 +238,6 @@ export function CustomerManager() {
     <TooltipProvider>
       <div className="flex justify-between items-center mb-6 gap-4">
         <div className="flex items-center gap-2">
-            <Select onValueChange={(value: SearchableField) => setSearchField(value)} defaultValue={searchField}>
-                <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Search by..." />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="name">Customer Name</SelectItem>
-                    <SelectItem value="gst">GST</SelectItem>
-                    <SelectItem value="pocName">POC Name</SelectItem>
-                    <SelectItem value="pocPhone">POC Number</SelectItem>
-                </SelectContent>
-            </Select>
            <Input
             placeholder="Filter customers..."
             value={filter}
@@ -432,82 +246,6 @@ export function CustomerManager() {
           />
         </div>
         <div className="flex items-center gap-2">
-           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="icon" onClick={handleImport}>
-                  <Upload className="h-4 w-4" />
-                  <span className="sr-only">Import</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Import from Excel</TooltipContent>
-          </Tooltip>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileImport}
-            className="hidden"
-            accept=".xlsx, .xls"
-          />
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="icon" onClick={exportTemplateToExcel}>
-                  <Download className="h-4 w-4" />
-                  <span className="sr-only">Download Template</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Download Excel Template</TooltipContent>
-          </Tooltip>
-
-          <DropdownMenu>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="icon">
-                            <Download className="h-4 w-4" />
-                            <span className="sr-only">Export</span>
-                        </Button>
-                    </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent>Export Customers</TooltipContent>
-            </Tooltip>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={exportToExcel}>Excel</DropdownMenuItem>
-              <DropdownMenuItem onClick={exportToPdf}>PDF</DropdownMenuItem>
-              <DropdownMenuItem onClick={exportToPpt}>PowerPoint</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon">
-                    <SlidersHorizontal className="h-4 w-4" />
-                    <span className="sr-only">Toggle columns</span>
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent>Toggle Columns</TooltipContent>
-            </Tooltip>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {columns.map((column) => (
-                 <DropdownMenuCheckboxItem
-                  key={column.key}
-                  className="capitalize"
-                  checked={columnVisibility[column.key]}
-                  onCheckedChange={(value) =>
-                    setColumnVisibility((prev) => ({ ...prev, [column.key]: !!value }))
-                  }
-                >
-                  {column.label}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
           <Button onClick={() => openDialog()}>
             <PlusCircle className="mr-2" />
             Add New Customer
@@ -518,31 +256,20 @@ export function CustomerManager() {
         <Table>
           <TableHeader>
             <TableRow>
-              {columns.map(col => columnVisibility[col.key as keyof typeof columnVisibility] && (
-                 <TableHead key={col.key}>
-                   {col.sortable ? (
-                     <Button variant="ghost" onClick={() => requestSort(col.key as keyof Customer)}>
-                       {col.label}
-                       {getSortIcon(col.key as keyof Customer)}
-                     </Button>
-                   ) : (
-                     col.label
-                   )}
-                 </TableHead>
-              ))}
+              <TableHead>Name</TableHead>
+              <TableHead>GST</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Phone</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {sortedAndFilteredCustomers.map(customer => (
               <TableRow key={customer.id}>
-                {columnVisibility.code && <TableCell className="font-medium">{customer.code}</TableCell>}
-                {columnVisibility.name && <TableCell>{customer.name}</TableCell>}
-                {columnVisibility.gst && <TableCell>{customer.gst}</TableCell>}
-                {columnVisibility.primaryContact && <TableCell>{customer.contactPersons?.[0]?.name}</TableCell>}
-                {columnVisibility.city && <TableCell>{customer.addresses?.[0]?.city}</TableCell>}
-                {columnVisibility.state && <TableCell>{customer.addresses?.[0]?.state}</TableCell>}
-                {columnVisibility.postalCode && <TableCell>{customer.addresses?.[0]?.postalCode}</TableCell>}
+                <TableCell className="font-medium">{customer.name}</TableCell>
+                <TableCell>{customer.gst}</TableCell>
+                <TableCell>{customer.email}</TableCell>
+                <TableCell>{customer.phone}</TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" onClick={() => openDialog(customer)}>
                     <Edit className="h-4 w-4" />
@@ -571,10 +298,6 @@ export function CustomerManager() {
                     <Input id="name" name="name" value={formData.name || ''} onChange={handleFormChange} required />
                   </div>
                   <div>
-                    <Label htmlFor="code">Customer Code</Label>
-                    <Input id="code" name="code" value={formData.code || ''} onChange={handleFormChange} readOnly={!!currentCustomer} />
-                  </div>
-                  <div>
                     <Label htmlFor="gst">GST Number</Label>
                     <div className="flex items-center gap-2">
                         <Input id="gst" name="gst" value={formData.gst || ''} onChange={handleFormChange} />
@@ -583,43 +306,38 @@ export function CustomerManager() {
                         </Button>
                     </div>
                   </div>
-
-                  <div className="md:col-span-2">
-                    <h3 className="text-lg font-medium border-b pb-2 mb-4">Contact Person</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                         <div>
-                            <Label htmlFor="contactName">Name</Label>
-                            <Input id="contactName" name="name" value={formData.contactPersons?.[0]?.name || ''} onChange={(e) => handleNestedChange(e, 'contactPersons', 0)} />
-                        </div>
-                        <div>
-                            <Label htmlFor="contactPhone">Phone</Label>
-                            <Input id="contactPhone" name="phone" value={formData.contactPersons?.[0]?.phone || ''} onChange={(e) => handleNestedChange(e, 'contactPersons', 0)} />
-                        </div>
-                        <div>
-                            <Label htmlFor="contactDesignation">Designation</Label>
-                            <Input id="contactDesignation" name="designation" value={formData.contactPersons?.[0]?.designation || ''} onChange={(e) => handleNestedChange(e, 'contactPersons', 0)} />
-                        </div>
-                    </div>
+                   <div>
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" name="email" value={formData.email || ''} onChange={handleFormChange} />
+                  </div>
+                  <div>
+                    <Label htmlFor="phone">Phone</Label>
+                    <Input id="phone" name="phone" value={formData.phone || ''} onChange={handleFormChange} />
                   </div>
 
                   <div className="md:col-span-2">
                      <h3 className="text-lg font-medium border-b pb-2 mb-4">Billing Address</h3>
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="md:col-span-2">
-                            <Label htmlFor="street">Street</Label>
-                            <Input id="street" name="street" value={formData.addresses?.[0]?.street || ''} onChange={(e) => handleNestedChange(e, 'addresses', 0)} />
+                            <Label htmlFor="billing_street">Street</Label>
+                            <Input id="billing_street" name="street" value={formData.billingAddress?.street || ''} onChange={(e) => handleAddressChange(e, 'billingAddress')} />
                         </div>
                         <div>
-                            <Label htmlFor="city">City</Label>
-                            <Input id="city" name="city" value={formData.addresses?.[0]?.city || ''} onChange={(e) => handleNestedChange(e, 'addresses', 0)} />
+                            <Label htmlFor="billing_city">City</Label>
+                            <Input id="billing_city" name="city" value={formData.billingAddress?.city || ''} onChange={(e) => handleAddressChange(e, 'billingAddress')} />
+                        </div>
+                     </div>
+                  </div>
+                   <div className="md:col-span-2">
+                     <h3 className="text-lg font-medium border-b pb-2 mb-4">Shipping Address</h3>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="md:col-span-2">
+                            <Label htmlFor="shipping_street">Street</Label>
+                            <Input id="shipping_street" name="street" value={formData.shippingAddress?.street || ''} onChange={(e) => handleAddressChange(e, 'shippingAddress')} />
                         </div>
                         <div>
-                            <Label htmlFor="state">State</Label>
-                            <Input id="state" name="state" value={formData.addresses?.[0]?.state || ''} onChange={(e) => handleNestedChange(e, 'addresses', 0)} />
-                        </div>
-                         <div>
-                            <Label htmlFor="postalCode">Postal Code</Label>
-                            <Input id="postalCode" name="postalCode" value={formData.addresses?.[0]?.postalCode || ''} onChange={(e) => handleNestedChange(e, 'addresses', 0)} />
+                            <Label htmlFor="shipping_city">City</Label>
+                            <Input id="shipping_city" name="city" value={formData.shippingAddress?.city || ''} onChange={(e) => handleAddressChange(e, 'shippingAddress')} />
                         </div>
                      </div>
                   </div>

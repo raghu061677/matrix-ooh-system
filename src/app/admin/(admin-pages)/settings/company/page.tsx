@@ -18,8 +18,8 @@ import { useAuth } from '@/hooks/use-auth'; // A custom hook to get user info
 
 const companySettingsSchema = z.object({
   id: z.string(),
-  companyName: z.string().min(1, 'Company name is required.'),
-  gstNumber: z.string().optional(),
+  name: z.string().min(1, 'Company name is required.'),
+  gst: z.string().optional(),
   address: z.string().min(1, 'Address is required.'),
   logoUrl: z.string().url().optional(),
 });
@@ -38,8 +38,8 @@ export default function CompanySettingsPage() {
     resolver: zodResolver(companySettingsSchema),
     defaultValues: {
       id: '',
-      companyName: '',
-      gstNumber: '',
+      name: '',
+      gst: '',
       address: '',
       logoUrl: '',
     },
@@ -182,7 +182,7 @@ export default function CompanySettingsPage() {
                 onClick={() => fileInputRef.current?.click()}
               >
                 {logoPreview ? (
-                  <Image src={logoPreview} alt="Logo Preview" layout="fill" objectFit="contain" className="p-2" />
+                  <Image src={logoPreview} alt="Logo Preview" fill objectFit="contain" className="p-2" />
                 ) : (
                   <>
                     <UploadCloud className="h-12 w-12 text-muted-foreground" />
@@ -203,23 +203,23 @@ export default function CompanySettingsPage() {
 
             <div className="md:col-span-2 space-y-4">
               <Controller
-                name="companyName"
+                name="name"
                 control={control}
                 render={({ field, fieldState }) => (
                   <div className="space-y-2">
-                    <Label htmlFor="companyName">Company Name</Label>
-                    <Input id="companyName" {...field} />
+                    <Label htmlFor="name">Company Name</Label>
+                    <Input id="name" {...field} />
                     {fieldState.error && <p className="text-sm text-destructive">{fieldState.error.message}</p>}
                   </div>
                 )}
               />
               <Controller
-                name="gstNumber"
+                name="gst"
                 control={control}
                 render={({ field, fieldState }) => (
                   <div className="space-y-2">
-                    <Label htmlFor="gstNumber">GST Number</Label>
-                    <Input id="gstNumber" {...field} />
+                    <Label htmlFor="gst">GST Number</Label>
+                    <Input id="gst" {...field} />
                      {fieldState.error && <p className="text-sm text-destructive">{fieldState.error.message}</p>}
                   </div>
                 )}

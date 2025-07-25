@@ -12,8 +12,8 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getStorage } from 'firebase-admin/storage';
+import { getFirestore } from 'firebase-admin/firestore';
 import { initializeApp, getApps } from 'firebase-admin/app';
-import { db } from './assign-invoice-number'; // Import the shared db instance
 
 const firebaseConfig = {
   credential: undefined,
@@ -25,11 +25,12 @@ if (!getApps().length) {
     initializeApp(firebaseConfig);
 }
 const storage = getStorage();
+const db = getFirestore();
 
 const CompanySettingsSchema = z.object({
   id: z.string().describe("The company's unique document ID."),
-  companyName: z.string().optional(),
-  gstNumber: z.string().optional(),
+  name: z.string().optional(),
+  gst: z.string().optional(),
   address: z.string().optional(),
   logoUrl: z.string().url().optional(),
 });

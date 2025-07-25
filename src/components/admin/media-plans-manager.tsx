@@ -21,12 +21,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Edit, Trash2, Loader2, FileText, MoreHorizontal } from 'lucide-react';
@@ -34,22 +28,16 @@ import { MediaPlan } from '@/types/media-plan';
 import { Customer, User } from '@/types/firestore';
 import { format } from 'date-fns';
 import { MediaPlanFormDialog } from './media-plan-form-dialog';
-import { SelectAssetsDialog } from './select-assets-dialog';
-import { Asset } from './media-manager-types';
 import { useAuth } from '@/hooks/use-auth';
 
 const sampleData: MediaPlan[] = [
-    { id: '1', projectId: 'P00109', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-1', customerName: 'Matrix Network Solutions', displayName: 'CRI', startDate: new Date('2025-07-26'), endDate: new Date('2025-08-24'), days: 30, status: 'Draft' },
-    { id: '2', projectId: 'P00108', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-2', customerName: 'Matrix', displayName: 'Matrix ®', startDate: new Date('2025-07-24'), endDate: new Date('2025-08-22'), days: 30, status: 'Draft' },
-    { id: '3', projectId: 'P00107', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-3', customerName: 'Founding Years Learning Solutions Pvt Ltd', displayName: 'Education', startDate: new Date('2025-07-25'), endDate: new Date('2025-10-22'), days: 90, status: 'Confirmed' },
-    { id: '4', projectId: 'P00106', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-1', customerName: 'Matrix Network Solutions', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, status: 'Active' },
-    { id: '5', projectId: 'P00094', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-4', customerName: 'ADMINDS', displayName: 'Sunil Reddy', startDate: new Date('2025-07-01'), endDate: new Date('2025-07-31'), days: 31, status: 'Draft' },
-    { id: '6', projectId: 'P00105', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-5', customerName: 'LAQSHYA MEDIA LIMITED', displayName: 'Quick delivery food campaign', startDate: new Date('2025-07-10'), endDate: new Date('2025-08-08'), days: 30, status: 'Draft' },
+    { id: '1', customerId: 'customer-1', displayName: 'CRI Campaign', startDate: new Date('2025-07-26'), endDate: new Date('2025-08-24'), status: 'Draft', costSummary: { totalBeforeTax: 380000, grandTotal: 448400 } },
+    { id: '2', customerId: 'customer-2', displayName: 'Matrix Launch', startDate: new Date('2025-07-24'), endDate: new Date('2025-08-22'), status: 'Draft', costSummary: { totalBeforeTax: 500000, grandTotal: 590000 } },
 ];
 
 const mockEmployees: User[] = [
-    { id: 'user-001', uid: 'user-001', name: 'Raghu Gajula', email: 'raghu@example.com', role: 'admin', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' },
-    { id: 'user-002', uid: 'user-002', name: 'Sunil Reddy', email: 'sunil@example.com', role: 'sales', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026705d' },
+    { id: 'user-001', uid: 'user-001', name: 'Raghu Gajula', email: 'raghu@example.com', role: 'admin' },
+    { id: 'user-002', uid: 'user-002', name: 'Sunil Reddy', email: 'sunil@example.com', role: 'sales' },
 ];
 
 
@@ -59,7 +47,6 @@ export function MediaPlansManager() {
   const [employees, setEmployees] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [isPlanFormOpen, setIsPlanFormOpen] = useState(false);
-  const [isAssetSelectorOpen, setIsAssetSelectorOpen] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<Partial<MediaPlan> | null>(null);
   const { user } = useAuth();
   
@@ -146,16 +133,6 @@ export function MediaPlansManager() {
     setIsPlanFormOpen(false);
     setCurrentPlan(null);
   };
-
-  const handleAssetsSelected = (selectedAssets: Asset[]) => {
-    setIsAssetSelectorOpen(false);
-    
-    // Create a new plan with these assets
-    const newPlan: Partial<MediaPlan> = {
-        // You might want to pre-fill other details here
-    };
-    openPlanForm(newPlan);
-  };
   
   const handleDelete = async (plan: MediaPlan) => {
      const planDoc = doc(db, 'plans', plan.id);
@@ -166,11 +143,12 @@ export function MediaPlansManager() {
   
   const filteredPlans = useMemo(() => {
     return mediaPlans.filter(plan => {
-      const customerName = plan.customerName || '';
+      const customer = customers.find(c => c.id === plan.customerId);
+      const customerName = customer?.name || '';
       const searchTerm = filter.toLowerCase();
       return customerName.toLowerCase().includes(searchTerm) || plan.status.toLowerCase().includes(searchTerm) || (plan.displayName || '').toLowerCase().includes(searchTerm);
     });
-  }, [mediaPlans, filter]);
+  }, [mediaPlans, filter, customers]);
 
   
   if (loading && !isPlanFormOpen) {
@@ -182,7 +160,7 @@ export function MediaPlansManager() {
   }
 
   return (
-    <TooltipProvider>
+    <>
       <div className="flex justify-between items-center mb-6 gap-4">
         <h1 className="text-2xl font-semibold flex items-center gap-2">
             <FileText />
@@ -213,39 +191,42 @@ export function MediaPlansManager() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredPlans.map(plan => (
-              <TableRow key={plan.id}>
-                <TableCell>
-                  <Link href={`/admin/media-plans/${plan.id}`} className="font-medium text-blue-600 hover:underline">
-                    {plan.customerName}
-                  </Link>
-                </TableCell>
-                <TableCell>{plan.createdAt ? format(new Date(plan.createdAt as any), 'dd MMM yyyy') : 'N/A'}</TableCell>
-                <TableCell>{plan.displayName}</TableCell>
-                <TableCell>{plan.status}</TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                       <DropdownMenuItem asChild>
-                         <Link href={`/admin/media-plans/${plan.id}`}>
-                           <Edit className="mr-2 h-4 w-4" />
-                           View/Edit
-                         </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(plan)} className="text-destructive">
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
+            {filteredPlans.map(plan => {
+               const customer = customers.find(c => c.id === plan.customerId);
+               return (
+                  <TableRow key={plan.id}>
+                    <TableCell>
+                      <Link href={`/admin/media-plans/${plan.id}`} className="font-medium text-blue-600 hover:underline">
+                        {customer?.name || plan.customerId}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{plan.createdAt ? format(new Date(plan.createdAt as any), 'dd MMM yyyy') : 'N/A'}</TableCell>
+                    <TableCell>{plan.displayName}</TableCell>
+                    <TableCell>{plan.status}</TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                           <DropdownMenuItem asChild>
+                             <Link href={`/admin/media-plans/${plan.id}`}>
+                               <Edit className="mr-2 h-4 w-4" />
+                               View/Edit
+                             </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDelete(plan)} className="text-destructive">
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+               )
+            })}
           </TableBody>
         </Table>
       </div>
@@ -259,6 +240,6 @@ export function MediaPlansManager() {
         onSave={handleSave}
         loading={loading}
       />
-    </TooltipProvider>
+    </>
   );
 }

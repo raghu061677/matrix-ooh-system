@@ -44,7 +44,8 @@ export default function EnquiryPage() {
         const fetchAsset = async () => {
             setLoading(true);
             try {
-                const assetDocRef = doc(db, 'media_assets', assetId);
+                // The collection name is now `mediaAssets`
+                const assetDocRef = doc(db, 'mediaAssets', assetId);
                 const assetDoc = await getDoc(assetDocRef);
                 if (assetDoc.exists()) {
                     setAsset({ id: assetDoc.id, ...assetDoc.data() } as Asset);
@@ -71,26 +72,25 @@ export default function EnquiryPage() {
                    {asset && (
                        <Card>
                             <CardHeader>
-                                <CardTitle className="font-headline text-2xl">Enquiry for: {asset.location}</CardTitle>
+                                <CardTitle className="font-headline text-2xl">Enquiry for: {asset.name}</CardTitle>
                                 <CardDescription className="flex items-center gap-2 pt-2">
                                     <MapPin className="w-4 h-4" />
-                                    {asset.area}, {asset.city}, {asset.state}
+                                    {asset.location}
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <div className="relative h-64 w-full rounded-lg overflow-hidden mb-4">
                                      <Image 
                                         src={asset.imageUrls?.[0] || 'https://placehold.co/600x400.png'}
-                                        alt={asset.location || 'Media asset'}
+                                        alt={asset.name || 'Media asset'}
                                         fill
                                         className="object-cover"
                                      />
                                 </div>
                                <ul className="text-sm space-y-2 text-muted-foreground">
-                                   <li><strong>Dimensions:</strong> {asset.dimensions}</li>
-                                   <li><strong>Total Sqft:</strong> {asset.sqft}</li>
-                                   <li><strong>Lighting:</strong> {asset.light}</li>
-                                   <li><strong>Direction:</strong> {asset.direction || 'N/A'}</li>
+                                   <li><strong>Rate:</strong> ₹{asset.rate?.toLocaleString('en-IN') || 'N/A'} / month</li>
+                                   <li><strong>Status:</strong> <span className="capitalize">{asset.status}</span></li>
+                                   <li><strong>Ownership:</strong> <span className="capitalize">{asset.ownership || 'N/A'}</span></li>
                                </ul>
                             </CardContent>
                         </Card>
