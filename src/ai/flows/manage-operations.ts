@@ -19,7 +19,7 @@ const CompleteMountingTaskSchema = z.object({
 
 export async function completeMountingTask(input: z.infer<typeof CompleteMountingTaskSchema>): Promise<{ status: string }> {
     const taskRef = db.doc(`operations/mountingTasks/${input.taskId}`);
-    const inventoryRef = db.doc(`media_assets/${input.inventoryId}`);
+    const inventoryRef = db.doc(`mediaAssets/${input.inventoryId}`);
     
     await db.runTransaction(async (transaction) => {
         transaction.update(taskRef, {

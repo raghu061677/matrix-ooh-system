@@ -31,7 +31,7 @@ const generateMonthlySalesSummaryFlow = ai.defineFlow(
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0);
 
-    const invoicesSnapshot = await db.collectionGroup('approvedInvoices')
+    const invoicesSnapshot = await db.collectionGroup('approvedInvoices/entries')
         .where('invoiceDate', '>=', Timestamp.fromDate(startDate))
         .where('invoiceDate', '<=', Timestamp.fromDate(endDate))
         .get();

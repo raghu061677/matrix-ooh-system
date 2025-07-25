@@ -22,8 +22,8 @@ const ApprovalInputSchema = z.object({
 // === INVOICE APPROVAL ===
 
 export async function approveInvoice(input: z.infer<typeof ApprovalInputSchema>): Promise<{ status: string }> {
-  const pendingRef = db.doc(`salesEstimates/pendingInvoices/${input.documentId}`);
-  const approvedRef = db.doc(`salesEstimates/approvedInvoices/${input.documentId}`);
+  const pendingRef = db.doc(`salesEstimates/pendingInvoices/entries/${input.documentId}`);
+  const approvedRef = db.doc(`salesEstimates/approvedInvoices/entries/${input.documentId}`);
   
   await moveDocument(pendingRef, approvedRef, {
       status: 'approved',
@@ -35,7 +35,7 @@ export async function approveInvoice(input: z.infer<typeof ApprovalInputSchema>)
 }
 
 export async function rejectInvoice(input: z.infer<typeof ApprovalInputSchema>): Promise<{ status: string }> {
-  await db.doc(`salesEstimates/pendingInvoices/${input.documentId}`).update({
+  await db.doc(`salesEstimates/pendingInvoices/entries/${input.documentId}`).update({
       status: 'rejected',
       rejectedBy: input.userId,
       rejectedAt: FieldValue.serverTimestamp()
@@ -47,8 +47,8 @@ export async function rejectInvoice(input: z.infer<typeof ApprovalInputSchema>):
 // === PURCHASE ORDER APPROVAL ===
 
 export async function approvePO(input: z.infer<typeof ApprovalInputSchema>): Promise<{ status: string }> {
-  const pendingRef = db.doc(`purchaseOrders/pendingPOs/${input.documentId}`);
-  const approvedRef = db.doc(`purchaseOrders/approvedPOs/${input.documentId}`);
+  const pendingRef = db.doc(`purchaseOrders/pendingPOs/entries/${input.documentId}`);
+  const approvedRef = db.doc(`purchaseOrders/approvedPOs/entries/${input.documentId}`);
   
   await moveDocument(pendingRef, approvedRef, {
       poStatus: 'approved',
@@ -60,7 +60,7 @@ export async function approvePO(input: z.infer<typeof ApprovalInputSchema>): Pro
 }
 
 export async function rejectPO(input: z.infer<typeof ApprovalInputSchema>): Promise<{ status: string }> {
-  await db.doc(`purchaseOrders/pendingPOs/${input.documentId}`).update({
+  await db.doc(`purchaseOrders/pendingPOs/entries/${input.documentId}`).update({
       poStatus: 'rejected',
       rejectedBy: input.userId,
       rejectedAt: FieldValue.serverTimestamp()

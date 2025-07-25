@@ -1,8 +1,8 @@
 
 import type { Timestamp } from 'firebase/firestore';
 
-export type PlanStatus = 'Draft' | 'Approved' | 'Rejected' | 'Converted';
-export type CampaignStatus = 'Upcoming' | 'Running' | 'Completed';
+export type PlanStatus = 'draft' | 'confirmed' | 'converted';
+export type CampaignStatus = 'active' | 'completed' | 'cancelled';
 
 export interface MediaPlan {
   id: string; // Firestore document ID
@@ -14,7 +14,11 @@ export interface MediaPlan {
   endDate?: Date | Timestamp;
   mediaAssetIds?: string[];
   costSummary?: {
+    displayCost: number;
+    printingCost: number;
+    installationCost: number;
     totalBeforeTax: number;
+    gst: number;
     grandTotal: number;
   };
   status: PlanStatus;

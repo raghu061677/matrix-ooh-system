@@ -7,7 +7,7 @@ export interface User {
   companyId?: string; // Reference to companies collection
   name: string;
   email: string;
-  role: 'admin' | 'sales' | 'operations' | 'viewer' | 'superadmin' | 'finance';
+  role: 'admin' | 'sales' | 'operations' | 'viewer' | 'superadmin' | 'finance' | 'mounter';
   avatar?: string;
 }
 

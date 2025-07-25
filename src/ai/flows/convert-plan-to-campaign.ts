@@ -42,7 +42,7 @@ const convertPlanToCampaignFlow = ai.defineFlow(
     await campaignRef.set(planData!);
 
     // Update the original plan's status
-    await planRef.update({ status: 'Converted' });
+    await planRef.update({ status: 'converted' });
 
     return { campaignId: campaignRef.id };
   }

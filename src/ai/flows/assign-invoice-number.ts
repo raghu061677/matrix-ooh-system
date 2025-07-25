@@ -24,7 +24,7 @@ if (!getApps().length) {
 export const db = getFirestore();
 
 const AssignInvoiceNumberInputSchema = z.object({
-  pendingInvoiceId: z.string().describe("The ID of the document in the 'salesEstimates/pendingInvoices' collection."),
+  pendingInvoiceId: z.string().describe("The ID of the document in the 'salesEstimates/pendingInvoices/entries' collection."),
 });
 export type AssignInvoiceNumberInput = z.infer<typeof AssignInvoiceNumberInputSchema>;
 
@@ -40,7 +40,7 @@ const assignInvoiceNumberFlow = ai.defineFlow(
   },
   async ({ pendingInvoiceId }) => {
     const counterRef = db.doc('counters/invoiceNumber');
-    const invoiceRef = db.doc(`salesEstimates/pendingInvoices/${pendingInvoiceId}`);
+    const invoiceRef = db.doc(`salesEstimates/pendingInvoices/entries/${pendingInvoiceId}`);
 
     const newInvoiceNumber = await db.runTransaction(async (transaction) => {
       const counterDoc = await transaction.get(counterRef);

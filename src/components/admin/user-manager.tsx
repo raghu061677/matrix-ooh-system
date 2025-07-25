@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -203,8 +202,8 @@ export function UserManager() {
                   <SelectContent>
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="sales">Sales</SelectItem>
-                    <SelectItem value="operations">Operations</SelectItem>
                     <SelectItem value="finance">Finance</SelectItem>
+                    <SelectItem value="mounter">Mounter</SelectItem>
                     <SelectItem value="viewer">Viewer</SelectItem>
                   </SelectContent>
                 </Select>

@@ -6,7 +6,7 @@ export interface Invoice {
     planId: string;
     customerId: string;
     employeeId: string;
-    status: 'pending' | 'approved' | 'rejected' | 'paid';
+    status: 'pending' | 'approved' | 'paid' | 'rejected';
     invoiceAmount: number;
     invoiceAmountWithTax: number;
     companyId: string;
