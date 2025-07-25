@@ -130,22 +130,18 @@ export function MediaManager() {
           if (!data.empty) {
               const dbAssets = data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Asset));
               setMediaAssets(dbAssets);
-              setLastVisible(data.docs[data.docs.length - 1]);
               setFirstVisible(data.docs[0]);
-              setIsFirstPage(direction === 'initial');
+              setLastVisible(data.docs[data.docs.length - 1]);
               
-              // Check if it's the last page
-              const nextQuery = query(mediaAssetsCollectionRef, orderBy('mid'), startAfter(data.docs[data.docs.length - 1]), limit(1));
-              const nextSnap = await getDocs(nextQuery);
+              const prevSnap = await getDocs(query(mediaAssetsCollectionRef, orderBy('mid'), endBefore(data.docs[0]), limitToLast(1)));
+              setIsFirstPage(prevSnap.empty);
+              
+              const nextSnap = await getDocs(query(mediaAssetsCollectionRef, orderBy('mid'), startAfter(data.docs[data.docs.length - 1]), limit(1)));
               setIsLastPage(nextSnap.empty);
 
           } else if (direction === 'initial') {
               setMediaAssets(sampleAssets.slice(0, PAGE_SIZE));
-              setLastVisible(null);
-              setFirstVisible(null);
-              setIsLastPage(true);
-          } else if (direction === 'next') {
-              setIsLastPage(true);
+              setIsLastPage(sampleAssets.length <= PAGE_SIZE);
           }
       } catch (e) {
           console.error("Error fetching media assets:", e);
@@ -162,7 +158,8 @@ export function MediaManager() {
 
   useEffect(() => {
     fetchMediaAssets('initial');
-  }, []); // Eslint will complain but we want it to run only once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); 
   
   useEffect(() => {
     const { structure, width1, height1, width2, height2 } = formData;

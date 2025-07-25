@@ -53,7 +53,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import PptxGenJS from 'pptxgenjs';
-import { getGstDetails } from '@/lib/actions';
+import { fetchGstDetails } from '@/ai/flows/fetch-gst-details';
 import { ScrollArea } from '../ui/scroll-area';
 
 type SortConfig = {
@@ -185,29 +185,31 @@ export function CustomerManager() {
         return;
     }
     startGstTransition(async () => {
-        const result = await getGstDetails({ gstNumber });
-        if (result.error) {
-            toast({
+        try {
+            const result = await fetchGstDetails({ gstNumber });
+            if (result) {
+                const { legalName, address, city, state, pincode } = result;
+                setFormData(prev => ({
+                    ...prev,
+                    name: legalName,
+                    addresses: [{
+                        type: 'billing',
+                        street: address,
+                        city: city,
+                        state: state,
+                        postalCode: pincode,
+                    }]
+                }));
+                toast({
+                    title: 'Details Fetched!',
+                    description: 'Business Name and address have been populated.',
+                });
+            }
+        } catch (error) {
+             toast({
                 variant: 'destructive',
                 title: 'Error fetching GST details',
-                description: result.error,
-            });
-        } else if (result.data) {
-            const { legalName, address, city, state, pincode } = result.data;
-            setFormData(prev => ({
-                ...prev,
-                name: legalName,
-                addresses: [{
-                    type: 'billing',
-                    street: address,
-                    city: city,
-                    state: state,
-                    postalCode: pincode,
-                }]
-            }));
-            toast({
-                title: 'Details Fetched!',
-                description: 'Business Name and address have been populated.',
+                description: 'Failed to fetch GST details. Please try again.',
             });
         }
     });

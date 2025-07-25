@@ -55,12 +55,12 @@ const PAGE_SIZE = 10;
 
 // Mock data until real data fetching is implemented
 const mockEmployees: User[] = [
-    { id: 'user-001', uid: 'user-001', name: 'Raghu Gajula', email: 'raghu@example.com', role: 'admin', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' },
-    { id: 'user-002', uid: 'user-002', name: 'Sunil Reddy', email: 'sunil@example.com', role: 'sales', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026705d' },
+    { id: 'user-001', uid: 'user-001', name: 'Raghu Gajula', email: 'raghu@example.com', role: 'admin', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d', companyId: 'company-1' },
+    { id: 'user-002', uid: 'user-002', name: 'Sunil Reddy', email: 'sunil@example.com', role: 'sales', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026705d', companyId: 'company-1' },
 ];
 
 const sampleData: MediaPlan[] = [
-      { id: '1', projectId: 'P00109', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-5', customerName: 'CRI', displayName: 'CRI', startDate: new Date('2025-07-26'), endDate: new Date('2025-08-24'), days: 30, 
+      { id: '1', projectId: 'P00109', companyId: 'company-1', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-5', customerName: 'CRI', displayName: 'CRI', startDate: new Date('2025-07-26'), endDate: new Date('2025-08-24'), days: 30, 
         statistics: { haMarkupPercentage: 10.14, taMarkupPercentage: 0, roiPercentage: 0, occupancyPercentage: 0, haMarkup: 35000, taMarkup: 0, qos: '10.14%' },
         inventorySummary: { homeCount: 7, rentedCount: 0, totalSites: 7, pricePerSqft: 362.42, pricePerSqftPerMonth: 362.42, totalSqft: 1048.5 },
         clientGrade: { unbilledSales: 0, effectiveSales: 0, paymentReceived: 0, outstandingSales: 0 },
@@ -68,19 +68,19 @@ const sampleData: MediaPlan[] = [
         documents: { emailConfirmations: 0, purchaseOrders: 0, others: 0 },
         status: 'Draft'
       },
-      { id: '2', projectId: 'P00108', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-1', customerName: 'Matrix-OOH', displayName: 'Matrix-OOH ®', startDate: new Date('2025-07-24'), endDate: new Date('2025-08-22'), days: 30, status: 'Draft' },
-      { id: '3', projectId: 'P00107', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-2', customerName: 'Founding Years Learning Solutions Pvt Ltd', displayName: 'Education', startDate: new Date('2025-07-25'), endDate: new Date('2025-10-22'), days: 90, status: 'Confirmed' },
-      { id: '4', projectId: 'P00106', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-1', customerName: 'Matrix-OOH', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, status: 'Active' },
-      { id: '5', projectId: 'P00094', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-3', customerName: 'ADMINDS', displayName: 'Sunil Reddy', startDate: new Date('2025-07-01'), endDate: new Date('2025-07-31'), days: 31, status: 'Draft' },
-      { id: '6', projectId: 'P00105', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-4', customerName: 'LAQSHYA MEDIA LIMITED', displayName: 'Quick delivery food campaign', startDate: new Date('2025-07-10'), endDate: new Date('2025-08-08'), days: 30, status: 'Draft' },
+      { id: '2', projectId: 'P00108', companyId: 'company-1', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-1', customerName: 'Matrix-OOH', displayName: 'Matrix-OOH ®', startDate: new Date('2025-07-24'), endDate: new Date('2025-08-22'), days: 30, status: 'Draft' },
+      { id: '3', projectId: 'P00107', companyId: 'company-1', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-2', customerName: 'Founding Years Learning Solutions Pvt Ltd', displayName: 'Education', startDate: new Date('2025-07-25'), endDate: new Date('2025-10-22'), days: 90, status: 'Confirmed' },
+      { id: '4', projectId: 'P00106', companyId: 'company-1', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-1', customerName: 'Matrix-OOH', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, status: 'Active' },
+      { id: '5', projectId: 'P00094', companyId: 'company-1', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-3', customerName: 'ADMINDS', displayName: 'Sunil Reddy', startDate: new Date('2025-07-01'), endDate: new Date('2025-07-31'), days: 31, status: 'Draft' },
+      { id: '6', projectId: 'P00105', companyId: 'company-1', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-4', customerName: 'LAQSHYA MEDIA LIMITED', displayName: 'Quick delivery food campaign', startDate: new Date('2025-07-10'), endDate: new Date('2025-08-08'), days: 30, status: 'Draft' },
   ];
 
 const sampleCustomers: Customer[] = [
-    { id: 'customer-1', code: 'CUST-001', name: 'Matrix-OOH', gst: '29AAACN1234F1Z5', contactPersons: [{ name: 'Anil Kumar', phone: '9876543210', designation: 'Manager' }], addresses: [{ type: 'billing', street: '123 Cyberabad', city: 'Hyderabad', state: 'Telangana', postalCode: '500081' }] },
-    { id: 'customer-2', code: 'CUST-002', name: 'Founding Years Learning', gst: '36ABCFY1234G1Z2', contactPersons: [{ name: 'Sunitha Reddy', phone: '9876543211', designation: 'Director' }], addresses: [{ type: 'billing', street: '456 Jubilee Hills', city: 'Hyderabad', state: 'Telangana', postalCode: '500033' }] },
-    { id: 'customer-3', code: 'CUST-003', name: 'ADMINDS', gst: '27AAAAA0000A1Z5', contactPersons: [{ name: 'Sunil Reddy', phone: '9876543212', designation: 'Proprietor' }], addresses: [{ type: 'billing', street: '789 Gachibowli', city: 'Hyderabad', state: 'Telangana', postalCode: '500032' }] },
-    { id: 'customer-4', code: 'CUST-004', name: 'LAQSHYA MEDIA LIMITED', gst: '24AACCL5678B1Z9', contactPersons: [{ name: 'Vikram Singh', phone: '9876543213', designation: 'Head of Operations' }], addresses: [{ type: 'billing', street: '101 Madhapur', city: 'Hyderabad', state: 'Telangana', postalCode: '500081' }] },
-    { id: 'customer-5', code: 'CUST-005', name: 'CRI', gst: '33AACFC4321H1Z4', contactPersons: [{ name: 'Priya Sharma', phone: '9876543214', designation: 'Marketing Head' }], addresses: [{ type: 'billing', street: '212 Banjara Hills', city: 'Hyderabad', state: 'Telangana', postalCode: '500034' }] },
+    { id: 'customer-1', companyId: 'company-1', code: 'CUST-001', name: 'Matrix-OOH', gst: '29AAACN1234F1Z5', contactPersons: [{ name: 'Anil Kumar', phone: '9876543210', designation: 'Manager' }], addresses: [{ type: 'billing', street: '123 Cyberabad', city: 'Hyderabad', state: 'Telangana', postalCode: '500081' }] },
+    { id: 'customer-2', companyId: 'company-1', code: 'CUST-002', name: 'Founding Years Learning', gst: '36ABCFY1234G1Z2', contactPersons: [{ name: 'Sunitha Reddy', phone: '9876543211', designation: 'Director' }], addresses: [{ type: 'billing', street: '456 Jubilee Hills', city: 'Hyderabad', state: 'Telangana', postalCode: '500033' }] },
+    { id: 'customer-3', companyId: 'company-1', code: 'CUST-003', name: 'ADMINDS', gst: '27AAAAA0000A1Z5', contactPersons: [{ name: 'Sunil Reddy', phone: '9876543212', designation: 'Proprietor' }], addresses: [{ type: 'billing', street: '789 Gachibowli', city: 'Hyderabad', state: 'Telangana', postalCode: '500032' }] },
+    { id: 'customer-4', companyId: 'company-1', code: 'CUST-004', name: 'LAQSHYA MEDIA LIMITED', gst: '24AACCL5678B1Z9', contactPersons: [{ name: 'Vikram Singh', phone: '9876543213', designation: 'Head of Operations' }], addresses: [{ type: 'billing', street: '101 Madhapur', city: 'Hyderabad', state: 'Telangana', postalCode: '500081' }] },
+    { id: 'customer-5', companyId: 'company-1', code: 'CUST-005', name: 'CRI', gst: '33AACFC4321H1Z4', contactPersons: [{ name: 'Priya Sharma', phone: '9876543214', designation: 'Marketing Head' }], addresses: [{ type: 'billing', street: '212 Banjara Hills', city: 'Hyderabad', state: 'Telangana', postalCode: '500034' }] },
 ];
 
 

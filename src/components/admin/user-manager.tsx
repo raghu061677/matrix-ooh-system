@@ -38,9 +38,9 @@ import { User } from '@/types/firestore';
 const PAGE_SIZE = 10;
 
 const sampleUsers: User[] = [
-    { id: 'user-1', uid: 'user-1', name: 'Admin User', email: 'admin@matrix-ooh.com', role: 'admin', avatar: 'https://i.pravatar.cc/150?u=admin' },
-    { id: 'user-2', uid: 'user-2', name: 'Sales Person', email: 'sales@matrix-ooh.com', role: 'sales', avatar: 'https://i.pravatar.cc/150?u=sales' },
-    { id: 'user-3', uid: 'user-3', name: 'Operations Manager', email: 'ops@matrix-ooh.com', role: 'operations', avatar: 'https://i.pravatar.cc/150?u=ops' },
+    { id: 'user-1', uid: 'user-1', name: 'Admin User', email: 'admin@matrix-ooh.com', role: 'admin', avatar: 'https://i.pravatar.cc/150?u=admin', companyId: 'company-1' },
+    { id: 'user-2', uid: 'user-2', name: 'Sales Person', email: 'sales@matrix-ooh.com', role: 'sales', avatar: 'https://i.pravatar.cc/150?u=sales', companyId: 'company-1' },
+    { id: 'user-3', uid: 'user-3', name: 'Operations Manager', email: 'ops@matrix-ooh.com', role: 'operations', avatar: 'https://i.pravatar.cc/150?u=ops', companyId: 'company-1' },
 ];
 
 
@@ -107,7 +107,8 @@ export function UserManager() {
 
   useEffect(() => {
     fetchUsers('initial');
-  }, [toast]);
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
