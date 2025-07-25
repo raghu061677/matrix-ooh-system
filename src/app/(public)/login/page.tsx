@@ -46,10 +46,10 @@ export default function LoginPage() {
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-12rem)]">
       <Card className="mx-auto max-w-sm">
-        <CardHeader className="space-y-4">
+        <CardHeader className="space-y-4 text-center">
           <Image src="/logo.png" alt="Matrix-OOH Logo" width={180} height={60} className="mx-auto" />
-          <div className="text-center">
-            <CardTitle className="text-2xl">Admin Login</CardTitle>
+          <div>
+            <CardTitle className="text-2xl">Matrix-OOH</CardTitle>
             <CardDescription>
               Enter your email below to login to your account
             </CardDescription>

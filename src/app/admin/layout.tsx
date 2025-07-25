@@ -25,7 +25,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem
 } from '@/components/ui/sidebar';
-import { Projector, LayoutGrid, ListChecks, FileText, LogOut, Loader2, Home, Users, ReceiptText, FilePieChart, AreaChart, Dot, ChevronDown, Wrench, Package, Image as ImageIcon, Zap, Printer, Fuel, Building, Settings } from 'lucide-react';
+import { Projector, LayoutGrid, ListChecks, FileText, LogOut, Loader2, Home, Users, ReceiptText, FilePieChart, AreaChart, Dot, ChevronDown, Wrench, Package, Image as ImageIcon, Zap, Printer, Fuel, Building, Settings, Briefcase } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -48,6 +48,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const [expensesOpen, setExpensesOpen] = useState(pathname.startsWith('/admin/expenses'));
   const [salesOpen, setSalesOpen] = useState(pathname.startsWith('/admin/sales'));
   const [operationsOpen, setOperationsOpen] = useState(pathname.startsWith('/admin/operations'));
+  const [settingsOpen, setSettingsOpen] = useState(pathname.startsWith('/admin/settings'));
 
 
   useEffect(() => {
@@ -349,21 +350,44 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                 </CollapsibleContent>
              </Collapsible>
 
-            <SidebarGroup>
-              <SidebarGroupLabel>Settings</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/users')}>
-                        <Link href="/admin/users">
-                          <Users />
-                          <span>Users</span>
-                        </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+            <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
+                <SidebarGroup>
+                    <SidebarGroupLabel>Settings</SidebarGroupLabel>
+                    <SidebarGroupContent>
+                        <SidebarMenu>
+                            <SidebarMenuItem>
+                                <CollapsibleTrigger asChild>
+                                    <SidebarMenuButton>
+                                        <Settings />
+                                        <span className="whitespace-nowrap">Settings</span>
+                                        <ChevronDown className={cn("ml-auto transition-transform", settingsOpen && "rotate-180")}/>
+                                    </SidebarMenuButton>
+                                </CollapsibleTrigger>
+                            </SidebarMenuItem>
+                        </SidebarMenu>
+                    </SidebarGroupContent>
+                </SidebarGroup>
+                <CollapsibleContent>
+                    <SidebarMenuSub>
+                        <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/settings/users')}>
+                                <Link href="/admin/users">
+                                    <Users />
+                                    <span>Users</span>
+                                </Link>
+                            </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/settings/company')}>
+                                <Link href="/admin/settings/company">
+                                    <Briefcase />
+                                    <span className="whitespace-nowrap">Company</span>
+                                </Link>
+                            </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                </CollapsibleContent>
+            </Collapsible>
 
 
           </SidebarContent>
