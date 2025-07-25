@@ -25,7 +25,7 @@ export default function AdminLeadsPage() {
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    if (!user?.companyId) return;
+    if (!user) return;
 
     // NOTE: For a multi-tenant app, you'd filter by companyId.
     // However, enquiries are public. We show all for the admin.
@@ -42,7 +42,7 @@ export default function AdminLeadsPage() {
     });
 
     return () => unsubscribe();
-  }, [user?.companyId]);
+  }, [user]);
 
   if (loading) {
     return (

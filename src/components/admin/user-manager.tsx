@@ -34,13 +34,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Edit, Trash2, Loader2, Users } from 'lucide-react';
 import { User } from '@/types/firestore';
-
-const sampleUsers: User[] = [
-    { id: 'user-1', uid: 'user-1', name: 'Admin User', email: 'admin@matrix-ooh.com', role: 'admin', avatar: 'https://i.pravatar.cc/150?u=admin', companyId: 'company-1' },
-    { id: 'user-2', uid: 'user-2', name: 'Sales Person', email: 'sales@matrix-ooh.com', role: 'sales', avatar: 'https://i.pravatar.cc/150?u=sales', companyId: 'company-1' },
-    { id: 'user-3', uid: 'user-3', name: 'Operations Manager', email: 'ops@matrix-ooh.com', role: 'operations', avatar: 'https://i.pravatar.cc/150?u=ops', companyId: 'company-1' },
-];
-
+import { useAuth } from '@/hooks/use-auth';
 
 export function UserManager() {
   const [users, setUsers] = useState<User[]>([]);
@@ -49,6 +43,7 @@ export function UserManager() {
   const [isSaving, setIsSaving] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [formData, setFormData] = useState<Partial<User>>({});
+  const { user: authUser } = useAuth();
 
   const { toast } = useToast();
   const usersCollectionRef = collection(db, 'users');
@@ -57,19 +52,14 @@ export function UserManager() {
     setLoading(true);
     try {
         const data = await getDocs(usersCollectionRef);
-        if(!data.empty) {
-            setUsers(data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as User)));
-        } else {
-             setUsers(sampleUsers);
-        }
+        setUsers(data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as User)));
     } catch(e) {
          console.error("Error fetching users:", e);
          toast({
             variant: 'destructive',
             title: 'Error fetching users',
-            description: 'Could not retrieve user data. Using sample data.'
+            description: 'Could not retrieve user data.'
         });
-        setUsers(sampleUsers);
     }
     setLoading(false);
   };
@@ -98,7 +88,8 @@ export function UserManager() {
         await getUsers();
         toast({ title: 'User Updated!', description: 'The user has been successfully updated.' });
       } else {
-        await addDoc(usersCollectionRef, { ...formData, uid: `new-user-${Date.now()}` }); // uid should come from auth
+        // This is a simplified user creation. In a real app, you'd use Firebase Auth to create a user first.
+        await addDoc(usersCollectionRef, { ...formData, companyId: authUser?.companyId, uid: `new-user-${Date.now()}` }); 
         await getUsers();
         toast({ title: 'User Added!', description: 'The new user has been added.' });
       }
@@ -123,6 +114,7 @@ export function UserManager() {
   };
   
   const handleDelete = async (user: User) => {
+     if (!confirm(`Are you sure you want to delete ${user.name}?`)) return;
      const userDoc = doc(db, 'users', user.id);
      await deleteDoc(userDoc);
      await getUsers();
@@ -212,6 +204,7 @@ export function UserManager() {
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="sales">Sales</SelectItem>
                     <SelectItem value="operations">Operations</SelectItem>
+                    <SelectItem value="finance">Finance</SelectItem>
                     <SelectItem value="viewer">Viewer</SelectItem>
                   </SelectContent>
                 </Select>

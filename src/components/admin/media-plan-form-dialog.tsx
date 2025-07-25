@@ -29,7 +29,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Loader2, CalendarIcon } from 'lucide-react';
 import { MediaPlan, PlanStatus } from '@/types/media-plan';
-import { Customer } from '@/components/admin/customer-manager';
+import { Customer, User } from '@/types/firestore';
 import { format, differenceInDays } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { ScrollArea } from '../ui/scroll-area';
@@ -37,9 +37,11 @@ import { ScrollArea } from '../ui/scroll-area';
 interface MediaPlanFormDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  plan: MediaPlan | null;
+  plan: Partial<MediaPlan> | null;
   customers: Customer[];
-  onSave: (plan: MediaPlan) => void;
+  employees: User[];
+  onSave: (plan: Partial<MediaPlan>) => void;
+  loading: boolean;
 }
 
 export function MediaPlanFormDialog({
@@ -47,13 +49,14 @@ export function MediaPlanFormDialog({
   onOpenChange,
   plan,
   customers,
+  employees,
   onSave,
+  loading,
 }: MediaPlanFormDialogProps) {
   const [formData, setFormData] = React.useState<Partial<MediaPlan>>({});
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>(
     undefined
   );
-  const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {
     if (plan) {
@@ -78,40 +81,72 @@ export function MediaPlanFormDialog({
   };
 
   const handleSelectChange = (name: keyof MediaPlan, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (name === 'customerId') {
+      const customer = customers.find(c => c.id === value);
+      setFormData((prev) => ({ ...prev, customerId: value, customerName: customer?.name }));
+    } else if (name === 'employeeId') {
+      const employee = employees.find(e => e.id === value);
+       setFormData((prev) => ({ ...prev, employeeId: value, employee: {id: employee!.id, name: employee!.name, avatar: employee!.avatar }}));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoading(true);
-    // Add any validation logic here
-    const dataToSave = {
+    
+    const days = dateRange?.from && dateRange?.to ? differenceInDays(dateRange.to, dateRange.from) : 0;
+    const dataToSave: Partial<MediaPlan> = {
         ...formData,
         startDate: dateRange?.from,
         endDate: dateRange?.to,
+        days,
     }
-    onSave(dataToSave as MediaPlan);
-    setLoading(false);
+    onSave(dataToSave);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>{plan ? 'Edit Plan' : 'Create New Plan'}</DialogTitle>
+          <DialogTitle>{plan?.id ? 'Edit Plan' : 'Create New Plan'}</DialogTitle>
         </DialogHeader>
         <div className="flex-grow overflow-hidden">
             <form onSubmit={handleSubmit} className="h-full flex flex-col">
               <ScrollArea className="flex-grow pr-6">
                   <div className="space-y-4 py-4">
-                    <div className="grid grid-cols-1 gap-4">
-                      <div>
-                        <Label htmlFor="clientId">Customer</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                       <div>
+                        <Label htmlFor="displayName">Display Name</Label>
+                        <Input id="displayName" name="displayName" value={formData.displayName || ''} onChange={handleFormChange} />
+                      </div>
+                       <div>
+                        <Label htmlFor="employeeId">Assigned Employee</Label>
                           <Select
                             onValueChange={(value) =>
-                              handleSelectChange('clientId', value)
+                              handleSelectChange('employeeId', value)
                             }
-                            value={formData.clientId}
+                            value={formData.employeeId}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select employee" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {employees.map((emp) => (
+                                <SelectItem key={emp.id} value={emp.id}>
+                                  {emp.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label htmlFor="customerId">Customer</Label>
+                          <Select
+                            onValueChange={(value) =>
+                              handleSelectChange('customerId', value)
+                            }
+                            value={formData.customerId}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Select customer" />
@@ -126,45 +161,43 @@ export function MediaPlanFormDialog({
                           </Select>
                       </div>
                       
-                      <div className="grid grid-cols-1 items-center gap-2">
+                      <div className="grid grid-cols-1 items-center gap-2 md:col-span-2">
                         <Label htmlFor="dates">
                           Dates
                         </Label>
-                        <div className="grid grid-cols-[1fr_auto] gap-2">
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                id="date"
-                                variant={'outline'}
-                                className="w-full justify-start text-left font-normal"
-                              >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateRange?.from ? (
-                                  dateRange.to ? (
-                                    <>
-                                      {format(dateRange.from, 'LLL dd, y')} -{' '}
-                                      {format(dateRange.to, 'LLL dd, y')}
-                                    </>
-                                  ) : (
-                                    format(dateRange.from, 'LLL dd, y')
-                                  )
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              id="date"
+                              variant={'outline'}
+                              className="w-full justify-start text-left font-normal"
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {dateRange?.from ? (
+                                dateRange.to ? (
+                                  <>
+                                    {format(dateRange.from, 'LLL dd, y')} -{' '}
+                                    {format(dateRange.to, 'LLL dd, y')}
+                                  </>
                                 ) : (
-                                  <span>Pick a date range</span>
-                                )}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                initialFocus
-                                mode="range"
-                                defaultMonth={dateRange?.from}
-                                selected={dateRange}
-                                onSelect={setDateRange}
-                                numberOfMonths={2}
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </div>
+                                  format(dateRange.from, 'LLL dd, y')
+                                )
+                              ) : (
+                                <span>Pick a date range</span>
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              initialFocus
+                              mode="range"
+                              defaultMonth={dateRange?.from}
+                              selected={dateRange}
+                              onSelect={setDateRange}
+                              numberOfMonths={2}
+                            />
+                          </PopoverContent>
+                        </Popover>
                       </div>
 
                        <div>
@@ -182,6 +215,8 @@ export function MediaPlanFormDialog({
                                 <SelectItem value="Draft">Draft</SelectItem>
                                 <SelectItem value="Approved">Approved</SelectItem>
                                 <SelectItem value="Rejected">Rejected</SelectItem>
+                                <SelectItem value="Confirmed">Confirmed</SelectItem>
+                                <SelectItem value="Active">Active</SelectItem>
                             </SelectContent>
                           </Select>
                       </div>
@@ -197,7 +232,7 @@ export function MediaPlanFormDialog({
                 <Button type="submit" disabled={loading}>
                   {loading ? (
                     <Loader2 className="animate-spin" />
-                  ) : plan ? (
+                  ) : plan?.id ? (
                     'Save Changes'
                   ) : (
                     'Create Plan'

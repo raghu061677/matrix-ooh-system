@@ -10,9 +10,6 @@ import { Button } from '@/components/ui/button';
 
 export default function DashboardPage() {
   const { user, loading } = useAuth();
-
-  // For demonstration purposes, we'll allow toggling.
-  // In a real app, this would be based on user.role === 'superadmin'
   const [showSuperAdmin, setShowSuperAdmin] = useState(false);
 
   if (loading) {
@@ -24,19 +21,20 @@ export default function DashboardPage() {
   }
 
   // In a real implementation, you would check the user's role like this:
-  // if (user?.role === 'superadmin') {
-  //   return <SuperAdminDashboard />;
-  // }
-  // return <CompanyDashboard />;
+  const isSuperAdmin = user?.role === 'superadmin';
 
-  return (
-    <div>
+  if (isSuperAdmin) {
+    return (
+       <div>
         <div className="flex justify-end mb-4">
             <Button onClick={() => setShowSuperAdmin(!showSuperAdmin)}>
                 {showSuperAdmin ? "View Company Dashboard" : "View Superadmin Dashboard"}
             </Button>
         </div>
         {showSuperAdmin ? <SuperAdminDashboard /> : <CompanyDashboard />}
-    </div>
-  );
+      </div>
+    )
+  }
+  
+  return <CompanyDashboard />;
 }

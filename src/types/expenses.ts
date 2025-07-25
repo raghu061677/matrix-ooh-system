@@ -3,6 +3,7 @@ import type { Timestamp } from 'firebase/firestore';
 
 export interface PowerBill {
   id: string; // Firestore document ID
+  companyId: string;
   assetId: string; // Reference to the media_assets collection
   assetInfo?: {
       area?: string;
@@ -25,6 +26,7 @@ export interface PowerBill {
 
 export interface GeneralExpense {
     id: string;
+    companyId: string;
     expenseType: 'Printing' | 'Mounting' | 'Travel' | 'Office';
     description: string;
     amount: number;

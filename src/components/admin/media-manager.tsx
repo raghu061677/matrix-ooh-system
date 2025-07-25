@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, arrayRemove, arrayUnion, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { Button } from '@/components/ui/button';
 import {
@@ -45,13 +45,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2, Loader2, Image as ImageIcon, MoreHorizontal, X } from 'lucide-react';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { PlusCircle, Edit, Trash2, Loader2, Image as ImageIcon, MoreHorizontal, X, Upload } from 'lucide-react';
 import { Asset, sampleAssets, AssetStatus } from './media-manager-types';
 import { ScrollArea } from '../ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
+import { statesAndDistricts } from '@/lib/india-states';
+import ExifParser from 'exif-parser';
 
 type SortConfig = {
   key: keyof Asset;
@@ -125,50 +124,65 @@ export function MediaManager() {
     let uploadCount = 0;
 
     for (const file of Array.from(files)) {
-        if (file.size > 2 * 1024 * 1024) {
-            toast({
-                variant: 'destructive',
-                title: 'File Too Large',
-                description: `${file.name} is larger than 2MB. Please compress it.`,
-            });
-            continue; 
-        }
-
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit
+        toast({
+          variant: 'destructive',
+          title: 'File Too Large',
+          description: `${file.name} is over 2MB. Please compress it.`,
+        });
+        continue;
+      }
+      
+      try {
+        // EXIF data extraction
+        const arrayBuffer = await file.arrayBuffer();
         try {
-            const imageRef = ref(storage, `media-assets/${assetId}/${file.name}_${Date.now()}`);
-            const snapshot = await uploadBytes(imageRef, file);
-            const downloadURL = await getDownloadURL(snapshot.ref);
-            
-            const assetDoc = doc(db, 'media_assets', assetId);
-            // This is a simple way to handle image1 and image2. Could be improved.
-            const currentAssetDoc = await getDocs(collection(db, 'media_assets'));
-            const currentAssetData = currentAssetDoc.docs.find(d => d.id === assetId)?.data() as Asset;
-
-            if (!currentAssetData.image1) {
-              await updateDoc(assetDoc, { image1: downloadURL });
-            } else if (!currentAssetData.image2) {
-              await updateDoc(assetDoc, { image2: downloadURL });
+            const parser = ExifParser.create(arrayBuffer);
+            const result = parser.parse();
+            if (result.tags.GPSLatitude && result.tags.GPSLongitude) {
+                setFormData(prev => ({
+                    ...prev,
+                    latitude: result.tags.GPSLatitude,
+                    longitude: result.tags.GPSLongitude
+                }));
+                toast({ title: 'GPS Data Found!', description: `Coordinates extracted from ${file.name}` });
             }
-            uploadCount++;
-        } catch (uploadError) {
-            console.error("Error uploading image:", uploadError);
-            toast({ variant: 'destructive', title: 'Upload Failed', description: `Could not upload ${file.name}.` });
+        } catch (exifError) {
+            // Non-fatal, just log it.
+            console.warn(`Could not parse EXIF data for ${file.name}`, exifError);
         }
+        
+        const imageRef = ref(storage, `media-assets/${assetId}/${file.name}_${Date.now()}`);
+        const snapshot = await uploadBytes(imageRef, file);
+        const downloadURL = await getDownloadURL(snapshot.ref);
+
+        const assetDoc = doc(db, 'media_assets', assetId);
+        await updateDoc(assetDoc, {
+          imageUrls: (formData.imageUrls || []).concat(downloadURL)
+        });
+        setFormData(prev => ({...prev, imageUrls: [...(prev.imageUrls || []), downloadURL]}));
+
+        uploadCount++;
+      } catch (uploadError) {
+        console.error("Error uploading image:", uploadError);
+        toast({ variant: 'destructive', title: 'Upload Failed', description: `Could not upload ${file.name}.` });
+      }
     }
     
     await getMediaAssets();
-    const updatedAsset = mediaAssets.find(a => a.id === assetId);
-    if(updatedAsset) setFormData(updatedAsset);
-    
     setIsUploading(false);
     toast({
         title: 'Upload Complete!',
         description: `${uploadCount} of ${files.length} image(s) uploaded successfully.`,
     });
+    // Clear file input
+    if (imageInputRef.current) {
+        imageInputRef.current.value = '';
+    }
   };
 
-  const handleDeleteImage = async (field: 'image1' | 'image2') => {
-    const imageUrlToDelete = formData[field];
+
+  const handleDeleteImage = async (imageUrlToDelete: string) => {
     if (!currentAsset?.id || !imageUrlToDelete) return;
 
     setIsUploading(true);
@@ -179,9 +193,9 @@ export function MediaManager() {
         await deleteObject(imageRef);
 
         const assetDoc = doc(db, 'media_assets', currentAsset.id);
-        await updateDoc(assetDoc, { [field]: null });
+        await updateDoc(assetDoc, { imageUrls: (formData.imageUrls || []).filter(url => url !== imageUrlToDelete) });
 
-        setFormData(prev => ({ ...prev, [field]: undefined }));
+        setFormData(prev => ({ ...prev, imageUrls: (prev.imageUrls || []).filter(url => url !== imageUrlToDelete) }));
         
         await getMediaAssets();
         toast({ title: 'Image deleted!', description: 'The image has been removed successfully.' });
@@ -209,8 +223,8 @@ export function MediaManager() {
         await updateDoc(assetDoc, dataToSave);
         toast({ title: 'Asset Updated!', description: 'The media asset details have been saved.' });
       } else {
-        const docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, createdAt: serverTimestamp() });
-        const newAsset = { ...dataToSave, id: docRef.id } as Asset;
+        const docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, createdAt: serverTimestamp(), imageUrls: [] });
+        const newAsset = { ...dataToSave, id: docRef.id, imageUrls: [] } as Asset;
         setCurrentAsset(newAsset);
         setFormData(newAsset);
         toast({ title: 'Asset Added!', description: 'You can now upload images to this asset.' });
@@ -228,7 +242,7 @@ export function MediaManager() {
 
   const openDialog = (asset: Asset | null = null) => {
     setCurrentAsset(asset);
-    setFormData(asset || { status: 'Available' });
+    setFormData(asset || { status: 'active', companyId: user?.companyId });
     setIsDialogOpen(true);
   };
 
@@ -241,7 +255,7 @@ export function MediaManager() {
   };
   
   const handleDelete = async (asset: Asset) => {
-     if(!confirm(`Are you sure you want to delete asset ${asset.name} (${asset.location})?`)) return;
+     if(!confirm(`Are you sure you want to delete asset ${asset.area} (${asset.location})?`)) return;
      const assetDoc = doc(db, 'media_assets', asset.id);
      await deleteDoc(assetDoc);
      await getMediaAssets();
@@ -313,10 +327,10 @@ export function MediaManager() {
           <TableHeader>
             <TableRow>
               <TableHead>Image</TableHead>
-              <TableHead>Name</TableHead>
               <TableHead>Location</TableHead>
+              <TableHead>City</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Rate</TableHead>
+              <TableHead>Card Rate</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -324,9 +338,9 @@ export function MediaManager() {
             {sortedAndFilteredAssets.map(asset => (
               <TableRow key={asset.id}>
                  <TableCell>
-                  {asset.image1 ? (
+                  {asset.imageUrls?.[0] ? (
                     <Image
-                      src={asset.image1}
+                      src={asset.imageUrls[0]}
                       alt={asset.location || 'Asset image'}
                       width={64}
                       height={64}
@@ -338,10 +352,10 @@ export function MediaManager() {
                     </div>
                   )}
                 </TableCell>
-                <TableCell className="font-medium">{asset.name}</TableCell>
-                <TableCell>{asset.location}</TableCell>
+                <TableCell className="font-medium">{asset.location}</TableCell>
+                <TableCell>{asset.city}</TableCell>
                 <TableCell>{asset.status}</TableCell>
-                <TableCell>{asset.rate?.toLocaleString('en-IN')}</TableCell>
+                <TableCell>{asset.cardRate?.toLocaleString('en-IN')}</TableCell>
 
                 <TableCell className="text-right">
                    <DropdownMenu>
@@ -369,7 +383,7 @@ export function MediaManager() {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-2xl h-[90vh] flex flex-col">
+        <DialogContent className="sm:max-w-4xl h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{currentAsset?.id ? 'Edit Media Asset' : 'Add New Media Asset'}</DialogTitle>
             <DialogDescription>
@@ -378,16 +392,55 @@ export function MediaManager() {
           </DialogHeader>
           <form onSubmit={handleSave} className="flex-grow overflow-hidden flex flex-col">
             <ScrollArea className="flex-grow pr-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-                  <div className="md:col-span-2">
-                    <Label htmlFor="name">Name</Label>
-                    <Input id="name" name="name" value={formData.name || ''} onChange={handleFormChange} required />
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 py-4">
                   <div className="md:col-span-2">
                     <Label htmlFor="location">Location</Label>
                     <Input id="location" name="location" value={formData.location || ''} onChange={handleFormChange} required />
                   </div>
-                  
+                  <div>
+                    <Label htmlFor="area">Area/Landmark</Label>
+                    <Input id="area" name="area" value={formData.area || ''} onChange={handleFormChange} />
+                  </div>
+                  <div>
+                    <Label htmlFor="direction">Direction Facing</Label>
+                    <Input id="direction" name="direction" value={formData.direction || ''} onChange={handleFormChange} />
+                  </div>
+                   <div>
+                    <Label htmlFor="state">State</Label>
+                    <Select onValueChange={(value) => handleSelectChange('state', value)} value={formData.state}>
+                        <SelectTrigger><SelectValue placeholder="Select state..."/></SelectTrigger>
+                        <SelectContent>
+                            {statesAndDistricts.states.map(s => <SelectItem key={s.name} value={s.name}>{s.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="city">City</Label>
+                    <Select onValueChange={(value) => handleSelectChange('city', value)} value={formData.city}>
+                        <SelectTrigger><SelectValue placeholder="Select city..."/></SelectTrigger>
+                        <SelectContent>
+                            {statesAndDistricts.states.find(s => s.name === formData.state)?.districts.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="md:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <Label htmlFor="width1">Width (ft)</Label>
+                        <Input id="width1" name="width1" type="number" value={formData.width1 || ''} onChange={handleFormChange} />
+                      </div>
+                      <div>
+                        <Label htmlFor="height1">Height (ft)</Label>
+                        <Input id="height1" name="height1" type="number" value={formData.height1 || ''} onChange={handleFormChange} />
+                      </div>
+                      <div>
+                        <Label htmlFor="sqft">Total Sqft</Label>
+                        <Input id="sqft" name="sqft" type="number" value={formData.sqft || (formData.width1 || 0) * (formData.height1 || 0)} onChange={handleFormChange} />
+                      </div>
+                      <div>
+                         <Label htmlFor="units">Units</Label>
+                         <Input id="units" name="units" type="number" value={formData.units || 1} onChange={handleFormChange} />
+                      </div>
+                  </div>
                   <div>
                     <Label htmlFor="status">Status</Label>
                      <Select onValueChange={(value) => handleSelectChange('status', value as AssetStatus)} value={formData.status}>
@@ -395,53 +448,70 @@ export function MediaManager() {
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Available">Available</SelectItem>
-                        <SelectItem value="Booked">Booked</SelectItem>
-                        <SelectItem value="Blocked">Blocked</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="booked">Booked</SelectItem>
+                        <SelectItem value="blocked">Blocked</SelectItem>
+                         <SelectItem value="deleted">Deleted</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div>
-                    <Label htmlFor="rate">Rate (per month)</Label>
-                    <Input id="rate" name="rate" type="number" value={formData.rate || ''} onChange={handleFormChange} />
+                    <Label htmlFor="cardRate">Card Rate (per month)</Label>
+                    <Input id="cardRate" name="cardRate" type="number" value={formData.cardRate || ''} onChange={handleFormChange} />
+                  </div>
+                   <div>
+                    <Label htmlFor="baseRate">Base Rate (per month)</Label>
+                    <Input id="baseRate" name="baseRate" type="number" value={formData.baseRate || ''} onChange={handleFormChange} />
                   </div>
 
+                   <div>
+                    <Label htmlFor="media">Media Type</Label>
+                    <Input id="media" name="media" value={formData.media || 'Hoarding'} onChange={handleFormChange} />
+                  </div>
+                  <div>
+                    <Label htmlFor="light">Lighting</Label>
+                    <Input id="light" name="light" value={formData.light || 'Frontlit'} onChange={handleFormChange} />
+                  </div>
+                  <div>
+                    <Label htmlFor="supplierId">Supplier</Label>
+                    <Input id="supplierId" name="supplierId" value={formData.supplierId || ''} onChange={handleFormChange} />
+                  </div>
+                   <div>
+                    <Label htmlFor="latitude">Latitude</Label>
+                    <Input id="latitude" name="latitude" type="number" value={formData.latitude || ''} onChange={handleFormChange} />
+                  </div>
+                   <div>
+                    <Label htmlFor="longitude">Longitude</Label>
+                    <Input id="longitude" name="longitude" type="number" value={formData.longitude || ''} onChange={handleFormChange} />
+                  </div>
+                  
+
                   <div className="md:col-span-2">
-                    <Label htmlFor="images">Asset Images (Max 2)</Label>
-                    <Input ref={imageInputRef} id="images" type="file" multiple onChange={handleImageFileChange} disabled={!currentAsset?.id || isUploading || (!!formData.image1 && !!formData.image2) }/>
+                    <Label htmlFor="images">Asset Images</Label>
+                    <Button type="button" variant="outline" size="sm" onClick={() => imageInputRef.current?.click()} disabled={!currentAsset?.id || isUploading}>
+                        <Upload className="mr-2 h-4 w-4"/>
+                        Upload Images
+                    </Button>
+                    <Input ref={imageInputRef} id="images" type="file" multiple accept="image/*" onChange={handleImageFileChange} className="hidden" />
+
                     {isUploading && <Loader2 className="animate-spin mt-2" />}
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {formData.image1 && (
-                        <div className="relative h-20 w-20 group">
-                          <Image src={formData.image1} alt="Asset image 1" layout="fill" className="rounded-md object-cover" />
+                      {(formData.imageUrls || []).map(url => (
+                        <div key={url} className="relative h-24 w-24 group">
+                          <Image src={url} alt="Asset image" layout="fill" className="rounded-md object-cover" />
                            <Button
                               type="button"
                               variant="destructive"
                               size="icon"
                               className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => handleDeleteImage('image1')}
+                              onClick={() => handleDeleteImage(url)}
                               disabled={isUploading}
                             >
                               <X className="h-4 w-4" />
                             </Button>
                         </div>
-                      )}
-                       {formData.image2 && (
-                        <div className="relative h-20 w-20 group">
-                          <Image src={formData.image2} alt="Asset image 2" layout="fill" className="rounded-md object-cover" />
-                           <Button
-                              type="button"
-                              variant="destructive"
-                              size="icon"
-                              className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => handleDeleteImage('image2')}
-                              disabled={isUploading}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                        </div>
-                      )}
+                      ))}
                     </div>
                   </div>
                 </div>

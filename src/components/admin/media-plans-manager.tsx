@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useState, useMemo, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, where, DocumentData } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -31,57 +31,110 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Edit, Trash2, Loader2, FileText, MoreHorizontal } from 'lucide-react';
 import { MediaPlan } from '@/types/media-plan';
-import { Customer } from '@/components/admin/customer-manager';
+import { Customer, User } from '@/types/firestore';
 import { format } from 'date-fns';
 import { MediaPlanFormDialog } from './media-plan-form-dialog';
 import { SelectAssetsDialog } from './select-assets-dialog';
 import { Asset } from './media-manager-types';
+import { useAuth } from '@/hooks/use-auth';
 
 const sampleData: MediaPlan[] = [
-      { id: '1', clientId: 'customer-5', status: 'Draft', total: 460790, createdAt: new Date('2025-07-26'), mediaAssetIds: [] },
-      { id: '2', clientId: 'customer-1', status: 'Approved', total: 250000, createdAt: new Date('2025-07-24'), mediaAssetIds: [] },
-      { id: '3', clientId: 'customer-2', status: 'Rejected', total: 120000, createdAt: new Date('2025-07-25'), mediaAssetIds: [] },
- ];
+    { id: '1', projectId: 'P00109', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-1', customerName: 'Matrix Network Solutions', displayName: 'CRI', startDate: new Date('2025-07-26'), endDate: new Date('2025-08-24'), days: 30, status: 'Draft' },
+    { id: '2', projectId: 'P00108', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-2', customerName: 'Matrix', displayName: 'Matrix ®', startDate: new Date('2025-07-24'), endDate: new Date('2025-08-22'), days: 30, status: 'Draft' },
+    { id: '3', projectId: 'P00107', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-3', customerName: 'Founding Years Learning Solutions Pvt Ltd', displayName: 'Education', startDate: new Date('2025-07-25'), endDate: new Date('2025-10-22'), days: 90, status: 'Confirmed' },
+    { id: '4', projectId: 'P00106', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-1', customerName: 'Matrix Network Solutions', displayName: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), days: 10, status: 'Active' },
+    { id: '5', projectId: 'P00094', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-4', customerName: 'ADMINDS', displayName: 'Sunil Reddy', startDate: new Date('2025-07-01'), endDate: new Date('2025-07-31'), days: 31, status: 'Draft' },
+    { id: '6', projectId: 'P00105', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-5', customerName: 'LAQSHYA MEDIA LIMITED', displayName: 'Quick delivery food campaign', startDate: new Date('2025-07-10'), endDate: new Date('2025-08-08'), days: 30, status: 'Draft' },
+];
+
+const mockEmployees: User[] = [
+    { id: 'user-001', uid: 'user-001', name: 'Raghu Gajula', email: 'raghu@example.com', role: 'admin', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' },
+    { id: 'user-002', uid: 'user-002', name: 'Sunil Reddy', email: 'sunil@example.com', role: 'sales', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026705d' },
+];
+
 
 export function MediaPlansManager() {
   const [mediaPlans, setMediaPlans] = useState<MediaPlan[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [employees, setEmployees] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [isPlanFormOpen, setIsPlanFormOpen] = useState(false);
   const [isAssetSelectorOpen, setIsAssetSelectorOpen] = useState(false);
-  const [currentPlan, setCurrentPlan] = useState<MediaPlan | null>(null);
+  const [currentPlan, setCurrentPlan] = useState<Partial<MediaPlan> | null>(null);
+  const { user } = useAuth();
   
   const [filter, setFilter] = useState('');
 
   const { toast } = useToast();
   
-  useEffect(() => {
-    // This would fetch from Firestore in a real app
-    setMediaPlans(sampleData);
-    setLoading(false);
-    
-    const getCustomers = async () => {
-        const customersCollectionRef = collection(db, 'customers');
-        const data = await getDocs(customersCollectionRef);
-        setCustomers(data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Customer)));
-    };
-    getCustomers();
-  }, []);
-
-  const handleSave = (planToSave: MediaPlan) => {
+  const fetchData = async () => {
+    if (!user?.companyId) return;
     setLoading(true);
-    if (currentPlan) {
-      // Update logic
-      setMediaPlans(mediaPlans.map(plan => plan.id === currentPlan.id ? planToSave : plan));
-      toast({ title: 'Plan Updated!', description: 'The media plan has been successfully updated.' });
-    } else {
-      // Add new logic
-      const newPlan = { ...planToSave, id: `plan-${Math.random()}` };
-      setMediaPlans([...mediaPlans, newPlan]);
-      toast({ title: 'Plan Added!', description: 'The new media plan has been added.' });
+    try {
+        const plansQuery = query(collection(db, "plans"), where("companyId", "==", user.companyId));
+        const plansSnapshot = await getDocs(plansQuery);
+        if (plansSnapshot.empty) {
+            setMediaPlans(sampleData);
+        } else {
+             const fetchedPlans = plansSnapshot.docs.map(doc => {
+                const data = doc.data() as DocumentData;
+                return {
+                    ...data,
+                    id: doc.id,
+                    startDate: data.startDate?.toDate(),
+                    endDate: data.endDate?.toDate(),
+                    createdAt: data.createdAt?.toDate(),
+                } as MediaPlan;
+            });
+            setMediaPlans(fetchedPlans);
+        }
+
+        const customersQuery = query(collection(db, "customers"), where("companyId", "==", user.companyId));
+        const customersSnapshot = await getDocs(customersQuery);
+        setCustomers(customersSnapshot.docs.map(doc => ({...doc.data(), id: doc.id} as Customer)));
+        
+        // Using mock employees for now
+        setEmployees(mockEmployees);
+
+    } catch (error) {
+        console.error("Error fetching data:", error);
+        toast({
+            variant: "destructive",
+            title: "Error fetching data",
+            description: "Could not retrieve latest data. Using samples."
+        });
+        setMediaPlans(sampleData);
     }
     setLoading(false);
-    closePlanForm();
+  };
+
+
+  useEffect(() => {
+    fetchData();
+  }, [user]);
+
+  const handleSave = async (planToSave: Partial<MediaPlan>) => {
+    setLoading(true);
+    try {
+        if (currentPlan?.id) {
+          const planDoc = doc(db, 'plans', currentPlan.id);
+          await updateDoc(planDoc, planToSave);
+          toast({ title: 'Plan Updated!', description: 'The media plan has been successfully updated.' });
+        } else {
+          const newPlanData = {
+              ...planToSave,
+              companyId: user?.companyId,
+              createdAt: serverTimestamp(),
+          };
+          await addDoc(collection(db, 'plans'), newPlanData);
+          toast({ title: 'Plan Added!', description: 'The new media plan has been added.' });
+        }
+        await fetchData();
+        closePlanForm();
+    } catch (error) {
+         toast({ variant: 'destructive', title: 'Save failed', description: 'Could not save the plan. Please try again.' });
+    }
+    setLoading(false);
   };
 
   const openPlanForm = (plan: MediaPlan | null = null) => {
@@ -95,28 +148,30 @@ export function MediaPlansManager() {
   };
 
   const handleAssetsSelected = (selectedAssets: Asset[]) => {
-    console.log("Selected assets:", selectedAssets);
     setIsAssetSelectorOpen(false);
-    openPlanForm();
-    // Here you would pass the selected assets to the plan form
+    
+    // Create a new plan with these assets
+    const newPlan: Partial<MediaPlan> = {
+        // You might want to pre-fill other details here
+    };
+    openPlanForm(newPlan);
   };
   
   const handleDelete = async (plan: MediaPlan) => {
-     setMediaPlans(mediaPlans.filter(p => p.id !== plan.id));
-     toast({ title: 'Plan Deleted', description: `Plan for ${getCustomerName(plan.clientId)} has been removed.` });
+     const planDoc = doc(db, 'plans', plan.id);
+     await deleteDoc(planDoc);
+     await fetchData();
+     toast({ title: 'Plan Deleted', description: `Plan ${plan.displayName} has been removed.` });
   };
   
   const filteredPlans = useMemo(() => {
     return mediaPlans.filter(plan => {
-      const customerName = getCustomerName(plan.clientId).toLowerCase();
+      const customerName = plan.customerName || '';
       const searchTerm = filter.toLowerCase();
-      return customerName.includes(searchTerm) || plan.status.toLowerCase().includes(searchTerm) || plan.id.includes(searchTerm);
+      return customerName.toLowerCase().includes(searchTerm) || plan.status.toLowerCase().includes(searchTerm) || (plan.displayName || '').toLowerCase().includes(searchTerm);
     });
-  }, [mediaPlans, filter, customers]);
+  }, [mediaPlans, filter]);
 
-  const getCustomerName = (clientId: string) => {
-    return customers.find(c => c.id === clientId)?.name || 'Unknown Client';
-  }
   
   if (loading && !isPlanFormOpen) {
     return (
@@ -140,7 +195,7 @@ export function MediaPlansManager() {
             onChange={(e) => setFilter(e.target.value)}
             className="w-64"
           />
-          <Button onClick={() => setIsAssetSelectorOpen(true)}>
+          <Button onClick={() => openPlanForm()}>
             <PlusCircle className="mr-2" />
             Add Plan
           </Button>
@@ -152,7 +207,7 @@ export function MediaPlansManager() {
             <TableRow>
               <TableHead>Customer</TableHead>
               <TableHead>Created At</TableHead>
-              <TableHead>Total</TableHead>
+              <TableHead>Display Name</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -162,11 +217,11 @@ export function MediaPlansManager() {
               <TableRow key={plan.id}>
                 <TableCell>
                   <Link href={`/admin/media-plans/${plan.id}`} className="font-medium text-blue-600 hover:underline">
-                    {getCustomerName(plan.clientId)}
+                    {plan.customerName}
                   </Link>
                 </TableCell>
-                <TableCell>{format(new Date(plan.createdAt as any), 'dd MMM yyyy')}</TableCell>
-                <TableCell>{plan.total?.toLocaleString('en-IN')}</TableCell>
+                <TableCell>{plan.createdAt ? format(new Date(plan.createdAt as any), 'dd MMM yyyy') : 'N/A'}</TableCell>
+                <TableCell>{plan.displayName}</TableCell>
                 <TableCell>{plan.status}</TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
@@ -195,18 +250,14 @@ export function MediaPlansManager() {
         </Table>
       </div>
 
-      <SelectAssetsDialog
-        isOpen={isAssetSelectorOpen}
-        onOpenChange={setIsAssetSelectorOpen}
-        onAddToPlan={handleAssetsSelected}
-      />
-
       <MediaPlanFormDialog 
         isOpen={isPlanFormOpen}
         onOpenChange={setIsPlanFormOpen}
         plan={currentPlan}
         customers={customers}
+        employees={employees}
         onSave={handleSave}
+        loading={loading}
       />
     </TooltipProvider>
   );

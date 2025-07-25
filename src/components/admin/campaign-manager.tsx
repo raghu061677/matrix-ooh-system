@@ -25,23 +25,47 @@ import { MoreHorizontal, Search, Download, Loader2 } from 'lucide-react';
 import { Campaign } from '@/types/media-plan';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
-
-const sampleCampaigns: Campaign[] = [
-    { id: '4', planId: 'plan-1', title: 'Sonu', startDate: new Date('2025-07-20'), endDate: new Date('2025-07-29'), images: [], status: 'Running' },
-    { id: '5', planId: 'plan-2', title: 'KIDO', startDate: new Date('2025-08-01'), endDate: new Date('2025-08-30'), images: [], status: 'Upcoming' },
-];
+import { db } from '@/lib/firebase';
+import { collection, getDocs, query, where, DocumentData } from 'firebase/firestore';
+import { useAuth } from '@/hooks/use-auth';
 
 export function CampaignManager() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [filter, setFilter] = useState('');
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+
 
   useEffect(() => {
-    // In a real app, fetch from Firestore
-    setCampaigns(sampleCampaigns);
-    setLoading(false);
-  }, []);
+    async function fetchCampaigns() {
+        if (!user?.companyId) return;
+        setLoading(true);
+        try {
+            const q = query(collection(db, "campaigns"), where("companyId", "==", user.companyId));
+            const snapshot = await getDocs(q);
+            const fetchedCampaigns = snapshot.docs.map(doc => {
+                const data = doc.data() as DocumentData;
+                return {
+                    ...data,
+                    id: doc.id,
+                    startDate: data.startDate?.toDate(),
+                    endDate: data.endDate?.toDate(),
+                } as Campaign;
+            });
+            setCampaigns(fetchedCampaigns);
+        } catch (error) {
+            console.error("Error fetching campaigns:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Failed to fetch campaigns',
+            });
+        } finally {
+            setLoading(false);
+        }
+    }
+    fetchCampaigns();
+  }, [user, toast]);
 
   const filteredCampaigns = useMemo(() => {
     return campaigns.filter(campaign =>
@@ -92,8 +116,8 @@ export function CampaignManager() {
                         {campaign.title}
                     </Link>
                 </TableCell>
-                <TableCell>{format(new Date(campaign.startDate), 'dd MMM yyyy')}</TableCell>
-                <TableCell>{format(new Date(campaign.endDate), 'dd MMM yyyy')}</TableCell>
+                <TableCell>{campaign.startDate ? format(new Date(campaign.startDate), 'dd MMM yyyy') : 'N/A'}</TableCell>
+                <TableCell>{campaign.endDate ? format(new Date(campaign.endDate), 'dd MMM yyyy') : 'N/A'}</TableCell>
                 <TableCell>{campaign.status}</TableCell>
                 <TableCell className="text-right">
                    <DropdownMenu>

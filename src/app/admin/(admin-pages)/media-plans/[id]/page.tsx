@@ -10,11 +10,10 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft } from 'lucide-react';
 import { Customer, User } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, DocumentData } from 'firebase/firestore';
 import { useParams } from 'next/navigation';
 
 
-// Mock data fetching
 const sampleData: MediaPlan[] = [
     { id: '1', projectId: 'P00109', employeeId: 'user-001', employee: { id: 'user-001', name: 'Raghu Gajula', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }, customerId: 'customer-1', customerName: 'Matrix-OOH', displayName: 'CRI', startDate: new Date('2025-07-26'), endDate: new Date('2025-08-24'), days: 30, 
         statistics: { haMarkupPercentage: 10.14, taMarkupPercentage: 0, roiPercentage: 0, occupancyPercentage: 0, haMarkup: 35000, taMarkup: 0 },
@@ -43,14 +42,30 @@ export default function MediaPlanPage() {
   const params = useParams();
   
   React.useEffect(() => {
-    const id = params.id;
+    const id = params.id as string;
     if (!id) return;
     
     const fetchData = async () => {
+        setLoading(true);
         // In a real app, you would fetch all these from Firestore
-        const foundPlan = sampleData.find(p => p.id === id);
-        if (foundPlan) {
-            setPlan(foundPlan);
+        const planDocRef = doc(db, 'plans', id);
+        const planDoc = await getDoc(planDocRef);
+
+        if (planDoc.exists()) {
+             const data = planDoc.data() as DocumentData;
+             setPlan({
+                ...data,
+                id: planDoc.id,
+                startDate: data.startDate?.toDate(),
+                endDate: data.endDate?.toDate(),
+                createdAt: data.createdAt?.toDate(),
+            } as MediaPlan);
+        } else {
+            // Fallback to sample data if not found in Firestore
+            const foundPlan = sampleData.find(p => p.id === id);
+             if (foundPlan) {
+                setPlan(foundPlan);
+            }
         }
         
         const customersCollectionRef = collection(db, 'customers');
