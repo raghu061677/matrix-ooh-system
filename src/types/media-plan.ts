@@ -3,11 +3,11 @@ import type { Timestamp } from 'firebase/firestore';
 import { User } from './firestore';
 
 export type PlanStatus = 'Draft' | 'Approved' | 'Rejected' | 'Confirmed' | 'Active';
-export type CampaignStatus = 'Upcoming' | 'Running' | 'Completed';
+export type CampaignStatus = 'active' | 'inactive'; // Adjusted based on provided schema
 
 export interface MediaPlan {
   id: string; // Firestore document ID
-  projectId: string;
+  projectId?: string;
   employeeId: string;
   employee?: {
       id: string;
@@ -15,7 +15,7 @@ export interface MediaPlan {
       avatar?: string;
   }
   customerId: string;
-  customerName: string;
+  customerName?: string;
   displayName: string;
   startDate: Date | Timestamp;
   endDate: Date | Timestamp;
@@ -67,12 +67,15 @@ export interface MediaPlan {
 
 export type Campaign = {
   id: string;
-  planId: string;
-  title: string;
+  displayName: string;
+  customerId: string;
+  employeeId: string;
   startDate: Date | Timestamp;
   endDate: Date | Timestamp;
-  images: string[];
   status: CampaignStatus;
-  createdAt?: Date | Timestamp;
+  costSummary: {
+      totalBeforeTax: number;
+      grandTotal: number;
+  };
+  companyId: string;
 };
-
