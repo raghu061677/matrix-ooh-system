@@ -2,6 +2,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import * as sgMail from "@sendgrid/mail";
+import axios from "axios";
 
 admin.initializeApp();
 
@@ -32,6 +33,7 @@ export const sendEnquiryNotification = functions.firestore
       return null;
     }
 
+    // 1. Send Email Notification
     const msg = {
       to: ADMIN_EMAIL,
       from: {
@@ -56,13 +58,32 @@ export const sendEnquiryNotification = functions.firestore
     try {
       await sgMail.send(msg);
       console.log("Enquiry notification email sent successfully to", ADMIN_EMAIL);
-      return null;
     } catch (error) {
       console.error("Error sending email:", error);
-      // For detailed error reporting with SendGrid
       if ((error as any).response) {
         console.error((error as any).response.body);
       }
-      return null;
     }
+
+    // 2. Send WhatsApp Notification (Example)
+    // IMPORTANT: Replace 'https://your-bot-provider.com/send' with your actual WhatsApp API provider's endpoint.
+    // You will also need to securely store and retrieve any API keys for your WhatsApp provider.
+    try {
+        const whatsappPayload = {
+            to: `+91${data.phone}`, // Assuming an Indian phone number format
+            message: `Hi ${data.name}, thanks for enquiring about our media at ${data.assetLocation}. We’ll get back to you soon.`
+        };
+        
+        console.log("Sending WhatsApp notification to:", whatsappPayload.to);
+        
+        // This is a placeholder and will not work without a real endpoint and auth.
+        // await axios.post('https://your-bot-provider.com/send', whatsappPayload);
+
+        console.log("WhatsApp notification logic executed (using placeholder).");
+
+    } catch(error) {
+        console.error("Error sending WhatsApp notification:", error);
+    }
+
+    return null;
   });
