@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -7,21 +8,26 @@
  *   invoice number, and records the invoice date.
  * - AssignInvoiceNumberInput - The input type for the assignInvoiceNumber function.
  * - db - Exported Firestore instance for use in other flows.
+ * - storage - Exported Firebase Storage instance for use in other flows.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getStorage } from 'firebase-admin/storage';
 import { initializeApp, getApps } from 'firebase-admin/app';
 
-const firebaseConfig = {
-  credential: undefined,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-};
+// Centralized Firebase Admin SDK Initialization
 if (!getApps().length) {
-    initializeApp(firebaseConfig);
+    initializeApp({
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.replace('gs://', ''),
+    });
 }
+
 export const db = getFirestore();
+export const storage = getStorage();
+
 
 const AssignInvoiceNumberInputSchema = z.object({
   pendingInvoiceId: z.string().describe("The ID of the document in the 'salesEstimates/pendingInvoices/entries' collection."),

@@ -11,21 +11,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getStorage } from 'firebase-admin/storage';
-import { getFirestore } from 'firebase-admin/firestore';
-import { initializeApp, getApps } from 'firebase-admin/app';
-
-const firebaseConfig = {
-  credential: undefined,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.replace('gs://', ''),
-};
-
-if (!getApps().length) {
-    initializeApp(firebaseConfig);
-}
-const storage = getStorage();
-const db = getFirestore();
+import { db, storage } from './assign-invoice-number'; // Import shared instances
 
 const CompanySettingsSchema = z.object({
   id: z.string().describe("The company's unique document ID."),
