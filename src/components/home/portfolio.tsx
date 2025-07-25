@@ -1,63 +1,36 @@
-import { LocationCard } from './location-card';
 
-export const mediaLocations = [
-  {
-    id: 1,
-    title: 'Downtown Digital Billboard',
-    location: 'New York, NY',
-    imageUrl: 'https://placehold.co/600x400.png',
-    aiHint: 'city street billboard',
-    description: 'A premium digital screen in the heart of the city, reaching thousands of commuters daily.',
-    category: 'Digital'
-  },
-  {
-    id: 2,
-    title: 'Highway 101 Showcase',
-    location: 'San Francisco, CA',
-    imageUrl: 'https://placehold.co/600x400.png',
-    aiHint: 'highway billboard sunny',
-    description: 'Capture the attention of Silicon Valley traffic with this large-format static billboard.',
-    category: 'Static'
-  },
-  {
-    id: 3,
-    title: 'Urban Transit Shelter',
-    location: 'Chicago, IL',
-    imageUrl: 'https://placehold.co/600x400.png',
-    aiHint: 'bus stop advertising',
-    description: 'Engage with pedestrians and public transit users at a high-traffic urban hub.',
-    category: 'Transit'
-  },
-  {
-    id: 4,
-    title: 'Shopping Mall Media Wall',
-    location: 'Los Angeles, CA',
-    imageUrl: 'https://placehold.co/600x400.png',
-    aiHint: 'shopping mall digital',
-    description: 'A stunning video wall located at the entrance of a luxury shopping destination.',
-    category: 'Digital'
-  },
-  {
-    id: 5,
-    title: 'Airport Concourse Display',
-    location: 'Atlanta, GA',
-    imageUrl: 'https://placehold.co/600x400.png',
-    aiHint: 'airport advertising screen',
-    description: 'Connect with a global audience of travelers in one of the world\'s busiest airports.',
-    category: 'Digital'
-  },
-  {
-    id: 6,
-    title: 'Iconic Wallscape Mural',
-    location: 'Miami, FL',
-    imageUrl: 'https://placehold.co/600x400.png',
-    aiHint: 'building mural art',
-    description: 'A massive, hand-painted wallscape in a trendy, arts-focused neighborhood.',
-    category: 'Static'
-  },
-];
+'use client';
+
+import { useState, useEffect } from 'react';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { LocationCard } from './location-card';
+import { Asset } from '@/components/admin/media-manager-types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function Portfolio() {
+  const [locations, setLocations] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAssets = async () => {
+      try {
+        const assetsCollection = collection(db, 'media_assets');
+        const q = query(assetsCollection, where('status', '==', 'active'));
+        const querySnapshot = await getDocs(q);
+        const fetchedAssets = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Asset));
+        setLocations(fetchedAssets);
+      } catch (error) {
+        console.error("Error fetching media assets:", error);
+        // Optionally, set some default/error state
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAssets();
+  }, []);
+
   return (
     <section id="portfolio" className="py-16 md:py-24 bg-background">
       <div className="container">
@@ -68,9 +41,28 @@ export function Portfolio() {
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {mediaLocations.map((location) => (
-            <LocationCard key={location.id} {...location} />
-          ))}
+          {loading ? (
+             Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="space-y-4">
+                    <Skeleton className="h-56 w-full" />
+                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                    <Skeleton className="h-4 w-full" />
+                </div>
+            ))
+          ) : (
+            locations.map((location) => (
+              <LocationCard 
+                key={location.id} 
+                title={location.area || 'Untitled'}
+                location={`${location.location}, ${location.city}`}
+                imageUrl={location.imageUrls?.[0] || 'https://placehold.co/600x400.png'}
+                aiHint="city street billboard"
+                description={`A premium ${location.media || 'asset'}. Dimensions: ${location.dimensions || 'N/A'}`}
+                category={location.light || 'Static'}
+              />
+            ))
+          )}
         </div>
       </div>
     </section>

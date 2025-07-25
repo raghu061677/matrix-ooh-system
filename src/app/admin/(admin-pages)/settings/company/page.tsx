@@ -14,8 +14,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, UploadCloud, Briefcase } from 'lucide-react';
 import Image from 'next/image';
 import { getCompanySettings, updateCompanySettings, updateCompanyLogo } from '@/ai/flows/manage-company-settings';
+import { useAuth } from '@/hooks/use-auth'; // A custom hook to get user info
 
 const companySettingsSchema = z.object({
+  id: z.string(),
   companyName: z.string().min(1, 'Company name is required.'),
   gstNumber: z.string().optional(),
   address: z.string().min(1, 'Address is required.'),
@@ -25,15 +27,17 @@ const companySettingsSchema = z.object({
 type CompanySettingsFormData = z.infer<typeof companySettingsSchema>;
 
 export default function CompanySettingsPage() {
+  const { user } = useAuth(); // Assuming this hook provides the logged-in user with their companyId
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [logoPreview, setLogoPreview] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const { control, handleSubmit, reset, setValue } = useForm<CompanySettingsFormData>({
+  const { control, handleSubmit, reset, setValue, watch } = useForm<CompanySettingsFormData>({
     resolver: zodResolver(companySettingsSchema),
     defaultValues: {
+      id: '',
       companyName: '',
       gstNumber: '',
       address: '',
@@ -41,16 +45,31 @@ export default function CompanySettingsPage() {
     },
   });
 
+  const companyId = watch('id');
+
   React.useEffect(() => {
     async function fetchSettings() {
+      if (!user?.companyId) {
+        setLoading(false);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'No company assigned to this user.',
+        });
+        return;
+      };
+      
       setLoading(true);
       try {
-        const settings = await getCompanySettings();
+        const settings = await getCompanySettings(user.companyId);
         if (settings) {
           reset(settings);
           if (settings.logoUrl) {
             setLogoPreview(settings.logoUrl);
           }
+        } else {
+           setValue('id', user.companyId);
+           toast({ title: 'Welcome!', description: 'Please fill in your company details to get started.'});
         }
       } catch (error) {
         console.error('Failed to fetch company settings:', error);
@@ -64,7 +83,7 @@ export default function CompanySettingsPage() {
       }
     }
     fetchSettings();
-  }, [reset, toast]);
+  }, [user, reset, toast, setValue]);
 
   const onFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -79,6 +98,10 @@ export default function CompanySettingsPage() {
   };
 
   const handleLogoUpload = async (file: File) => {
+    if (!companyId) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Company ID is missing. Please save settings first.'});
+        return;
+    }
     setSaving(true);
     toast({ title: 'Uploading logo...' });
     try {
@@ -86,7 +109,7 @@ export default function CompanySettingsPage() {
         reader.readAsDataURL(file);
         reader.onload = async () => {
             const base64 = reader.result as string;
-            const { logoUrl } = await updateCompanyLogo({ logoDataUri: base64, contentType: file.type });
+            const { logoUrl } = await updateCompanyLogo({ companyId, logoDataUri: base64, contentType: file.type });
             setValue('logoUrl', logoUrl);
             setLogoPreview(logoUrl);
             toast({ title: 'Logo uploaded successfully!', variant: 'default' });
@@ -98,7 +121,7 @@ export default function CompanySettingsPage() {
         title: 'Upload Failed',
         description: 'Could not upload the new logo.',
       });
-      setLogoPreview(null); // Reset preview on failure
+      setLogoPreview(watch('logoUrl') || null); // Reset preview on failure
     } finally {
       setSaving(false);
     }
@@ -127,6 +150,16 @@ export default function CompanySettingsPage() {
   if (loading) {
     return <div className="flex justify-center items-center h-48"><Loader2 className="h-12 w-12 animate-spin" /></div>;
   }
+  
+  if (!user?.companyId) {
+    return (
+        <Card>
+            <CardHeader><CardTitle>Access Denied</CardTitle></CardHeader>
+            <CardContent><p>You are not associated with a company. Please contact support.</p></CardContent>
+        </Card>
+    );
+  }
+
 
   return (
     <div className="grid gap-6">

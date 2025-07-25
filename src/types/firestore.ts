@@ -1,6 +1,16 @@
 
-
 import type { Timestamp } from 'firebase/firestore';
+
+// /companies/{companyId}
+export interface Company {
+  id: string;
+  name: string;
+  logoUrl?: string;
+  gstNumber?: string;
+  address?: string;
+  createdAt: Timestamp;
+}
+
 
 // /users/{uid}
 export interface User {
@@ -10,11 +20,13 @@ export interface User {
   email: string;
   role: 'admin' | 'sales' | 'operations' | 'viewer';
   avatar?: string;
+  companyId: string;
 }
 
 // /customers/{id}
 export interface Customer {
   id: string;
+  companyId: string;
   code: string;
   name: string;
   gst?: string;
@@ -43,6 +55,7 @@ export interface Customer {
 // /salesEstimates/pendingInvoices/{id} | etc.
 export interface Invoice {
     id: string;
+    companyId: string;
     projectId?: string; // Reference
     employeeId?: string; // Reference
     customerId?: string; // Reference
@@ -61,6 +74,7 @@ export interface Invoice {
 // /purchaseOrders/pendingPOs/{id} | ...
 export interface PurchaseOrder {
     id: string;
+    companyId: string;
     projectId?: string;
     employeeId?: string;
     customerId?: string;
@@ -80,6 +94,7 @@ export interface PurchaseOrder {
 // /operations/mountingTasks/{id} | ...
 export interface OperationTask {
     id: string;
+    companyId: string;
     iid?: string;
     supplierId?: string;
     location?: string;
@@ -97,6 +112,7 @@ export interface OperationTask {
 // /photoLibrary/photos/{id}
 export interface Photo {
     id: string;
+    companyId: string;
     category?: 'Geo-tagged' | 'Newspaper' | 'Traffic' | 'Other';
     type?: 'newspaper' | 'geotag' | 'traffic1' | 'traffic2';
     iid?: string;

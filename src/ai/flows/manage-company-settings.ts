@@ -4,14 +4,14 @@
 /**
  * @fileOverview This flow manages company settings for SaaS branding.
  *
- * - getCompanySettings: Fetches the current company settings.
+ * - getCompanySettings: Fetches the current company settings for a given company ID.
  * - updateCompanySettings: Updates text-based company settings.
  * - updateCompanyLogo: Uploads a new company logo and returns the URL.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { initializeApp, getApps } from 'firebase-admin/app';
 
@@ -28,6 +28,7 @@ const db = getFirestore();
 const storage = getStorage();
 
 const CompanySettingsSchema = z.object({
+  id: z.string().describe("The company's unique document ID."),
   companyName: z.string().optional(),
   gstNumber: z.string().optional(),
   address: z.string().optional(),
@@ -35,24 +36,27 @@ const CompanySettingsSchema = z.object({
 });
 type CompanySettings = z.infer<typeof CompanySettingsSchema>;
 
-const settingsDocRef = db.doc('app_settings/company');
 
-
-export async function getCompanySettings(): Promise<CompanySettings | null> {
+export async function getCompanySettings(companyId: string): Promise<CompanySettings | null> {
+    if (!companyId) return null;
+    const settingsDocRef = db.doc(`companies/${companyId}`);
     const doc = await settingsDocRef.get();
     if (!doc.exists) {
         return null;
     }
-    return doc.data() as CompanySettings;
+    return { id: doc.id, ...doc.data() } as CompanySettings;
 }
 
-export async function updateCompanySettings(input: CompanySettings): Promise<{ success: boolean }> {
-    await settingsDocRef.set(input, { merge: true });
+export async function updateCompanySettings(input: Partial<CompanySettings> & { id: string }): Promise<{ success: boolean }> {
+    const { id, ...dataToUpdate } = input;
+    const settingsDocRef = db.doc(`companies/${id}`);
+    await settingsDocRef.set(dataToUpdate, { merge: true });
     return { success: true };
 }
 
 
 const UpdateCompanyLogoInputSchema = z.object({
+  companyId: z.string().describe("The ID of the company to update."),
   logoDataUri: z.string().describe("The new logo image as a Base64 data URI."),
   contentType: z.string().describe("The MIME type of the image (e.g., 'image/png')."),
 });
@@ -73,9 +77,9 @@ const updateCompanyLogoFlow = ai.defineFlow(
     inputSchema: UpdateCompanyLogoInputSchema,
     outputSchema: UpdateCompanyLogoOutputSchema,
   },
-  async ({ logoDataUri, contentType }) => {
+  async ({ companyId, logoDataUri, contentType }) => {
     const fileExtension = contentType.split('/')[1] || 'png';
-    const filePath = `branding/logo.${fileExtension}`;
+    const filePath = `branding/${companyId}/logo.${fileExtension}`;
     const file = storage.bucket().file(filePath);
 
     const base64Data = logoDataUri.replace(/^data:image\/\w+;base64,/, "");
@@ -93,7 +97,8 @@ const updateCompanyLogoFlow = ai.defineFlow(
         expires: '03-09-2491', // A very far future date for public access
     });
 
-    // Save the new URL to the settings document
+    // Save the new URL to the company document
+    const settingsDocRef = db.doc(`companies/${companyId}`);
     await settingsDocRef.set({ logoUrl: downloadUrl }, { merge: true });
 
     return { logoUrl: downloadUrl };
