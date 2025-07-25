@@ -33,7 +33,7 @@ import { cn } from '@/lib/utils';
 import { ThemeProvider, useTheme } from '@/components/admin/theme-provider';
 import { ThemeToggle } from '@/components/admin/theme-toggle';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { AuthProvider, useAuth } from '@/hooks/use-auth';
+import { AuthProvider, useAuth } from '@/hooks/use-auth.tsx';
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const { firebaseUser, loading } = useAuth();
