@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
+import Script from 'next/script';
 
 export const metadata: Metadata = {
   title: 'Matrix-OOH - Premium OOH Advertising Solutions',
@@ -39,6 +40,7 @@ export default function RootLayout({
       >
         {children}
         <Toaster />
+        <Script src="https://wati-integration-service.clare.ai/ShopifyWidget/shopifyWidget.js?72920" strategy="lazyOnload" async />
       </body>
     </html>
   );
