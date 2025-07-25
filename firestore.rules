@@ -1,0 +1,30 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // By default, deny all reads and writes
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Allow public read for media assets to display on the website
+    match /mediaAssets/{assetId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.companyId == resource.data.companyId;
+    }
+    
+    // Allow anyone to submit an enquiry
+    match /mediaEnquiries/{enquiryId} {
+      allow create: if true;
+      allow read, update, delete: if request.auth != null;
+    }
+
+    // For all other collections, enforce companyId matching
+    // This rule applies to collections like: users, customers, plans, campaigns, etc.
+    match /{collection}/{doc} {
+      allow read, write: if request.auth != null &&
+                           request.auth.token.companyId == resource.data.companyId;
+    }
+  }
+}
