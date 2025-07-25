@@ -87,6 +87,7 @@ export function MediaManager() {
     sqft: true,
     light: true,
     status: true,
+    direction: false,
     structure: false,
     ownership: false,
     media: false,
@@ -355,6 +356,7 @@ export function MediaManager() {
     { key: 'district', label: 'District', sortable: true },
     { key: 'area', label: 'Area', sortable: true },
     { key: 'location', label: 'Location', sortable: true },
+    { key: 'direction', label: 'Direction' },
     { key: 'dimensions', label: 'Dimensions' },
     { key: 'sqft', label: 'Sqft' },
     { key: 'light', label: 'Lighting' },
@@ -374,7 +376,7 @@ export function MediaManager() {
   const exportTemplateToExcel = () => {
     const headers = [
       'mid', 'ownership', 'media', 'state', 'district', 'city', 'area', 'location', 
-      'dimensions', 'structure', 'width1', 'height1', 'width2', 'height2', 'sqft', 'light', 'status', 'supplierId',
+      'direction', 'dimensions', 'structure', 'width1', 'height1', 'width2', 'height2', 'sqft', 'light', 'status', 'supplierId',
       'latitude', 'longitude', 'baseRate', 'cardRate'
     ];
     const worksheet = XLSX.utils.aoa_to_sheet([headers]);
@@ -604,6 +606,7 @@ export function MediaManager() {
                 {columnVisibility.district && <TableCell>{asset.district}</TableCell>}
                 {columnVisibility.area && <TableCell>{asset.area}</TableCell>}
                 {columnVisibility.location && <TableCell>{asset.location}</TableCell>}
+                {columnVisibility.direction && <TableCell>{asset.direction}</TableCell>}
                 {columnVisibility.dimensions && <TableCell>{asset.dimensions}</TableCell>}
                 {columnVisibility.sqft && <TableCell>{asset.sqft}</TableCell>}
                 {columnVisibility.light && <TableCell>{asset.light}</TableCell>}
@@ -729,6 +732,11 @@ export function MediaManager() {
                   <div className="md:col-span-2">
                     <Label htmlFor="location">Location</Label>
                     <Input id="location" name="location" value={formData.location || ''} onChange={handleFormChange} required />
+                  </div>
+                  
+                  <div className="md:col-span-2">
+                    <Label htmlFor="direction">Traffic Direction</Label>
+                    <Input id="direction" name="direction" value={formData.direction || ''} onChange={handleFormChange} />
                   </div>
 
                    <div className="md:col-span-2">
