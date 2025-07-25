@@ -17,16 +17,13 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { initializeApp, getApps } from 'firebase-admin/app';
 
-// Centralized Firebase Admin SDK Initialization
+// Centralized Firebase Admin SDK Initialization using Application Default Credentials
 if (!getApps().length) {
-    initializeApp({
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.replace('gs://', ''),
-    });
+    initializeApp();
 }
 
 export const db = getFirestore();
-export const storage = getStorage();
+export const storage = getStorage().bucket();
 
 
 const AssignInvoiceNumberInputSchema = z.object({

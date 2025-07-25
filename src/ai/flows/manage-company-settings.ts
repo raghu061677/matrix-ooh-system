@@ -66,7 +66,7 @@ const updateCompanyLogoFlow = ai.defineFlow(
   async ({ companyId, logoDataUri, contentType }) => {
     const fileExtension = contentType.split('/')[1] || 'png';
     const filePath = `branding/${companyId}/logo.${fileExtension}`;
-    const file = storage.bucket().file(filePath);
+    const file = storage.file(filePath);
 
     const base64Data = logoDataUri.replace(/^data:image\/\w+;base64,/, "");
     const buffer = Buffer.from(base64Data, 'base64');

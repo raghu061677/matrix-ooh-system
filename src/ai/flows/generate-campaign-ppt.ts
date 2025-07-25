@@ -9,12 +9,9 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getStorage } from 'firebase-admin/storage';
 import PptxGenJS from 'pptxgenjs';
 import fetch from 'node-fetch';
-import { db } from './assign-invoice-number'; // Import the shared db instance
-
-const storage = getStorage();
+import { db, storage } from './assign-invoice-number'; // Import the shared db and storage instances
 
 const GenerateCampaignPptInputSchema = z.object({
   campaignId: z.string().describe("The ID of the campaign document."),
@@ -118,7 +115,7 @@ const generateCampaignPptFlow = ai.defineFlow(
     // 4. Generate PPTX buffer and upload to Storage
     const pptxBuffer = await pptx.write({ outputType: 'buffer' });
     const filePath = `campaign-ppts/${campaignId}-${Date.now()}.pptx`;
-    const file = storage.bucket().file(filePath);
+    const file = storage.file(filePath);
 
     await file.save(pptxBuffer as Buffer, {
         metadata: {
