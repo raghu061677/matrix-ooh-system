@@ -1,35 +1,72 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Function to check for Super Admin role
+    // Super admin function
     function isSuperAdmin() {
       return request.auth.token.email == "raghu@matrix-networksolutions.com";
     }
 
-    // Public read access for media assets
-    match /mediaAssets/{assetId} {
-      allow read: if true;
-      allow write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
-    }
-
-    // Public create access for enquiries
-    match /mediaEnquiries/{enquiryId} {
-      allow create: if true;
-      allow read, update, delete: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
-    }
-    
     // Allow users to read their own user document
     match /users/{userId} {
-      allow read: if isSuperAdmin() || (request.auth != null && request.auth.uid == userId);
-      allow write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
+      allow read: if isSuperAdmin() || request.auth.uid == userId;
+      allow write: if isSuperAdmin();
     }
 
-    // Secure all other collections by companyId, but allow super admin full access
-    match /{path=**}/{collection}/{doc} {
-      allow read, write: if isSuperAmdin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
+    // Allow anyone to submit an enquiry
+    match /mediaEnquiries/{enquiryId} {
+        allow create: if true;
+        allow read, update, delete: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
     }
+
+    // Allow anyone to read media assets for the public portfolio
+    match /mediaAssets/{assetId} {
+        allow read: if true;
+        allow create, update, delete: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
+    }
+
+    // Tenant-isolated collections
+    match /companies/{companyId} {
+      allow read, write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == companyId);
+    }
+
+    match /customers/{customerId} {
+       allow read, write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
+    }
+    
+    match /plans/{planId} {
+       allow read, write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
+    }
+
+    match /campaigns/{campaignId} {
+       allow read, write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
+    }
+    
+    match /counters/{counterId} {
+      allow read, write: if isSuperAdmin() || request.auth != null;
+    }
+    
+    // Rules for nested entry collections used in collectionGroup queries
+    match /salesEstimates/{group}/entries/{docId} {
+       allow read, write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
+    }
+    
+    match /purchaseOrders/{group}/entries/{docId} {
+      allow read, write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
+    }
+    
+     match /photoLibrary/photos/{docId} {
+      allow read, write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
+    }
+
+    match /operations/{group}/{docId} {
+      allow read, write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
+    }
+    
+     match /reports/{group}/{docId} {
+      allow read, write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
+    }
+
   }
 }
