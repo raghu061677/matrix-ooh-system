@@ -274,10 +274,10 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
       pdf.text(`Quotation: ${planData.displayName || planId}`, 14, 46);
       pdf.text(`Client: ${planData.customerName || 'Client Name'}`, 14, 52);
       if (planData.startDate) {
-        pdf.text(`Start Date: ${new Date((planData.startDate as any).seconds * 1000).toLocaleDateString()}`, 14, 58);
+        pdf.text(`Start Date: new Date((planData.startDate as any).seconds * 1000).toLocaleDateString()`, 14, 58);
       }
        if (planData.endDate) {
-        pdf.text(`End Date: ${new Date((planData.endDate as any).seconds * 1000).toLocaleDateString()}`, 14, 64);
+        pdf.text(`End Date: new Date((planData.endDate as any).seconds * 1000).toLocaleDateString()`, 14, 64);
       }
 
 

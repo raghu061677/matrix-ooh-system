@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo, useTransition, useRef } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -358,3 +358,5 @@ export function CustomerManager() {
     </TooltipProvider>
   );
 }
+
+    
