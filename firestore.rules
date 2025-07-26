@@ -1,31 +1,35 @@
+
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
+    // Function to check for Super Admin role
     function isSuperAdmin() {
-      return request.auth.token.email == 'raghu@matrix-networksolutions.com';
+      return request.auth.token.email == "raghu@matrix-networksolutions.com";
     }
 
-    // Public read access for media assets for portfolio and explore pages
+    // Public read access for media assets
     match /mediaAssets/{assetId} {
       allow read: if true;
+      allow write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
+    }
+
+    // Public create access for enquiries
+    match /mediaEnquiries/{enquiryId} {
+      allow create: if true;
+      allow read, update, delete: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
     }
     
-    // Public write access for enquiries
-    match /mediaEnquiries/{enquiryId} {
-      allow write: if true;
-    }
-
-    // Allow any authenticated user to read their own user document
+    // Allow users to read their own user document
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
+      allow read: if isSuperAdmin() || (request.auth != null && request.auth.uid == userId);
+      allow write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
     }
 
-    // General rule for all other collections.
-    // This uses a recursive wildcard {path=**} to apply to all subcollections.
-    // It grants access if the user's companyId matches the document's companyId OR if the user is a super admin.
+    // Secure all other collections by companyId, but allow super admin full access
     match /{path=**}/{collection}/{doc} {
-      allow read, write: if request.auth != null && (isSuperAdmin() || request.auth.token.companyId == resource.data.companyId);
+      allow read, write: if isSuperAmdin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
     }
   }
 }
