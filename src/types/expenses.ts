@@ -17,11 +17,12 @@ export interface PowerBill {
   duePayments: number;
   totalDue: number;
   units: number;
-  billDate: Timestamp;
-  dueDate: Timestamp;
+  billDate: Date | Timestamp;
+  dueDate: Date | Timestamp;
   paidAmount: number;
-  paidDate: Timestamp;
+  paidDate?: Date | Timestamp;
   status: 'Pending' | 'Paid' | 'Overdue';
+  createdAt?: Timestamp;
 }
 
 export interface GeneralExpense {
