@@ -9,6 +9,8 @@ import { useState } from 'react';
 import {
   Sheet,
   SheetContent,
+  SheetHeader,
+  SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
 
@@ -48,6 +50,9 @@ export function Header() {
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="left">
+                    <SheetHeader>
+                        <SheetTitle className="sr-only">Mobile Menu</SheetTitle>
+                    </SheetHeader>
                     <div className="flex flex-col h-full">
                       <div className="flex items-center justify-between border-b pb-4">
                          <Link href="/home" className="flex items-center space-x-2" onClick={() => setIsMobileMenuOpen(false)}>
