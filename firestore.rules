@@ -1,72 +1,45 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Super admin function
     function isSuperAdmin() {
       return request.auth.token.email == "raghu@matrix-networksolutions.com";
     }
 
-    // Allow users to read their own user document
-    match /users/{userId} {
-      allow read: if isSuperAdmin() || request.auth.uid == userId;
-      allow write: if isSuperAdmin();
+    function isOwner(companyId) {
+      return request.auth.token.companyId == companyId;
     }
 
-    // Allow anyone to submit an enquiry
-    match /mediaEnquiries/{enquiryId} {
-        allow create: if true;
-        allow read, update, delete: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
-    }
-
-    // Allow anyone to read media assets for the public portfolio
+    // Public read for media assets, but restricted write
     match /mediaAssets/{assetId} {
-        allow read: if true;
-        allow create, update, delete: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
+      allow read: if true;
+      allow write: if isSuperAdmin() || isOwner(request.resource.data.companyId);
     }
 
-    // Tenant-isolated collections
-    match /companies/{companyId} {
-      allow read, write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == companyId);
+    // Public can create enquiries, only owners can read them
+    match /mediaEnquiries/{enquiryId} {
+      allow create: if true;
+      allow read, update, delete: if isSuperAdmin() || isOwner(resource.data.companyId);
     }
 
-    match /customers/{customerId} {
-       allow read, write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
+    // Users can read/update their own document.
+    match /users/{userId} {
+        allow read, update: if isSuperAdmin() || request.auth.uid == userId;
+        // Create/delete might be admin-only operations
+        allow create, delete: if isSuperAdmin();
     }
     
-    match /plans/{planId} {
-       allow read, write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
-    }
-
-    match /campaigns/{campaignId} {
-       allow read, write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
+    // Rule for the 'entries' collection group used in Sales & PO Managers
+    match /{path=**}/entries/{entry} {
+      allow read, write: if isSuperAdmin() || isOwner(resource.data.companyId);
     }
     
-    match /counters/{counterId} {
-      allow read, write: if isSuperAdmin() || request.auth != null;
+    // Default rule for most other top-level collections
+    match /{collection}/{docId} 
+        where collection in ['companies', 'customers', 'plans', 'campaigns', 'creditNotes', 'recurringInvoices', 'counters', 'reports', 'operations'] {
+      allow read, write: if isSuperAdmin() || isOwner(resource.data.companyId);
     }
-    
-    // Rules for nested entry collections used in collectionGroup queries
-    match /salesEstimates/{group}/entries/{docId} {
-       allow read, write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
-    }
-    
-    match /purchaseOrders/{group}/entries/{docId} {
-      allow read, write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
-    }
-    
-     match /photoLibrary/photos/{docId} {
-      allow read, write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
-    }
-
-    match /operations/{group}/{docId} {
-      allow read, write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
-    }
-    
-     match /reports/{group}/{docId} {
-      allow read, write: if isSuperAdmin() || (request.auth != null && request.auth.token.companyId == resource.data.companyId);
-    }
-
   }
 }
