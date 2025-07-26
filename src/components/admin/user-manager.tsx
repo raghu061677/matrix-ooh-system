@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -20,6 +21,13 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,9 +39,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2, Loader2, Users } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, Users, MoreHorizontal, UserX, UserCheck } from 'lucide-react';
 import { User } from '@/types/firestore';
 import { useAuth } from '@/hooks/use-auth';
+import { Badge } from '../ui/badge';
 
 export function UserManager() {
   const [users, setUsers] = useState<User[]>([]);
@@ -88,7 +97,7 @@ export function UserManager() {
         toast({ title: 'User Updated!', description: 'The user has been successfully updated.' });
       } else {
         // This is a simplified user creation. In a real app, you'd use Firebase Auth to create a user first.
-        await addDoc(usersCollectionRef, { ...formData, companyId: authUser?.companyId, uid: `new-user-${Date.now()}` }); 
+        await addDoc(usersCollectionRef, { ...formData, companyId: authUser?.companyId, uid: `new-user-${Date.now()}`, status: 'active' }); 
         await getUsers();
         toast({ title: 'User Added!', description: 'The new user has been added.' });
       }
@@ -102,7 +111,7 @@ export function UserManager() {
 
   const openDialog = (user: User | null = null) => {
     setCurrentUser(user);
-    setFormData(user || { role: 'viewer' });
+    setFormData(user || { role: 'viewer', status: 'active' });
     setIsDialogOpen(true);
   };
 
@@ -112,14 +121,31 @@ export function UserManager() {
     setFormData({});
   };
   
-  const handleDelete = async (user: User) => {
-     if (!confirm(`Are you sure you want to delete ${user.name}?`)) return;
-     const userDoc = doc(db, 'users', user.id);
+  const handleDelete = async (userToDelete: User) => {
+     if (!confirm(`Are you sure you want to permanently delete ${userToDelete.name}? This action cannot be undone.`)) return;
+     const userDoc = doc(db, 'users', userToDelete.id);
      await deleteDoc(userDoc);
      await getUsers();
-     toast({ title: 'User Deleted', description: `${user.name} has been removed.` });
+     toast({ title: 'User Deleted', description: `${userToDelete.name} has been removed.` });
   };
   
+  const handleToggleStatus = async (userToUpdate: User) => {
+    const newStatus = userToUpdate.status === 'active' ? 'inactive' : 'active';
+    const action = newStatus === 'active' ? 'Activated' : 'Deactivated';
+     if (!confirm(`Are you sure you want to ${action.toLowerCase()} ${userToUpdate.name}?`)) return;
+
+    try {
+        const userDoc = doc(db, 'users', userToUpdate.id);
+        await updateDoc(userDoc, { status: newStatus });
+        await getUsers();
+        toast({ title: `User ${action}`, description: `${userToUpdate.name}'s account has been ${action.toLowerCase()}.` });
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Update Failed', description: `Could not update user status.` });
+    }
+  }
+  
+  const canManageUsers = authUser?.role === 'admin' || authUser?.role === 'superadmin';
+
   if (loading && !isDialogOpen) {
     return (
         <div className="flex items-center justify-center h-48">
@@ -135,10 +161,12 @@ export function UserManager() {
             <Users />
             User Management
         </h1>
-        <Button onClick={() => openDialog()}>
-          <PlusCircle className="mr-2" />
-          Add New User
-        </Button>
+        {canManageUsers && (
+            <Button onClick={() => openDialog()}>
+                <PlusCircle className="mr-2" />
+                Add New User
+            </Button>
+        )}
       </div>
       <div className="border rounded-lg">
         <Table>
@@ -147,6 +175,7 @@ export function UserManager() {
               <TableHead>User</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -164,13 +193,40 @@ export function UserManager() {
                 </TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell className="capitalize">{user.role}</TableCell>
+                <TableCell>
+                  <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
+                    {user.status === 'active' ? 'Active' : 'Inactive'}
+                  </Badge>
+                </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" onClick={() => openDialog(user)}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDelete(user)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {canManageUsers && (
+                     <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <DropdownMenuItem onSelect={() => openDialog(user)}>
+                                <Edit className="mr-2 h-4 w-4" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                                onSelect={() => handleToggleStatus(user)}
+                                disabled={user.id === authUser.id}
+                            >
+                                {user.status === 'active' ? (
+                                    <><UserX className="mr-2 h-4 w-4" /> Deactivate</>
+                                ) : (
+                                    <><UserCheck className="mr-2 h-4 w-4" /> Activate</>
+                                )}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onSelect={() => handleDelete(user)} className="text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                     </DropdownMenu>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -178,48 +234,50 @@ export function UserManager() {
         </Table>
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{currentUser ? 'Edit User' : 'Add New User'}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSave}>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">Name</Label>
-                <Input id="name" name="name" value={formData.name || ''} onChange={handleFormChange} className="col-span-3" required />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="email" className="text-right">Email</Label>
-                <Input id="email" name="email" type="email" value={formData.email || ''} onChange={handleFormChange} className="col-span-3" required />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="role" className="text-right">Role</Label>
-                 <Select onValueChange={handleRoleChange} value={formData.role} required>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select a role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="sales">Sales</SelectItem>
-                    <SelectItem value="finance">Finance</SelectItem>
-                    <SelectItem value="mounter">Mounter</SelectItem>
-                    <SelectItem value="viewer">Viewer</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="secondary">Cancel</Button>
-              </DialogClose>
-              <Button type="submit" disabled={isSaving}>
-                {isSaving ? <Loader2 className="animate-spin" /> : 'Save'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {canManageUsers && (
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle>{currentUser ? 'Edit User' : 'Add New User'}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSave}>
+                <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="name" className="text-right">Name</Label>
+                    <Input id="name" name="name" value={formData.name || ''} onChange={handleFormChange} className="col-span-3" required />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="email" className="text-right">Email</Label>
+                    <Input id="email" name="email" type="email" value={formData.email || ''} onChange={handleFormChange} className="col-span-3" required />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="role" className="text-right">Role</Label>
+                    <Select onValueChange={handleRoleChange} value={formData.role} required>
+                    <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Select a role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="sales">Sales</SelectItem>
+                        <SelectItem value="finance">Finance</SelectItem>
+                        <SelectItem value="mounter">Mounter</SelectItem>
+                        <SelectItem value="viewer">Viewer</SelectItem>
+                    </SelectContent>
+                    </Select>
+                </div>
+                </div>
+                <DialogFooter>
+                <DialogClose asChild>
+                    <Button type="button" variant="secondary">Cancel</Button>
+                </DialogClose>
+                <Button type="submit" disabled={isSaving}>
+                    {isSaving ? <Loader2 className="animate-spin" /> : 'Save'}
+                </Button>
+                </DialogFooter>
+            </form>
+            </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

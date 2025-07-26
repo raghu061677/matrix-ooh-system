@@ -9,6 +9,7 @@ export interface User {
   email: string;
   role: 'admin' | 'sales' | 'operations' | 'viewer' | 'superadmin' | 'finance' | 'mounter';
   avatar?: string;
+  status?: 'active' | 'inactive';
 }
 
 export interface Address {
