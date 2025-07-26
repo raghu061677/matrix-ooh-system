@@ -1,30 +1,40 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // By default, deny all reads and writes
-    match /{document=**} {
-      allow read, write: if false;
-    }
 
-    // Allow public read for media assets to display on the website
+    // Public read access for media assets for the portfolio/explore pages
     match /mediaAssets/{assetId} {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.token.companyId == resource.data.companyId;
+      // Write access is still protected by companyId
+      allow write: if request.auth != null && request.auth.token.companyId == request.resource.data.companyId;
     }
     
-    // Allow anyone to submit an enquiry
+    // Public write for enquiries from the website
     match /mediaEnquiries/{enquiryId} {
-      allow create: if true;
-      allow read, update, delete: if request.auth != null;
+        allow create: if true;
+        // Only authenticated users can manage enquiries (e.g., in the admin panel)
+        allow read, update, delete: if request.auth != null;
+    }
+    
+    // Allow a user to read their own document to get role/companyId
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // For all other collections, enforce companyId matching
-    // This rule applies to collections like: users, customers, plans, campaigns, etc.
-    match /{collection}/{doc} {
-      allow read, write: if request.auth != null &&
-                           request.auth.token.companyId == resource.data.companyId;
+    // Allow read access to the counters document for all authenticated users
+    match /counters/{counterId} {
+      allow read: if request.auth != null;
+      // Write access should be handled by server-side logic (flows/functions)
+      allow write: if false; 
+    }
+
+    // This is the general rule for all other collections, including nested ones.
+    // It ensures that a user can only access documents that belong to their company.
+    match /{path=**}/{collection}/{doc} {
+      allow read, write: if request.auth != null && 
+        request.auth.token.companyId == resource.data.companyId;
     }
   }
 }
