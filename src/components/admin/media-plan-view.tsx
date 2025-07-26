@@ -28,7 +28,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { db, storage } from '@/lib/firebase';
-import { collection, doc, getDoc, getDocs, query, where, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where, updateDoc } from 'firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -535,6 +535,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
             handlePlanUpdate(updatedPlan);
             setIsDialogOpen(false);
         }}
+        loading={false}
       />
 
       <SelectAssetsDialog
