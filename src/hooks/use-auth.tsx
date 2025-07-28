@@ -4,6 +4,8 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
 import { User } from '@/types/firestore';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface AuthContextType {
   user: User | null;
@@ -23,16 +25,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // This is a simplified mock authentication.
     // It simulates fetching a user profile after a short delay.
     const timer = setTimeout(() => {
-      const mockUser: User = {
+      let mockUser: User = {
         id: 'superadmin-mock-id',
         uid: 'superadmin-mock-uid',
         name: 'Super Admin',
         email: 'raghu@matrix-networksolutions.com',
-        role: 'superadmin',
+        role: 'viewer', // default role
         companyId: 'company-1', // A mock company ID
         status: 'active',
       };
       
+      // Override role for superadmin
+      if (mockUser.email === 'raghu@matrix-networksolutions.com') {
+          mockUser.role = 'superadmin';
+      }
+
       setUser(mockUser);
       setLoading(false);
     }, 500); // Simulate network delay

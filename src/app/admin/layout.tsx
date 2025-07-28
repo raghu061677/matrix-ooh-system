@@ -415,13 +415,11 @@ function ProtectedAdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    // If loading is finished and there's no user, redirect to login
     if (!loading && !user) {
       router.replace('/login');
     }
   }, [user, loading, router]);
 
-  // While loading, show a spinner
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
@@ -430,14 +428,12 @@ function ProtectedAdminLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // If there's a user, show the main layout
   if (user) {
     return <AdminLayoutContent>{children}</AdminLayoutContent>;
   }
-
-  // If no user and not loading (i.e., redirecting), show a spinner or null
+  
   return (
-    <div className="flex items-center justify-center h-screen bg-background">
+     <div className="flex items-center justify-center h-screen bg-background">
       <Loader2 className="h-12 w-12 animate-spin text-primary" />
     </div>
   );
