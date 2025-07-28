@@ -18,7 +18,8 @@ export interface Asset {
   // Details
   media?: string; // e.g., "Hoarding", "Unipole"
   status: AssetStatus;
-  rate?: number;
+  cardRate?: number;
+  baseRate?: number;
   ownership?: AssetOwnership;
   dimensions?: string;
   size?: { width?: number; height?: number };
@@ -37,10 +38,10 @@ export interface Asset {
 
 
 export const sampleAssets: Asset[] = [
-    { id: 'asset-1', companyId: 'company-1', name: 'Abids Hoarding', location: 'Abids beside Chermas, Hyderabad', area: 'Abids', state: 'Telangana', district: 'Hyderabad', status: 'active', rate: 50000, imageUrls: ['https://placehold.co/600x400.png'] },
-    { id: 'asset-2', companyId: 'company-1', name: 'GPO Unipole', location: 'Abids, Beside GPO, Hyderabad', area: 'Abids', state: 'Telangana', district: 'Hyderabad', status: 'booked', rate: 45000, imageUrls: ['https://placehold.co/600x400.png'] },
-    { id: 'asset-3', companyId: 'company-1', name: 'Ameerpet ICICI Wall', location: 'Ameerpet Beside ICICI Bank, Hyderabad', area: 'Ameerpet', state: 'Telangana', district: 'Hyderabad', status: 'active', rate: 75000, imageUrls: ['https://placehold.co/600x400.png'] },
-    { id: 'asset-4', companyId: 'company-1', name: 'Banjara Hills GVK', location: 'Banjara Hills, Opp GVK, Hyderabad', area: 'Banjara Hills', state: 'Telangana', district: 'Hyderabad', status: 'blocked', rate: 90000, imageUrls: ['https://placehold.co/600x400.png'] },
+    { id: 'asset-1', companyId: 'company-1', name: 'Abids Hoarding', location: 'Abids beside Chermas, Hyderabad', area: 'Abids', state: 'Telangana', district: 'Hyderabad', status: 'active', cardRate: 50000, imageUrls: ['https://placehold.co/600x400.png'] },
+    { id: 'asset-2', companyId: 'company-1', name: 'GPO Unipole', location: 'Abids, Beside GPO, Hyderabad', area: 'Abids', state: 'Telangana', district: 'Hyderabad', status: 'booked', cardRate: 45000, imageUrls: ['https://placehold.co/600x400.png'] },
+    { id: 'asset-3', companyId: 'company-1', name: 'Ameerpet ICICI Wall', location: 'Ameerpet Beside ICICI Bank, Hyderabad', area: 'Ameerpet', state: 'Telangana', district: 'Hyderabad', status: 'active', cardRate: 75000, imageUrls: ['https://placehold.co/600x400.png'] },
+    { id: 'asset-4', companyId: 'company-1', name: 'Banjara Hills GVK', location: 'Banjara Hills, Opp GVK, Hyderabad', area: 'Banjara Hills', state: 'Telangana', district: 'Hyderabad', status: 'blocked', cardRate: 90000, imageUrls: ['https://placehold.co/600x400.png'] },
 ];
 
 export const mediaTypes = [

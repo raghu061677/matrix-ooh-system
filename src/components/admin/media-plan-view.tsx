@@ -117,7 +117,9 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   // Helper to fetch an image and convert it to a base64 data URI
   async function imageToBase64(url: string): Promise<string> {
     try {
-      const response = await fetch(url);
+      // Use a CORS proxy if running locally and facing CORS issues
+      const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+      const response = await fetch(proxyUrl + url);
       if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
       const blob = await response.blob();
       return new Promise((resolve, reject) => {
@@ -133,6 +135,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   }
 
   const exportPlanToPPT = async () => {
+    toast({ title: 'Generating PPT...', description: 'Please wait.' });
     const ppt = new PptxGenJS();
     ppt.author = "Matrix-OOH App";
 
@@ -169,7 +172,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
     const buffer = await ppt.write({ outputType: "arraybuffer" });
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
     
-    const filename = `preview.pptx`;
+    const filename = `Preview Deck - ${plan.displayName || plan.id}.pptx`;
 
     try {
         const downloadURL = await uploadFileAndGetURL(planId, blob, filename);
@@ -291,7 +294,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
 
       // Table setup
       const body = assets.map((asset: any, index: number) => {
-        const rate = asset.rate || 0;
+        const rate = asset.cardRate || 0;
         const printing = asset.printingCost || 0;
         const mounting = asset.installationCost || 0;
         const total = rate + printing + mounting;
@@ -300,7 +303,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
 
         return [
           index + 1,
-          asset.location,
+          asset.location || 'N/A',
           rate.toFixed(2),
           printing.toFixed(2),
           mounting.toFixed(2),
@@ -520,9 +523,9 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                             Send to Client
                         </Button>
                         <Separator />
-                        <Button onClick={exportPlanToPPT} variant="outline">Upload PPT</Button>
-                        <Button onClick={exportPlanToExcel} variant="outline">Upload Excel</Button>
-                        <Button onClick={() => exportPlanToPDF(pdfTemplate)} variant="outline">Upload PDF (Work Order)</Button>
+                        <Button onClick={exportPlanToPPT} variant="outline">Generate PPT</Button>
+                        <Button onClick={exportPlanToExcel} variant="outline">Generate Excel</Button>
+                        <Button onClick={() => exportPlanToPDF(pdfTemplate)} variant="outline">Generate PDF (Work Order)</Button>
                     </div>
                 </CardContent>
             </Card>

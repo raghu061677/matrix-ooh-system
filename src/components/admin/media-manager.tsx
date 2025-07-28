@@ -45,6 +45,7 @@ import { ScrollArea } from '../ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
 import { Switch } from '../ui/switch';
 import { statesAndDistricts } from '@/lib/india-states';
+import { Card, CardContent, CardHeader } from '../ui/card';
 
 export function MediaManager() {
   const { user } = useAuth();
@@ -86,7 +87,9 @@ export function MediaManager() {
   };
 
   useEffect(() => {
-    getMediaAssets();
+    if(user) {
+      getMediaAssets();
+    }
   }, [user]);
   
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -118,12 +121,12 @@ export function MediaManager() {
 
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || files.length === 0 || !currentAsset?.id) return;
+    const assetId = currentAsset?.id;
+    if (!files || files.length === 0 || !assetId) return;
 
     setIsUploading(true);
     toast({ title: `Uploading ${files.length} image(s)...` });
 
-    const assetId = currentAsset.id;
     let currentImageUrls = formData.imageUrls || [];
 
     for (const file of Array.from(files)) {
@@ -147,10 +150,11 @@ export function MediaManager() {
       }
     }
     
-    // Batch update Firestore and local state once
+    setFormData(prev => ({ ...prev, imageUrls: [...currentImageUrls] }));
+    
+    // Batch update Firestore once
     const assetDoc = doc(db, 'mediaAssets', assetId);
     await updateDoc(assetDoc, { imageUrls: currentImageUrls });
-    setFormData(prev => ({ ...prev, imageUrls: currentImageUrls }));
     
     await getMediaAssets();
     setIsUploading(false);
@@ -198,7 +202,8 @@ export function MediaManager() {
     
     const dataToSave: Partial<Asset> = {
       ...Object.fromEntries(Object.entries(formData).filter(([_, v]) => v !== undefined)),
-      companyId: user.companyId
+      companyId: user.companyId,
+      updatedAt: new Date()
     };
 
     if (!dataToSave.multiface) {
@@ -304,7 +309,7 @@ export function MediaManager() {
               <TableHead>Location</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>SQFT</TableHead>
-              <TableHead>Rate</TableHead>
+              <TableHead>Card Rate</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -330,7 +335,7 @@ export function MediaManager() {
                 <TableCell>{asset.location}</TableCell>
                 <TableCell>{asset.status}</TableCell>
                 <TableCell>{(asset.totalSqft || 0) + (asset.multiface ? (asset.totalSqft2 || 0) : 0)}</TableCell>
-                <TableCell>{asset.rate?.toLocaleString('en-IN')}</TableCell>
+                <TableCell>{asset.cardRate?.toLocaleString('en-IN')}</TableCell>
 
                 <TableCell className="text-right">
                    <DropdownMenu>
@@ -489,41 +494,51 @@ export function MediaManager() {
                         </Select>
                       </div>
                       <div>
-                        <Label htmlFor="rate">Rate (per month)</Label>
-                        <Input id="rate" name="rate" type="number" value={formData.rate || ''} onChange={handleFormChange} />
+                        <Label htmlFor="cardRate">Card Rate (per month)</Label>
+                        <Input id="cardRate" name="cardRate" type="number" value={formData.cardRate || ''} onChange={handleFormChange} />
+                      </div>
+                      <div>
+                        <Label htmlFor="baseRate">Base Rate (per month)</Label>
+                        <Input id="baseRate" name="baseRate" type="number" value={formData.baseRate || ''} onChange={handleFormChange} />
                       </div>
                   </div>
 
-                  <div className="md:col-span-3 border-t pt-4 mt-4">
-                    <Label htmlFor="images">Asset Images</Label>
-                    <div className='flex items-center gap-4'>
-                        <Button type="button" variant="outline" size="sm" onClick={() => imageInputRef.current?.click()} disabled={!currentAsset?.id || isUploading}>
-                            <Upload className="mr-2 h-4 w-4"/>
-                            Upload Images
-                        </Button>
-                         {isUploading && <Loader2 className="animate-spin" />}
-                    </div>
+                  {currentAsset?.id && (
+                    <div className="md:col-span-3 border-t pt-4 mt-4">
+                        <Card>
+                            <CardHeader><Label htmlFor="images">Asset Images</Label></CardHeader>
+                            <CardContent>
+                                <div className='flex items-center gap-4'>
+                                    <Button type="button" variant="outline" size="sm" onClick={() => imageInputRef.current?.click()} disabled={isUploading}>
+                                        <Upload className="mr-2 h-4 w-4"/>
+                                        {isUploading ? <Loader2 className="animate-spin" /> : 'Upload Images'}
+                                    </Button>
+                                </div>
 
-                    <Input ref={imageInputRef} id="images" type="file" multiple accept="image/*" onChange={handleImageFileChange} className="hidden" />
+                                <Input ref={imageInputRef} id="images" type="file" multiple accept="image/*" onChange={handleImageFileChange} className="hidden" />
 
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {(formData.imageUrls || []).map(url => (
-                        <div key={url} className="relative h-24 w-24 group">
-                          <Image src={url} alt="Asset image" fill className="rounded-md object-cover" />
-                           <Button
-                              type="button"
-                              variant="destructive"
-                              size="icon"
-                              className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => handleDeleteImage(url)}
-                              disabled={isUploading}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                        </div>
-                      ))}
+                                <div className="mt-4 grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                                {(formData.imageUrls || []).map(url => (
+                                    <div key={url} className="relative h-24 w-24 group">
+                                    <Image src={url} alt="Asset image" fill className="rounded-md object-cover" />
+                                    <Button
+                                        type="button"
+                                        variant="destructive"
+                                        size="icon"
+                                        className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                        onClick={() => handleDeleteImage(url)}
+                                        disabled={isUploading}
+                                        >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                    </div>
+                                ))}
+                                </div>
+                            </CardContent>
+                        </Card>
                     </div>
-                  </div>
+                  )}
+
                 </div>
             </ScrollArea>
             <DialogFooter className="flex-shrink-0 pt-4 border-t">

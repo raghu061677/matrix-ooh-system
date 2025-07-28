@@ -114,13 +114,25 @@ export function MediaPlansManager() {
     }
 
     try {
+      // Calculate initial costs from selected assets
+      const initialCostSummary = selectedAssets.reduce((acc, asset) => {
+          acc.displayCost += asset.cardRate || 0;
+          return acc;
+      }, { displayCost: 0, printingCost: 0, installationCost: 0, totalBeforeTax: 0, gst: 0, grandTotal: 0});
+
+      initialCostSummary.totalBeforeTax = initialCostSummary.displayCost;
+      initialCostSummary.gst = initialCostSummary.totalBeforeTax * 0.18;
+      initialCostSummary.grandTotal = initialCostSummary.totalBeforeTax + initialCostSummary.gst;
+
+
       const newPlanData = {
         companyId: user.companyId,
         createdAt: serverTimestamp(),
         status: 'Draft',
         displayName: 'New Media Plan',
         mediaAssetIds: selectedAssets.map(asset => asset.id),
-        mediaAssets: selectedAssets // Storing full asset data for negotiation page
+        mediaAssets: selectedAssets, // Storing full asset data for negotiation page
+        costSummary: initialCostSummary
       };
 
       const docRef = await addDoc(collection(db, 'plans'), newPlanData);
