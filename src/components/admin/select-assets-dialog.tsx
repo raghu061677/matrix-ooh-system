@@ -22,9 +22,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { sampleAssets as allAssets, Asset } from './media-manager-types'; // Assuming types and data are externalized
+import { Asset } from './media-manager-types'; 
 import { Loader2, Search, Image as ImageIcon } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
 
 interface SelectAssetsDialogProps {
   isOpen: boolean;
@@ -41,18 +45,29 @@ export function SelectAssetsDialog({
   const [assets, setAssets] = React.useState<Asset[]>([]);
   const [selectedAssets, setSelectedAssets] = React.useState<Asset[]>([]);
   const [filter, setFilter] = React.useState('');
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   React.useEffect(() => {
-    if (isOpen) {
-      setLoading(true);
-      // Simulate fetching assets
-      setTimeout(() => {
-        setAssets(allAssets);
-        setLoading(false);
-      }, 500);
+    if (isOpen && user?.companyId) {
+      const fetchAssets = async () => {
+        setLoading(true);
+        try {
+          const q = query(collection(db, 'mediaAssets'), where('companyId', '==', user.companyId));
+          const querySnapshot = await getDocs(q);
+          const fetchedAssets = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
+          setAssets(fetchedAssets);
+        } catch (error) {
+          console.error("Error fetching assets: ", error);
+          toast({ variant: 'destructive', title: 'Error fetching assets.'});
+        } finally {
+          setLoading(false);
+        }
+      }
+      fetchAssets();
       setSelectedAssets([]); // Reset selection when dialog opens
     }
-  }, [isOpen]);
+  }, [isOpen, user, toast]);
 
   const handleSelect = (asset: Asset, isSelected: boolean) => {
     if (isSelected) {
@@ -82,7 +97,7 @@ export function SelectAssetsDialog({
     onAddToPlan(selectedAssets);
   };
   
-  const isAllSelected = selectedAssets.length > 0 && selectedAssets.length === filteredAssets.length;
+  const isAllSelected = filteredAssets.length > 0 && selectedAssets.length === filteredAssets.length;
   const isSomeSelected = selectedAssets.length > 0 && selectedAssets.length < filteredAssets.length;
 
 
@@ -110,29 +125,25 @@ export function SelectAssetsDialog({
             <Table>
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
-                  <TableHead padding="checkbox">
+                  <TableHead>
                     <Checkbox
                         checked={isAllSelected}
-                        indeterminate={isSomeSelected}
                         onCheckedChange={(checked) => handleSelectAll(Boolean(checked))}
                         aria-label="Select all"
                     />
                   </TableHead>
                   <TableHead>Image</TableHead>
-                  <TableHead>MID</TableHead>
+                  <TableHead>Name</TableHead>
                   <TableHead>Location</TableHead>
-                  <TableHead>Area</TableHead>
-                  <TableHead>Width</TableHead>
-                  <TableHead>Height</TableHead>
-                  <TableHead>Dimensions</TableHead>
-                  <TableHead>Lighting</TableHead>
-                  <TableHead>Card Rate</TableHead>
+                  <TableHead>Media Type</TableHead>
+                  <TableHead>Rate</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredAssets.map((asset) => (
                   <TableRow key={asset.id} data-state={selectedAssets.some(a => a.id === asset.id) && 'selected'}>
-                    <TableCell padding="checkbox">
+                    <TableCell>
                       <Checkbox
                         checked={selectedAssets.some(a => a.id === asset.id)}
                         onCheckedChange={(checked) => handleSelect(asset, Boolean(checked))}
@@ -154,14 +165,11 @@ export function SelectAssetsDialog({
                         </div>
                       )}
                     </TableCell>
-                    <TableCell className="font-medium">{asset.mid}</TableCell>
+                    <TableCell className="font-medium">{asset.name}</TableCell>
                     <TableCell>{asset.location}</TableCell>
-                    <TableCell>{asset.area}</TableCell>
-                    <TableCell>{asset.width1}</TableCell>
-                    <TableCell>{asset.height1}</TableCell>
-                    <TableCell>{asset.dimensions}</TableCell>
-                    <TableCell>{asset.light}</TableCell>
-                    <TableCell>{asset.cardRate?.toLocaleString('en-IN')}</TableCell>
+                    <TableCell>{asset.media}</TableCell>
+                    <TableCell>{asset.rate?.toLocaleString('en-IN')}</TableCell>
+                    <TableCell>{asset.status}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

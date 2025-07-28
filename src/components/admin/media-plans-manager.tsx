@@ -3,6 +3,7 @@
 
 import * as React from 'react';
 import { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, where, DocumentData } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,8 @@ import { format } from 'date-fns';
 import { MediaPlanFormDialog } from './media-plan-form-dialog';
 import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '../ui/badge';
+import { SelectAssetsDialog } from './select-assets-dialog';
+import { Asset } from './media-manager-types';
 
 const sampleData: MediaPlan[] = [
     { id: '1', customerId: 'customer-1', displayName: 'CRI Campaign', createdAt: new Date(), startDate: new Date('2025-07-26'), endDate: new Date('2025-08-24'), status: 'Draft', costSummary: { displayCost: 0, printingCost: 0, installationCost: 0, totalBeforeTax: 380000, gst: 68400, grandTotal: 448400 } },
@@ -47,9 +50,9 @@ export function MediaPlansManager() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [employees, setEmployees] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isPlanFormOpen, setIsPlanFormOpen] = useState(false);
-  const [currentPlan, setCurrentPlan] = useState<Partial<MediaPlan> | null>(null);
+  const [isAssetSelectorOpen, setIsAssetSelectorOpen] = useState(false);
   const { user } = useAuth();
+  const router = useRouter();
   
   const [filter, setFilter] = useState('');
 
@@ -101,38 +104,36 @@ export function MediaPlansManager() {
     fetchData();
   }, [user]);
 
-  const handleSave = async (planToSave: Partial<MediaPlan>) => {
+  const handleCreatePlanFromAssets = async (selectedAssets: Asset[]) => {
+    setIsAssetSelectorOpen(false);
     setLoading(true);
-    try {
-        if (currentPlan?.id) {
-          const planDoc = doc(db, 'plans', currentPlan.id);
-          await updateDoc(planDoc, planToSave);
-          toast({ title: 'Plan Updated!', description: 'The media plan has been successfully updated.' });
-        } else {
-          const newPlanData = {
-              ...planToSave,
-              companyId: user?.companyId,
-              createdAt: serverTimestamp(),
-          };
-          await addDoc(collection(db, 'plans'), newPlanData);
-          toast({ title: 'Plan Added!', description: 'The new media plan has been added.' });
-        }
-        await fetchData();
-        closePlanForm();
-    } catch (error) {
-         toast({ variant: 'destructive', title: 'Save failed', description: 'Could not save the plan. Please try again.' });
+    if (!user?.companyId || !selectedAssets || selectedAssets.length === 0) {
+      toast({ variant: 'destructive', title: 'Error', description: 'No assets selected or user not identified.' });
+      setLoading(false);
+      return;
     }
-    setLoading(false);
-  };
 
-  const openPlanForm = (plan: MediaPlan | null = null) => {
-    setCurrentPlan(plan);
-    setIsPlanFormOpen(true);
-  };
+    try {
+      const newPlanData = {
+        companyId: user.companyId,
+        createdAt: serverTimestamp(),
+        status: 'Draft',
+        displayName: 'New Media Plan',
+        mediaAssetIds: selectedAssets.map(asset => asset.id),
+        mediaAssets: selectedAssets // Storing full asset data for negotiation page
+      };
 
-  const closePlanForm = () => {
-    setIsPlanFormOpen(false);
-    setCurrentPlan(null);
+      const docRef = await addDoc(collection(db, 'plans'), newPlanData);
+      toast({ title: 'Plan Created!', description: 'Redirecting to the new plan details...' });
+      
+      // Redirect to the new plan's negotiation page to continue editing
+      router.push(`/admin/media-plans/${docRef.id}`);
+
+    } catch (error) {
+      console.error("Error creating new plan: ", error);
+      toast({ variant: 'destructive', title: 'Creation failed', description: 'Could not create the new plan.' });
+      setLoading(false);
+    }
   };
   
   const handleDelete = async (plan: MediaPlan) => {
@@ -152,7 +153,7 @@ export function MediaPlansManager() {
   }, [mediaPlans, filter, customers]);
 
   
-  if (loading && !isPlanFormOpen) {
+  if (loading && !isAssetSelectorOpen) {
     return (
         <div className="flex items-center justify-center h-48">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -180,7 +181,7 @@ export function MediaPlansManager() {
               AI Plan
             </Link>
           </Button>
-          <Button onClick={() => openPlanForm()}>
+          <Button onClick={() => setIsAssetSelectorOpen(true)}>
             <PlusCircle className="mr-2" />
             Add Plan
           </Button>
@@ -204,7 +205,7 @@ export function MediaPlansManager() {
                   <TableRow key={plan.id}>
                     <TableCell>
                       <Link href={`/admin/media-plans/${plan.id}`} className="font-medium text-blue-600 hover:underline">
-                        {customer?.name || plan.customerId}
+                        {customer?.name || plan.customerId || 'N/A'}
                       </Link>
                       <div className="text-xs text-muted-foreground">
                         {plan.createdAt ? format(new Date(plan.createdAt as any), 'dd MMM yyyy') : 'N/A'}
@@ -241,18 +242,19 @@ export function MediaPlansManager() {
                   </TableRow>
                )
             })}
+             {filteredPlans.length === 0 && (
+                <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">No plans found.</TableCell>
+                </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>
 
-      <MediaPlanFormDialog 
-        isOpen={isPlanFormOpen}
-        onOpenChange={setIsPlanFormOpen}
-        plan={currentPlan}
-        customers={customers}
-        employees={employees}
-        onSave={handleSave}
-        loading={loading}
+      <SelectAssetsDialog 
+        isOpen={isAssetSelectorOpen}
+        onOpenChange={setIsAssetSelectorOpen}
+        onAddToPlan={handleCreatePlanFromAssets}
       />
     </>
   );
