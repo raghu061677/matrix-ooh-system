@@ -28,6 +28,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -39,14 +42,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2, Loader2, Image as ImageIcon, MoreHorizontal, X, Upload } from 'lucide-react';
-import { Asset, sampleAssets, AssetStatus, AssetOwnership, mediaTypes } from './media-manager-types';
+import { PlusCircle, Edit, Trash2, Loader2, Image as ImageIcon, MoreHorizontal, X, Upload, ArrowUpDown, Settings } from 'lucide-react';
+import { Asset, sampleAssets, AssetStatus, AssetOwnership, mediaTypes, lightTypes, AssetLightType } from './media-manager-types';
 import { ScrollArea } from '../ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
 import { Switch } from '../ui/switch';
 import { statesAndDistricts } from '@/lib/india-states';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import ExifParser from 'exif-parser';
+
+type SortConfig = {
+  key: keyof Asset;
+  direction: 'ascending' | 'descending';
+} | null;
 
 export function MediaManager() {
   const { user } = useAuth();
@@ -60,6 +68,19 @@ export function MediaManager() {
   
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [filter, setFilter] = useState('');
+  const [sortConfig, setSortConfig] = useState<SortConfig>(null);
+  const [columnVisibility, setColumnVisibility] = useState({
+      iid: true,
+      name: true,
+      location: true,
+      area: true,
+      media: true,
+      lightType: true,
+      status: true,
+      totalSqft: true,
+      cardRate: true,
+  });
+
 
   const { toast } = useToast();
   const mediaAssetsCollectionRef = collection(db, 'mediaAssets');
@@ -92,6 +113,14 @@ export function MediaManager() {
       getMediaAssets();
     }
   }, [user]);
+
+  const requestSort = (key: keyof Asset) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
   
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
@@ -276,6 +305,7 @@ export function MediaManager() {
   
   const sortedAndFilteredAssets = useMemo(() => {
     let sortableAssets = [...mediaAssets];
+
     if (filter) {
       sortableAssets = sortableAssets.filter(asset =>
         Object.values(asset).some(val => 
@@ -283,8 +313,26 @@ export function MediaManager() {
         )
       );
     }
+
+    if (sortConfig !== null) {
+      sortableAssets.sort((a, b) => {
+        const aValue = a[sortConfig.key];
+        const bValue = b[sortConfig.key];
+
+        if (aValue === undefined || aValue === null) return 1;
+        if (bValue === undefined || bValue === null) return -1;
+        
+        if (aValue < bValue) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
     return sortableAssets;
-  }, [mediaAssets, filter]);
+  }, [mediaAssets, filter, sortConfig]);
 
   const combinedSqft = useMemo(() => {
     const sqft1 = formData.totalSqft || 0;
@@ -300,6 +348,15 @@ export function MediaManager() {
     );
   }
 
+  const renderSortableHeader = (label: string, key: keyof Asset) => (
+    <TableHead>
+        <Button variant="ghost" onClick={() => requestSort(key)}>
+            {label}
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+    </TableHead>
+  );
+
   return (
     <>
       <div className="flex justify-between items-center mb-6 gap-4">
@@ -312,6 +369,29 @@ export function MediaManager() {
           />
         </div>
         <div className="flex items-center gap-2">
+           <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon">
+                        <Settings className="h-4 w-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {Object.keys(columnVisibility).map(key => (
+                        <DropdownMenuCheckboxItem
+                            key={key}
+                            className="capitalize"
+                            checked={columnVisibility[key as keyof typeof columnVisibility]}
+                            onCheckedChange={value =>
+                                setColumnVisibility(prev => ({...prev, [key]: !!value}))
+                            }
+                        >
+                            {key.replace(/([A-Z])/g, ' $1')}
+                        </DropdownMenuCheckboxItem>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
           <Button onClick={() => openDialog()}>
             <PlusCircle className="mr-2" />
             Add New Asset
@@ -323,11 +403,15 @@ export function MediaManager() {
           <TableHeader>
             <TableRow>
               <TableHead>Image</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Location</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>SQFT</TableHead>
-              <TableHead>Card Rate</TableHead>
+              {columnVisibility.iid && <TableHead>ID</TableHead>}
+              {columnVisibility.name && renderSortableHeader('Name', 'name')}
+              {columnVisibility.location && <TableHead>Location</TableHead>}
+              {columnVisibility.area && renderSortableHeader('Area', 'area')}
+              {columnVisibility.media && renderSortableHeader('Type', 'media')}
+              {columnVisibility.lightType && renderSortableHeader('Light', 'lightType')}
+              {columnVisibility.status && <TableHead>Status</TableHead>}
+              {columnVisibility.totalSqft && <TableHead>SQFT</TableHead>}
+              {columnVisibility.cardRate && renderSortableHeader('Card Rate', 'cardRate')}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -349,11 +433,15 @@ export function MediaManager() {
                     </div>
                   )}
                 </TableCell>
-                <TableCell className="font-medium">{asset.name}</TableCell>
-                <TableCell>{asset.location}</TableCell>
-                <TableCell>{asset.status}</TableCell>
-                <TableCell>{(asset.totalSqft || 0) + (asset.multiface ? (asset.totalSqft2 || 0) : 0)}</TableCell>
-                <TableCell>{asset.cardRate?.toLocaleString('en-IN')}</TableCell>
+                {columnVisibility.iid && <TableCell>{asset.iid}</TableCell>}
+                {columnVisibility.name && <TableCell className="font-medium">{asset.name}</TableCell>}
+                {columnVisibility.location && <TableCell>{asset.location}</TableCell>}
+                {columnVisibility.area && <TableCell>{asset.area}</TableCell>}
+                {columnVisibility.media && <TableCell>{asset.media}</TableCell>}
+                {columnVisibility.lightType && <TableCell>{asset.lightType}</TableCell>}
+                {columnVisibility.status && <TableCell>{asset.status}</TableCell>}
+                {columnVisibility.totalSqft && <TableCell>{(asset.totalSqft || 0) + (asset.multiface ? (asset.totalSqft2 || 0) : 0)}</TableCell>}
+                {columnVisibility.cardRate && <TableCell>{asset.cardRate?.toLocaleString('en-IN')}</TableCell>}
 
                 <TableCell className="text-right">
                    <DropdownMenu>
@@ -516,6 +604,17 @@ export function MediaManager() {
                           <SelectContent>
                             <SelectItem value="own">Own</SelectItem>
                             <SelectItem value="rented">Rented</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                        <div>
+                        <Label htmlFor="lightType">Light Type</Label>
+                         <Select onValueChange={(value) => handleSelectChange('lightType', value as AssetLightType)} value={formData.lightType}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select light type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {lightTypes.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>

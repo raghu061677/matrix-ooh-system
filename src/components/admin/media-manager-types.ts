@@ -1,6 +1,7 @@
 
 export type AssetStatus = 'active' | 'booked' | 'blocked' | 'deleted';
 export type AssetOwnership = 'own' | 'rented';
+export type AssetLightType = 'Frontlit' | 'Backlit' | 'Unlit' | 'Ambient';
 
 export interface Asset {
   id: string; // Document ID from Firestore
@@ -19,6 +20,7 @@ export interface Asset {
   
   // Details
   media?: string; // e.g., "Hoarding", "Unipole"
+  lightType?: AssetLightType;
   status: AssetStatus;
   cardRate?: number;
   baseRate?: number;
@@ -48,4 +50,8 @@ export const sampleAssets: Asset[] = [
 
 export const mediaTypes = [
     'Hoarding', 'Unipole', 'Gantry', 'Cantilever', 'Bus Shelter', 'Center Median', 'Wall Wrap', 'Metro Pillar'
+];
+
+export const lightTypes: AssetLightType[] = [
+    'Frontlit', 'Backlit', 'Unlit', 'Ambient'
 ];
