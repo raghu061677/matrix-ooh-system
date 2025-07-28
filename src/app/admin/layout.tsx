@@ -410,36 +410,6 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ProtectedAdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.replace('/login');
-    }
-  }, [user, loading, router]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (user) {
-    return <AdminLayoutContent>{children}</AdminLayoutContent>;
-  }
-  
-  return (
-     <div className="flex items-center justify-center h-screen bg-background">
-      <Loader2 className="h-12 w-12 animate-spin text-primary" />
-    </div>
-  );
-}
-
-
 export default function AdminLayout({
   children,
 }: {
@@ -448,7 +418,7 @@ export default function AdminLayout({
   return (
     <ThemeProvider>
       <AuthProvider>
-        <ProtectedAdminLayout>{children}</ProtectedAdminLayout>
+        <AdminLayoutContent>{children}</AdminLayoutContent>
       </AuthProvider>
     </ThemeProvider>
   );
