@@ -9,6 +9,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import axios from 'axios';
 
 const GstDetailsInputSchema = z.object({
   gstNumber: z.string().describe('The GST number of the business.'),
@@ -25,21 +26,35 @@ const GstDetailsOutputSchema = z.object({
 });
 type GstDetailsOutput = z.infer<typeof GstDetailsOutputSchema>;
 
-// This is a mock function. In a real scenario, this would call a GST API.
+// This function calls a public API to fetch GST details.
 async function getGstDataFromApi(gstNumber: string): Promise<GstDetailsOutput> {
     console.log(`Fetching data for GST: ${gstNumber}`);
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // Return mock data
-    return {
-        legalName: 'ACME CORPORATION INDIA PVT LTD',
-        tradeName: 'ACME Anvils',
-        address: '123, M.G. Road, Film Nagar',
-        city: 'Hyderabad',
-        state: 'Telangana',
-        pincode: '500096',
-    };
+    try {
+        const response = await axios.get(`https://gst-api.webmasterdev.repl.co/api/search?gstin=${gstNumber}`);
+        
+        if (response.data && response.data.data) {
+            const data = response.data.data;
+            const addressParts = data.pradr.addr.split(', ');
+            
+            return {
+                legalName: data.lgnm || '',
+                tradeName: data.tradeNam || '',
+                address: data.pradr.addr || '',
+                city: data.pradr.addr.split(',').slice(-2, -1)[0]?.trim() || '',
+                state: data.pradr.addr.split(',').slice(-3, -2)[0]?.trim() || '',
+                pincode: data.pradr.addr.match(/\d{6}$/)?.[0] || '',
+            };
+        } else {
+            throw new Error('Invalid response structure from GST API');
+        }
+    } catch (error: any) {
+        console.error('Error fetching from GST API:', error.message);
+        if (error.response) {
+            console.error('API Response:', error.response.data);
+        }
+        throw new Error('Could not fetch details for the provided GST number. Please check the number and try again.');
+    }
 }
 
 export async function fetchGstDetails(input: GstDetailsInput): Promise<GstDetailsOutput> {
@@ -53,8 +68,6 @@ const fetchGstDetailsFlow = ai.defineFlow(
     outputSchema: GstDetailsOutputSchema,
   },
   async (input) => {
-    // In a real application, you would call an external API here.
-    // For this example, we are using a mock function.
     const details = await getGstDataFromApi(input.gstNumber);
     return details;
   }
