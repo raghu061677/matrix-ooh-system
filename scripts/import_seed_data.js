@@ -18,9 +18,15 @@ async function importAll() {
   for (const [collection, entries] of Object.entries(seedData)) {
     if (Array.isArray(entries)) {
         for (const entry of entries) {
-          await db.collection(collection).add(entry);
+          // Check for existing customer with the same GST to avoid duplicates
+          const existingCustomerQuery = await db.collection(collection).where('gst', '==', entry.gst).get();
+          if (existingCustomerQuery.empty) {
+            await db.collection(collection).add(entry);
+          } else {
+            console.log(`Skipping duplicate customer with GST: ${entry.gst}`);
+          }
         }
-        console.log(`Imported ${entries.length} entries into ${collection}`);
+        console.log(`Imported ${entries.length} entries (or skipped duplicates) into ${collection}`);
     } else {
         console.warn(`Skipping '${collection}' as it is not an array.`);
     }
