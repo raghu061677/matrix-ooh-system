@@ -83,7 +83,7 @@ export function MediaManager() {
       status: true,
       totalSqft: true,
       cardRate: true,
-      baseRate: true,
+      baseRate: false,
   });
 
 
@@ -129,7 +129,7 @@ export function MediaManager() {
   
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
-    setFormData(prev => ({ ...prev, [name]: type === 'number' ? parseFloat(value) || undefined : value }));
+    setFormData(prev => ({ ...prev, [name]: type === 'number' ? parseFloat(value) || 0 : value }));
   };
   
   const handleSizeChange = (e: React.ChangeEvent<HTMLInputElement>, face: 1 | 2) => {
@@ -143,7 +143,7 @@ export function MediaManager() {
     setFormData(prev => ({ 
         ...prev, 
         [sizeKey]: newSize,
-        [sqftKey]: totalSqft > 0 ? totalSqft : undefined
+        [sqftKey]: totalSqft > 0 ? totalSqft : 0
     }));
   };
 
@@ -156,8 +156,32 @@ export function MediaManager() {
 
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    const assetId = currentAsset?.id;
-    if (!files || files.length === 0 || !assetId) return;
+    let assetId = currentAsset?.id;
+
+    if (!files || files.length === 0) return;
+    
+    // If it's a new asset, save it first to get an ID.
+    if (!assetId) {
+        toast({ title: "Saving Asset...", description: "Please wait, creating asset before uploading images." });
+        const newDocRef = await addDoc(mediaAssetsCollectionRef, { 
+            ...formData, 
+            companyId: user?.companyId, 
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            imageUrls: [] 
+        });
+        assetId = newDocRef.id;
+        const newAsset = { ...formData, id: assetId, imageUrls: [] } as Asset;
+        setCurrentAsset(newAsset);
+        setFormData(newAsset);
+        await getMediaAssets();
+    }
+    
+    if (!assetId) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not create asset. Please try saving again.'});
+        return;
+    }
+
 
     setIsUploading(true);
     toast({ title: `Uploading ${files.length} image(s)...` });
@@ -259,8 +283,8 @@ export function MediaManager() {
     };
 
     if (!dataToSave.multiface) {
-        dataToSave.size2 = undefined;
-        dataToSave.totalSqft2 = undefined;
+        delete dataToSave.size2;
+        delete dataToSave.totalSqft2;
     }
 
     try {
@@ -277,10 +301,10 @@ export function MediaManager() {
       }
       
       await getMediaAssets();
-      if (!currentAsset?.id) closeDialog(); // Close only when creating a new one
+       if (!currentAsset?.id) closeDialog(); // Close only when creating a new one
     } catch (error) {
         console.error("Error saving asset: ", error);
-        toast({ variant: 'destructive', title: 'Save failed', description: 'Could not save asset details.' });
+        toast({ variant: 'destructive', title: 'Save failed', description: `Could not save asset details. ${error}` });
     } finally {
       setIsSaving(false);
     }
@@ -720,7 +744,7 @@ export function MediaManager() {
                       </div>
                   </div>
 
-                  {currentAsset?.id && (
+                  
                     <div className="md:col-span-3 border-t pt-4 mt-4">
                         <Card>
                             <CardHeader><Label htmlFor="images">Asset Images</Label></CardHeader>
@@ -754,7 +778,7 @@ export function MediaManager() {
                             </CardContent>
                         </Card>
                     </div>
-                  )}
+                  
 
                 </div>
             </ScrollArea>
