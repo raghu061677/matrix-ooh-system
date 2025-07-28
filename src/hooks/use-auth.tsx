@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
@@ -31,14 +32,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
             const userDocRef = doc(db, 'users', fbUser.uid);
             const userDoc = await getDoc(userDocRef);
+            
             if (userDoc.exists()) {
-              const userData = { id: userDoc.id, uid: userDoc.id, ...userDoc.data() } as User;
+              let userData = { id: userDoc.id, uid: userDoc.id, ...userDoc.data() } as User;
+              
+              // Hardcode the superadmin role for the specified email
+              if (userData.email === 'raghu@matrix-networksolutions.com') {
+                userData.role = 'superadmin';
+              }
+              
               setUser(userData);
             } else {
-              // This case can happen if a user exists in Firebase Auth but not in Firestore.
-              // For a secure app, you might want to log them out or create a default profile.
               console.warn(`No user document found in Firestore for UID: ${fbUser.uid}`);
-              setUser(null);
+              // If it's the superadmin email, create a temporary user object
+              if (fbUser.email === 'raghu@matrix-networksolutions.com') {
+                  setUser({
+                      id: fbUser.uid,
+                      uid: fbUser.uid,
+                      name: 'Raghu (Super Admin)',
+                      email: fbUser.email,
+                      role: 'superadmin',
+                      status: 'active'
+                  });
+              } else {
+                  setUser(null);
+              }
             }
         } catch (error) {
             console.error("Error fetching user document from Firestore:", error);
