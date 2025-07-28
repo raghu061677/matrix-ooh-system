@@ -74,16 +74,22 @@ export function MediaManager() {
   const [filter, setFilter] = useState('');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const [columnVisibility, setColumnVisibility] = useState({
-      iid: true,
-      name: true,
-      location: true,
+      iid: true, // Media Code
+      media: true, // Media Type
+      latitude: true,
+      longitude: true,
+      district: true,
       area: true,
-      media: true,
+      location: true,
+      direction: true,
+      dimensions: true, // Dimension
+      width: true,
+      height: true,
+      totalSqft: true, // Sft
       lightType: true,
-      status: true,
-      totalSqft: true,
+      baseRate: true,
       cardRate: true,
-      baseRate: false,
+      status: true,
   });
 
 
@@ -143,7 +149,8 @@ export function MediaManager() {
     setFormData(prev => ({ 
         ...prev, 
         [sizeKey]: newSize,
-        [sqftKey]: totalSqft > 0 ? totalSqft : 0
+        [sqftKey]: totalSqft > 0 ? totalSqft : 0,
+        dimensions: `${newSize.width || 0} x ${newSize.height || 0}`
     }));
   };
 
@@ -277,7 +284,7 @@ export function MediaManager() {
     setIsSaving(true);
     
     const dataToSave: Partial<Asset> = {
-      ...Object.fromEntries(Object.entries(formData).filter(([_, v]) => v !== undefined)),
+      ...Object.fromEntries(Object.entries(formData).filter(([key, v]) => v !== undefined && key !== 'id')),
       companyId: user.companyId,
       updatedAt: new Date()
     };
@@ -518,16 +525,22 @@ export function MediaManager() {
           <TableHeader>
             <TableRow>
               <TableHead>Image</TableHead>
-              {columnVisibility.iid && <TableHead>ID</TableHead>}
-              {columnVisibility.name && renderSortableHeader('Name', 'name')}
-              {columnVisibility.location && <TableHead>Location</TableHead>}
+              {columnVisibility.iid && <TableHead>Media Code</TableHead>}
+              {columnVisibility.media && renderSortableHeader('Media Type', 'media')}
+              {columnVisibility.latitude && <TableHead>Latitude</TableHead>}
+              {columnVisibility.longitude && <TableHead>Longitude</TableHead>}
+              {columnVisibility.district && <TableHead>District</TableHead>}
               {columnVisibility.area && renderSortableHeader('Area', 'area')}
-              {columnVisibility.media && renderSortableHeader('Type', 'media')}
-              {columnVisibility.lightType && renderSortableHeader('Light', 'lightType')}
-              {columnVisibility.status && <TableHead>Status</TableHead>}
-              {columnVisibility.totalSqft && <TableHead>SQFT</TableHead>}
-              {columnVisibility.cardRate && renderSortableHeader('Card Rate', 'cardRate')}
+              {columnVisibility.location && <TableHead>Location</TableHead>}
+              {columnVisibility.direction && <TableHead>Direction</TableHead>}
+              {columnVisibility.dimensions && <TableHead>Dimension</TableHead>}
+              {columnVisibility.width && <TableHead>Width</TableHead>}
+              {columnVisibility.height && <TableHead>Height</TableHead>}
+              {columnVisibility.totalSqft && <TableHead>Sft</TableHead>}
+              {columnVisibility.lightType && renderSortableHeader('Light Type', 'lightType')}
               {columnVisibility.baseRate && renderSortableHeader('Base Rate', 'baseRate')}
+              {columnVisibility.cardRate && renderSortableHeader('Card Rate', 'cardRate')}
+              {columnVisibility.status && <TableHead>Status</TableHead>}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -550,15 +563,21 @@ export function MediaManager() {
                   )}
                 </TableCell>
                 {columnVisibility.iid && <TableCell>{asset.iid}</TableCell>}
-                {columnVisibility.name && <TableCell className="font-medium">{asset.name}</TableCell>}
-                {columnVisibility.location && <TableCell>{asset.location}</TableCell>}
-                {columnVisibility.area && <TableCell>{asset.area}</TableCell>}
                 {columnVisibility.media && <TableCell>{asset.media}</TableCell>}
-                {columnVisibility.lightType && <TableCell>{asset.lightType}</TableCell>}
-                {columnVisibility.status && <TableCell>{asset.status}</TableCell>}
+                {columnVisibility.latitude && <TableCell>{asset.latitude}</TableCell>}
+                {columnVisibility.longitude && <TableCell>{asset.longitude}</TableCell>}
+                {columnVisibility.district && <TableCell>{asset.district}</TableCell>}
+                {columnVisibility.area && <TableCell>{asset.area}</TableCell>}
+                {columnVisibility.location && <TableCell>{asset.location}</TableCell>}
+                {columnVisibility.direction && <TableCell>{asset.direction}</TableCell>}
+                {columnVisibility.dimensions && <TableCell>{asset.dimensions}</TableCell>}
+                {columnVisibility.width && <TableCell>{asset.size?.width}</TableCell>}
+                {columnVisibility.height && <TableCell>{asset.size?.height}</TableCell>}
                 {columnVisibility.totalSqft && <TableCell>{(asset.totalSqft || 0) + (asset.multiface ? (asset.totalSqft2 || 0) : 0)}</TableCell>}
-                {columnVisibility.cardRate && <TableCell>{asset.cardRate?.toLocaleString('en-IN')}</TableCell>}
+                {columnVisibility.lightType && <TableCell>{asset.lightType}</TableCell>}
                 {columnVisibility.baseRate && <TableCell>{asset.baseRate?.toLocaleString('en-IN')}</TableCell>}
+                {columnVisibility.cardRate && <TableCell>{asset.cardRate?.toLocaleString('en-IN')}</TableCell>}
+                {columnVisibility.status && <TableCell>{asset.status}</TableCell>}
                 <TableCell className="text-right">
                    <DropdownMenu>
                     <DropdownMenuTrigger asChild>
