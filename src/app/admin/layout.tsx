@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, ReactNode } from 'react';
@@ -54,14 +55,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
-  
+  // This check is a fallback, but the main protection is in ProtectedAdminLayout
    if (!firebaseUser || !user) {
      return (
       <div className="flex flex-col items-center justify-center h-screen bg-background">
@@ -432,7 +426,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 }
 
 function ProtectedAdminLayout({ children }: { children: ReactNode }) {
-  const { firebaseUser, loading } = useAuth();
+  const { user, firebaseUser, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -441,7 +435,9 @@ function ProtectedAdminLayout({ children }: { children: ReactNode }) {
     }
   }, [firebaseUser, loading, router]);
 
-  if (loading || !firebaseUser) {
+  if (loading || !firebaseUser || !user) {
+    // If loading, or if authentication is done and there's no user, show spinner.
+    // This covers the case where the user profile is still being fetched from Firestore.
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
