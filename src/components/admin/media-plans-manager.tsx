@@ -29,10 +29,11 @@ import { Customer, User } from '@/types/firestore';
 import { format } from 'date-fns';
 import { MediaPlanFormDialog } from './media-plan-form-dialog';
 import { useAuth } from '@/hooks/use-auth';
+import { Badge } from '../ui/badge';
 
 const sampleData: MediaPlan[] = [
-    { id: '1', customerId: 'customer-1', displayName: 'CRI Campaign', startDate: new Date('2025-07-26'), endDate: new Date('2025-08-24'), status: 'Draft', costSummary: { totalBeforeTax: 380000, grandTotal: 448400 } },
-    { id: '2', customerId: 'customer-2', displayName: 'Matrix Launch', startDate: new Date('2025-07-24'), endDate: new Date('2025-08-22'), status: 'Draft', costSummary: { totalBeforeTax: 500000, grandTotal: 590000 } },
+    { id: '1', customerId: 'customer-1', displayName: 'CRI Campaign', createdAt: new Date(), startDate: new Date('2025-07-26'), endDate: new Date('2025-08-24'), status: 'Draft', costSummary: { displayCost: 0, printingCost: 0, installationCost: 0, totalBeforeTax: 380000, gst: 68400, grandTotal: 448400 } },
+    { id: '2', customerId: 'customer-2', displayName: 'Matrix Launch', createdAt: new Date(), startDate: new Date('2025-07-24'), endDate: new Date('2025-08-22'), status: 'Draft', costSummary: { displayCost: 0, printingCost: 0, installationCost: 0, totalBeforeTax: 500000, gst: 90000, grandTotal: 590000 } },
 ];
 
 const mockEmployees: User[] = [
@@ -146,7 +147,7 @@ export function MediaPlansManager() {
       const customer = customers.find(c => c.id === plan.customerId);
       const customerName = customer?.name || '';
       const searchTerm = filter.toLowerCase();
-      return customerName.toLowerCase().includes(searchTerm) || plan.status.toLowerCase().includes(searchTerm) || (plan.displayName || '').toLowerCase().includes(searchTerm);
+      return customerName.toLowerCase().includes(searchTerm) || (plan.status || '').toLowerCase().includes(searchTerm) || (plan.displayName || '').toLowerCase().includes(searchTerm);
     });
   }, [mediaPlans, filter, customers]);
 
@@ -190,8 +191,8 @@ export function MediaPlansManager() {
           <TableHeader>
             <TableRow>
               <TableHead>Customer</TableHead>
-              <TableHead>Created At</TableHead>
               <TableHead>Display Name</TableHead>
+              <TableHead>Value</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -205,10 +206,17 @@ export function MediaPlansManager() {
                       <Link href={`/admin/media-plans/${plan.id}`} className="font-medium text-blue-600 hover:underline">
                         {customer?.name || plan.customerId}
                       </Link>
+                      <div className="text-xs text-muted-foreground">
+                        {plan.createdAt ? format(new Date(plan.createdAt as any), 'dd MMM yyyy') : 'N/A'}
+                      </div>
                     </TableCell>
-                    <TableCell>{plan.createdAt ? format(new Date(plan.createdAt as any), 'dd MMM yyyy') : 'N/A'}</TableCell>
                     <TableCell>{plan.displayName}</TableCell>
-                    <TableCell>{plan.status}</TableCell>
+                    <TableCell>
+                        {plan.costSummary?.grandTotal ? `₹${plan.costSummary.grandTotal.toLocaleString('en-IN')}` : 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                        <Badge variant={plan.status === 'Approved' ? 'default' : 'secondary'} className="capitalize">{plan.status}</Badge>
+                    </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -249,5 +257,3 @@ export function MediaPlansManager() {
     </>
   );
 }
-
-    
