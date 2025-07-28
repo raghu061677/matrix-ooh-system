@@ -16,6 +16,10 @@ export interface Asset {
   status: AssetStatus;
   rate?: number;
   ownership?: AssetOwnership;
+  dimensions?: string;
+  size?: { width?: number; height?: number };
+  totalSqft?: number;
+  multiface?: boolean;
   
   // Images
   imageUrls?: string[];

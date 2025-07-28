@@ -49,6 +49,7 @@ import { PlusCircle, Edit, Trash2, Loader2, Image as ImageIcon, MoreHorizontal, 
 import { Asset, sampleAssets, AssetStatus, AssetOwnership } from './media-manager-types';
 import { ScrollArea } from '../ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
+import { Switch } from '../ui/switch';
 
 export function MediaManager() {
   const { user } = useAuth();
@@ -96,6 +97,17 @@ export function MediaManager() {
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
     setFormData(prev => ({ ...prev, [name]: type === 'number' ? parseFloat(value) || undefined : value }));
+  };
+  
+  const handleSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    const newSize = { ...formData.size, [name]: parseFloat(value) || 0 };
+    const totalSqft = (newSize.width || 0) * (newSize.height || 0);
+    setFormData(prev => ({ 
+        ...prev, 
+        size: newSize,
+        totalSqft: totalSqft > 0 ? totalSqft : undefined
+    }));
   };
 
   const handleSelectChange = (name: keyof Asset, value: string) => {
@@ -278,6 +290,7 @@ export function MediaManager() {
               <TableHead>Name</TableHead>
               <TableHead>Location</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>SQFT</TableHead>
               <TableHead>Rate</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -303,6 +316,7 @@ export function MediaManager() {
                 <TableCell className="font-medium">{asset.name}</TableCell>
                 <TableCell>{asset.location}</TableCell>
                 <TableCell>{asset.status}</TableCell>
+                <TableCell>{asset.totalSqft}</TableCell>
                 <TableCell>{asset.rate?.toLocaleString('en-IN')}</TableCell>
 
                 <TableCell className="text-right">
@@ -348,6 +362,32 @@ export function MediaManager() {
                   <div>
                     <Label htmlFor="location">Location</Label>
                     <Input id="location" name="location" value={formData.location || ''} onChange={handleFormChange} />
+                  </div>
+
+                   <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <Label htmlFor="width">Width (ft)</Label>
+                        <Input id="width" name="width" type="number" value={formData.size?.width || ''} onChange={handleSizeChange} />
+                    </div>
+                    <div>
+                        <Label htmlFor="height">Height (ft)</Label>
+                        <Input id="height" name="height" type="number" value={formData.size?.height || ''} onChange={handleSizeChange} />
+                    </div>
+                  </div>
+
+                   <div>
+                    <Label htmlFor="totalSqft">Total SQFT</Label>
+                    <Input id="totalSqft" name="totalSqft" type="number" value={formData.totalSqft || ''} readOnly className="bg-muted" />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="dimensions">Dimensions</Label>
+                    <Input id="dimensions" name="dimensions" value={formData.dimensions || ''} onChange={handleFormChange} />
+                  </div>
+
+                  <div className="flex items-center space-x-2 pt-6">
+                    <Switch id="multiface" checked={formData.multiface} onCheckedChange={(checked) => setFormData(prev => ({...prev, multiface: checked}))} />
+                    <Label htmlFor="multiface">Multi-face</Label>
                   </div>
 
                   <div>
@@ -422,5 +462,3 @@ export function MediaManager() {
     </TooltipProvider>
   );
 }
-
-    
