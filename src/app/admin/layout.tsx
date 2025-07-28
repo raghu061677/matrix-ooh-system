@@ -33,10 +33,10 @@ import { cn } from '@/lib/utils';
 import { ThemeProvider, useTheme } from '@/components/admin/theme-provider';
 import { ThemeToggle } from '@/components/admin/theme-toggle';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { AuthProvider, useAuth } from '@/hooks/use-auth.tsx';
+import { AuthProvider, useAuth } from '@/hooks/use-auth';
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
-  const { firebaseUser, loading } = useAuth();
+  const { user, firebaseUser, loading } = useAuth();
   const router = useRouter();
   const auth = getAuth(firebaseApp);
   const pathname = usePathname();
@@ -62,7 +62,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
-  if (loading || !firebaseUser) {
+  if (loading || !firebaseUser || !user) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -440,3 +440,5 @@ export default function AdminLayout({
     </ThemeProvider>
   );
 }
+
+    
