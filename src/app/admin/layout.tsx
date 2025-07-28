@@ -25,7 +25,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem
 } from '@/components/ui/sidebar';
-import { Projector, LayoutGrid, ListChecks, FileText, LogOut, Loader2, Home, Users, ReceiptText, FilePieChart, AreaChart, Dot, ChevronDown, Wrench, Package, Image as ImageIcon, Zap, Printer, Fuel, Building, Settings, Briefcase, MessageSquare } from 'lucide-react';
+import { Projector, LayoutGrid, ListChecks, FileText, LogOut, Loader2, Home, Users, ReceiptText, FilePieChart, AreaChart, Dot, ChevronDown, Wrench, Package, Image as ImageIcon, Zap, Printer, Fuel, Building, Settings, Briefcase, MessageSquare, Bot, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -90,6 +90,14 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                    </Link>
                  </SidebarMenuButton>
               </SidebarMenuItem>
+              <SidebarMenuItem>
+                 <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/ai-planner')} tooltip="AI Planner">
+                   <Link href="/admin/ai-planner">
+                    <Bot />
+                    <span className="whitespace-nowrap">AI Planner</span>
+                   </Link>
+                 </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
 
              <Collapsible open={mediaOpen} onOpenChange={setMediaOpen} className="w-full">
@@ -132,6 +140,14 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                            <Link href="/admin/campaigns">
                             <ListChecks />
                             <span className="whitespace-nowrap">Campaigns</span>
+                           </Link>
+                         </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                         <SidebarMenuSubButton asChild isActive={pathname.startsWith('/admin/media-assets/auto-avails')}>
+                           <Link href="/admin/media-assets/auto-avails">
+                            <Send />
+                            <span className="whitespace-nowrap">Auto Avails</span>
                            </Link>
                          </SidebarMenuSubButton>
                       </SidebarMenuSubItem>

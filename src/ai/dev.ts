@@ -13,3 +13,4 @@ import '@/ai/flows/convert-plan-to-campaign.ts';
 import '@/ai/flows/generate-campaign-ppt.ts';
 import '@/ai/flows/generate-monthly-sales-summary.ts';
 import '@/ai/flows/manage-operations.ts';
+import '@/ai/flows/generate-plan-from-prompt.ts';
