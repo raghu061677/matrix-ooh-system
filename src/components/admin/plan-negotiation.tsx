@@ -25,26 +25,37 @@ import { ChevronLeft, MoreHorizontal, Search, Settings, FileDown } from 'lucide-
 import Link from 'next/link';
 import { Separator } from '../ui/separator';
 import { ScrollArea } from '../ui/scroll-area';
+import { db } from '@/lib/firebase';
+import { getDoc, doc } from 'firebase/firestore';
 
 interface PlanNegotiationProps {
   plan: MediaPlan;
 }
 
 const InfoRow: React.FC<{ label: string; value?: string | number | null; children?: React.ReactNode; className?: string; valueClassName?: string }> = ({ label, value, children, className, valueClassName }) => (
-    <div className={("flex justify-between items-center text-sm py-1", className)}>
+    <div className={("flex justify-between items-center text-sm py-1 " + className)}>
         <span className="text-muted-foreground">{label}</span>
-        {value !== undefined && value !== null ? <span className={("font-medium", valueClassName)}>{value}</span> : children}
+        {value !== undefined && value !== null ? <span className={"font-medium " + valueClassName}>{value}</span> : children}
     </div>
 );
 
 export function PlanNegotiation({ plan: initialPlan }: PlanNegotiationProps) {
     const [plan, setPlan] = React.useState(initialPlan);
-    const [assets, setAssets] = React.useState<Asset[]>([]);
+    const [assets, setAssets] = React.useState<any[]>([]);
 
     React.useEffect(() => {
-        // In a real app, you would fetch the assets associated with the plan.
-        // For now, we'll use a subset of sample assets.
-        setAssets(sampleAssets.slice(0, 5));
+        const fetchAssets = async () => {
+            if (!plan.id) return;
+            const planDocRef = doc(db, 'plans', plan.id);
+            const planDoc = await getDoc(planDocRef);
+            if (planDoc.exists()) {
+                const planData = planDoc.data();
+                setAssets(planData.mediaAssets || []);
+            } else {
+                 setAssets(sampleAssets.slice(0, 5));
+            }
+        };
+        fetchAssets();
     }, [plan.id]);
     
     const formatCurrency = (value?: number) => {
@@ -116,12 +127,12 @@ export function PlanNegotiation({ plan: initialPlan }: PlanNegotiationProps) {
                             <CardTitle className="text-base">Statistics</CardTitle>
                         </CardHeader>
                         <CardContent>
-                             <InfoRow label="HA Markup" valueClassName="text-green-600" value={`${formatCurrency(60000)} (10%)`} />
-                             <InfoRow label="TA Markup" valueClassName="text-red-600" value={`${formatCurrency(0)} (0%)`} />
+                             <InfoRow label="HA Markup" valueClassName="text-green-600" value={`${formatCurrency(plan.statistics?.haMarkup)} (${plan.statistics?.haMarkupPercentage}%)`} />
+                             <InfoRow label="TA Markup" valueClassName="text-red-600" value={`${formatCurrency(plan.statistics?.taMarkup)} (${plan.statistics?.taMarkupPercentage}%)`} />
                              <InfoRow label="Expense Difference" value="-" />
-                             <InfoRow label="Total SQFT" value={1936.5} />
-                             <InfoRow label="Price / SQFT" value={340.82} />
-                             <InfoRow label="Total Inventories" value="12 (12 Units)" />
+                             <InfoRow label="Total SQFT" value={plan.inventorySummary?.totalSqft} />
+                             <InfoRow label="Price / SQFT" value={plan.inventorySummary?.pricePerSqft} />
+                             <InfoRow label="Total Inventories" value={`${plan.inventorySummary?.totalSites} (${plan.inventorySummary?.totalSites} Units)`} />
                         </CardContent>
                     </Card>
                 </div>
@@ -130,14 +141,14 @@ export function PlanNegotiation({ plan: initialPlan }: PlanNegotiationProps) {
                         <CardTitle className="text-base">Summary</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <InfoRow label="Display Cost" value={formatCurrency(660000)} />
-                        <InfoRow label="Printing Cost" value={formatCurrency(0)} />
-                        <InfoRow label="Installation Cost" value={formatCurrency(18000)} />
+                        <InfoRow label="Display Cost" value={formatCurrency(plan.costSummary?.displayCost)} />
+                        <InfoRow label="Printing Cost" value={formatCurrency(plan.costSummary?.printingCost)} />
+                        <InfoRow label="Installation Cost" value={formatCurrency(plan.costSummary?.installationCost)} />
                         <Separator className="my-2"/>
-                        <InfoRow label="Total Without Tax" value={formatCurrency(678000)} className="font-semibold"/>
-                        <InfoRow label="GST (18%)" value={formatCurrency(122040)} />
+                        <InfoRow label="Total Without Tax" value={formatCurrency(plan.costSummary?.totalBeforeTax)} className="font-semibold"/>
+                        <InfoRow label="GST (18%)" value={formatCurrency(plan.costSummary?.gst)} />
                         <Separator className="my-2"/>
-                        <InfoRow label="Grand Total" value={formatCurrency(800040)} className="text-lg font-bold" />
+                        <InfoRow label="Grand Total" value={formatCurrency(plan.costSummary?.grandTotal)} className="text-lg font-bold" />
                     </CardContent>
                 </Card>
             </div>
@@ -173,21 +184,10 @@ export function PlanNegotiation({ plan: initialPlan }: PlanNegotiationProps) {
                                     <TableHead><Checkbox /></TableHead>
                                     <TableHead>Area</TableHead>
                                     <TableHead>Location</TableHead>
-                                    <TableHead>Size</TableHead>
-                                    <TableHead>SQFT</TableHead>
-                                    <TableHead>Light</TableHead>
-                                    <TableHead>Qty</TableHead>
-                                    <TableHead>Photo</TableHead>
-                                    <TableHead>Booking Status</TableHead>
-                                    <TableHead>Display</TableHead>
-                                    <TableHead>Employee</TableHead>
-                                    <TableHead>Available From</TableHead>
+                                    <TableHead>Rate</TableHead>
                                     <TableHead>Start Date</TableHead>
                                     <TableHead>End Date</TableHead>
                                     <TableHead>Days</TableHead>
-                                    <TableHead>Card Rate</TableHead>
-                                    <TableHead>Base Rate</TableHead>
-                                    <TableHead>Monthly Cost</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -196,25 +196,10 @@ export function PlanNegotiation({ plan: initialPlan }: PlanNegotiationProps) {
                                         <TableCell><Checkbox /></TableCell>
                                         <TableCell>{asset.area}</TableCell>
                                         <TableCell className="max-w-[200px] truncate">{asset.location}</TableCell>
-                                        <TableCell>{asset.dimensions}</TableCell>
-                                        <TableCell>{asset.sqft}</TableCell>
-                                        <TableCell>{asset.light}</TableCell>
-                                        <TableCell>1</TableCell>
-                                        <TableCell>
-                                            <Button variant="ghost" size="icon">
-                                                <FileDown className="h-4 w-4" />
-                                            </Button>
-                                        </TableCell>
-                                        <TableCell><span className="text-green-600">Available</span></TableCell>
-                                        <TableCell>{plan.displayName}</TableCell>
-                                        <TableCell>{plan.employee?.name}</TableCell>
-                                        <TableCell>Available</TableCell>
-                                        <TableCell>{format(new Date(plan.startDate), 'dd/MM/yy')}</TableCell>
-                                        <TableCell>{format(new Date(plan.endDate), 'dd/MM/yy')}</TableCell>
+                                        <TableCell>{asset.rate}</TableCell>
+                                        <TableCell>{plan.startDate ? format(new Date(plan.startDate as any), 'dd/MM/yy') : 'N/A'}</TableCell>
+                                        <TableCell>{plan.endDate ? format(new Date(plan.endDate as any), 'dd/MM/yy') : 'N/A'}</TableCell>
                                         <TableCell>{plan.days}</TableCell>
-                                        <TableCell>{asset.cardRate}</TableCell>
-                                        <TableCell>{asset.baseRate}</TableCell>
-                                        <TableCell>55000</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>

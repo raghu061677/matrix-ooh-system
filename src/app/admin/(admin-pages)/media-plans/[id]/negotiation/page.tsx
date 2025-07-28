@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft } from 'lucide-react';
 import { Customer, User } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, DocumentData } from 'firebase/firestore';
 import { useParams } from 'next/navigation';
 
 
@@ -37,12 +37,28 @@ export default function NegotiationPage() {
   const params = useParams();
 
   React.useEffect(() => {
-    const id = params.id;
+    const id = params.id as string;
     if (!id) return;
     
     const fetchData = async () => {
-        // In a real app, you would fetch all these from Firestore
-        const foundPlan = sampleData.find(p => p.id === id);
+        setLoading(true);
+        const planDocRef = doc(db, 'plans', id);
+        const planDoc = await getDoc(planDocRef);
+
+        let foundPlan: MediaPlan | undefined;
+        if (planDoc.exists()) {
+             const data = planDoc.data() as DocumentData;
+             foundPlan = {
+                ...data,
+                id: planDoc.id,
+                startDate: data.startDate?.toDate(),
+                endDate: data.endDate?.toDate(),
+                createdAt: data.createdAt?.toDate(),
+            } as MediaPlan;
+        } else {
+            foundPlan = sampleData.find(p => p.id === id);
+        }
+        
         if (foundPlan) {
             setPlan(foundPlan);
         }

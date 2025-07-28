@@ -32,7 +32,6 @@ import { collection, doc, getDoc, getDocs, query, where, updateDoc } from 'fireb
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { mediavenueLogo } from '@/lib/logo';
 import { ExportDownloadLinks } from './export-download-links';
 
 interface MediaPlanViewProps {
@@ -64,16 +63,29 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   const { toast } = useToast();
 
   React.useEffect(() => {
-    // In a real app, you might re-fetch the plan if dependencies change.
-    // For now, we sync the state with the initial prop.
-    const planFromSample = sampleAssets.find(p => p.id === initialPlan.id) as unknown as MediaPlan || initialPlan;
-     setPlan(planFromSample);
+    const fetchPlanData = async () => {
+        const planDocRef = doc(db, 'plans', initialPlan.id);
+        const planDoc = await getDoc(planDocRef);
+        if (planDoc.exists()) {
+            const data = planDoc.data();
+            setPlan({
+                ...data,
+                id: planDoc.id,
+                startDate: data.startDate?.toDate(),
+                endDate: data.endDate?.toDate(),
+                createdAt: data.createdAt?.toDate(),
+            } as MediaPlan);
+        } else {
+             setPlan(initialPlan);
+        }
+    };
+    fetchPlanData();
   }, [initialPlan]);
 
 
-  const handlePlanUpdate = (updatedPlan: MediaPlan) => {
+  const handlePlanUpdate = (updatedPlan: Partial<MediaPlan>) => {
     // In a real app, this would also save to Firestore
-    setPlan(updatedPlan);
+    setPlan(prev => ({...prev, ...updatedPlan} as MediaPlan));
     toast({ title: 'Plan Updated', description: 'The media plan has been successfully updated.' });
   };
   
@@ -136,9 +148,8 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
     for (const asset of assets) {
         const slide = ppt.addSlide();
 
-        slide.addText(`Asset ID: ${asset.mid}`, { x: 0.5, y: 0.2, fontSize: 14, bold: true });
-        slide.addText(`${asset.area}, ${asset.city}`, { x: 0.5, y: 0.5, fontSize: 12 });
-        slide.addText(`Size: ${asset.dimensions}`, { x: 0.5, y: 0.8, fontSize: 12 });
+        slide.addText(`Asset ID: ${asset.iid || asset.id}`, { x: 0.5, y: 0.2, fontSize: 14, bold: true });
+        slide.addText(`${asset.location}`, { x: 0.5, y: 0.5, fontSize: 12 });
 
 
         if (asset.imageUrls && asset.imageUrls.length > 0) {
@@ -189,12 +200,12 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
 
       const worksheetData: (string | number)[][] = [
         [
-          "S.No", "Location", "City", "Size (ft)", "Qty", "Rate", "Printing", "Mounting", "Total", "GST (18%)", "Grand Total"
+          "S.No", "Location", "Rate", "Printing", "Mounting", "Total", "GST (18%)", "Grand Total"
         ],
       ];
 
       assets.forEach((asset: any, index: number) => {
-        const rate = asset.rate || asset.baseRate || 0;
+        const rate = asset.rate || 0;
         const printing = asset.printingCost || 0;
         const mounting = asset.installationCost || 0;
         const total = rate + printing + mounting;
@@ -203,10 +214,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
 
         worksheetData.push([
           index + 1,
-          asset.area,
-          asset.city,
-          `${asset.dimensions}`,
-          asset.quantity || 1,
+          asset.location,
           rate,
           printing,
           mounting,
@@ -272,18 +280,18 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
 
       pdf.setFontSize(12);
       pdf.text(`Quotation: ${planData.displayName || planId}`, 14, 46);
-      pdf.text(`Client: ${planData.customerName || 'Client Name'}`, 14, 52);
+      pdf.text(`Client: ${customer?.name || 'Client Name'}`, 14, 52);
       if (planData.startDate) {
-        pdf.text(`Start Date: new Date((planData.startDate as any).seconds * 1000).toLocaleDateString()`, 14, 58);
+        pdf.text(`Start Date: ${format(new Date(planData.startDate as any), 'dd MMM yyyy')}`, 14, 58);
       }
        if (planData.endDate) {
-        pdf.text(`End Date: new Date((planData.endDate as any).seconds * 1000).toLocaleDateString()`, 14, 64);
+        pdf.text(`End Date: ${format(new Date(planData.endDate as any), 'dd MMM yyyy')}`, 14, 64);
       }
 
 
       // Table setup
       const body = assets.map((asset: any, index: number) => {
-        const rate = asset.rate || asset.baseRate || 0;
+        const rate = asset.rate || 0;
         const printing = asset.printingCost || 0;
         const mounting = asset.installationCost || 0;
         const total = rate + printing + mounting;
@@ -292,10 +300,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
 
         return [
           index + 1,
-          asset.area,
-          asset.city,
-          asset.dimensions,
-          asset.quantity || 1,
+          asset.location,
           rate.toFixed(2),
           printing.toFixed(2),
           mounting.toFixed(2),
@@ -309,7 +314,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
       autoTable(pdf, {
         startY: 70,
         head: [[
-          "S.No", "Location", "City", "Size", "Qty", "Rate", "Printing", "Mounting", "Total", "GST", "Grand Total"
+          "S.No", "Location", "Rate", "Printing", "Mounting", "Total", "GST", "Grand Total"
         ]],
         body,
         theme: templateStyle === 'modern' ? 'grid' : 'striped',
@@ -352,8 +357,8 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
 
     // Find client info
     const customer = customers.find(c => c.id === plan.customerId);
-    const clientEmail = customer?.contactPersons?.[0]?.email || 'client@example.com';
-    const clientName = customer?.contactPersons?.[0]?.name || 'Valued Client';
+    const clientEmail = customer?.email || 'client@example.com';
+    const clientName = customer?.name || 'Valued Client';
 
     // Prepare mailto link
     const subject = encodeURIComponent(`Media Plan Quotation: ${plan.displayName}`);
@@ -379,7 +384,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                 <Link href="/admin/media-plans"><ChevronLeft /></Link>
             </Button>
             <h1 className="text-xl font-bold">
-                {plan.projectId} - {plan.customerName} - {plan.displayName}
+                {plan.projectId} - {customers.find(c => c.id === plan.customerId)?.name} - {plan.displayName}
             </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -415,7 +420,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                     <div className="flex items-center gap-2 mb-4">
                         <Avatar>
                             <AvatarImage src={plan.employee?.avatar} />
-                            <AvatarFallback>{plan.employee?.name.charAt(0)}</AvatarFallback>
+                            <AvatarFallback>{plan.employee?.name?.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div>
                             <p className="text-sm text-muted-foreground">Employee</p>
@@ -547,5 +552,3 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   );
 
 }
-
-    
