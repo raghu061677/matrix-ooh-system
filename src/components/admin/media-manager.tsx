@@ -29,12 +29,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { 
@@ -46,10 +40,11 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Edit, Trash2, Loader2, Image as ImageIcon, MoreHorizontal, X, Upload } from 'lucide-react';
-import { Asset, sampleAssets, AssetStatus, AssetOwnership } from './media-manager-types';
+import { Asset, sampleAssets, AssetStatus, AssetOwnership, mediaTypes } from './media-manager-types';
 import { ScrollArea } from '../ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
 import { Switch } from '../ui/switch';
+import { statesAndDistricts } from '@/lib/india-states';
 
 export function MediaManager() {
   const { user } = useAuth();
@@ -99,19 +94,26 @@ export function MediaManager() {
     setFormData(prev => ({ ...prev, [name]: type === 'number' ? parseFloat(value) || undefined : value }));
   };
   
-  const handleSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSizeChange = (e: React.ChangeEvent<HTMLInputElement>, face: 1 | 2) => {
     const { name, value } = e.target;
-    const newSize = { ...formData.size, [name]: parseFloat(value) || 0 };
+    const sizeKey = face === 1 ? 'size' : 'size2';
+    const sqftKey = face === 1 ? 'totalSqft' : 'totalSqft2';
+
+    const newSize = { ...formData[sizeKey], [name]: parseFloat(value) || 0 };
     const totalSqft = (newSize.width || 0) * (newSize.height || 0);
+
     setFormData(prev => ({ 
         ...prev, 
-        size: newSize,
-        totalSqft: totalSqft > 0 ? totalSqft : undefined
+        [sizeKey]: newSize,
+        [sqftKey]: totalSqft > 0 ? totalSqft : undefined
     }));
   };
 
   const handleSelectChange = (name: keyof Asset, value: string) => {
     setFormData(prev => ({...prev, [name]: value}));
+    if (name === 'state') {
+        setFormData(prev => ({...prev, district: undefined})); // Reset district on state change
+    }
   };
 
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -194,10 +196,15 @@ export function MediaManager() {
     if(!user?.companyId) return;
     setIsSaving(true);
     
-    const dataToSave = {
+    const dataToSave: Partial<Asset> = {
       ...Object.fromEntries(Object.entries(formData).filter(([_, v]) => v !== undefined)),
       companyId: user.companyId
     };
+
+    if (!dataToSave.multiface) {
+        dataToSave.size2 = undefined;
+        dataToSave.totalSqft2 = undefined;
+    }
 
     try {
       if (currentAsset?.id) {
@@ -224,7 +231,7 @@ export function MediaManager() {
 
   const openDialog = (asset: Asset | null = null) => {
     setCurrentAsset(asset);
-    setFormData(asset || { status: 'active', ownership: 'own', companyId: user?.companyId });
+    setFormData(asset || { status: 'active', ownership: 'own', companyId: user?.companyId, multiface: false });
     setIsDialogOpen(true);
   };
 
@@ -256,6 +263,12 @@ export function MediaManager() {
     return sortableAssets;
   }, [mediaAssets, filter]);
 
+  const combinedSqft = useMemo(() => {
+    const sqft1 = formData.totalSqft || 0;
+    const sqft2 = formData.multiface ? (formData.totalSqft2 || 0) : 0;
+    return sqft1 + sqft2;
+  }, [formData.totalSqft, formData.totalSqft2, formData.multiface]);
+
   if (loading && !isDialogOpen) {
     return (
         <div className="flex items-center justify-center h-48">
@@ -265,7 +278,7 @@ export function MediaManager() {
   }
 
   return (
-    <TooltipProvider>
+    <>
       <div className="flex justify-between items-center mb-6 gap-4">
         <div className="flex items-center gap-2">
            <Input
@@ -316,7 +329,7 @@ export function MediaManager() {
                 <TableCell className="font-medium">{asset.name}</TableCell>
                 <TableCell>{asset.location}</TableCell>
                 <TableCell>{asset.status}</TableCell>
-                <TableCell>{asset.totalSqft}</TableCell>
+                <TableCell>{(asset.totalSqft || 0) + (asset.multiface ? (asset.totalSqft2 || 0) : 0)}</TableCell>
                 <TableCell>{asset.rate?.toLocaleString('en-IN')}</TableCell>
 
                 <TableCell className="text-right">
@@ -354,82 +367,145 @@ export function MediaManager() {
           </DialogHeader>
           <form onSubmit={handleSave} className="flex-grow overflow-hidden flex flex-col">
             <ScrollArea className="flex-grow pr-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 py-4">
-                  <div>
-                    <Label htmlFor="name">Name</Label>
-                    <Input id="name" name="name" value={formData.name || ''} onChange={handleFormChange} required />
-                  </div>
-                  <div>
-                    <Label htmlFor="location">Location</Label>
-                    <Input id="location" name="location" value={formData.location || ''} onChange={handleFormChange} />
-                  </div>
-
-                   <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 py-4">
+                  <div className="md:col-span-3 grid md:grid-cols-3 gap-4">
                     <div>
-                        <Label htmlFor="width">Width (ft)</Label>
-                        <Input id="width" name="width" type="number" value={formData.size?.width || ''} onChange={handleSizeChange} />
+                        <Label htmlFor="iid">Asset ID</Label>
+                        <Input id="iid" name="iid" value={formData.iid || ''} onChange={handleFormChange} />
                     </div>
+                     <div>
+                        <Label htmlFor="name">Name</Label>
+                        <Input id="name" name="name" value={formData.name || ''} onChange={handleFormChange} required />
+                      </div>
                     <div>
-                        <Label htmlFor="height">Height (ft)</Label>
-                        <Input id="height" name="height" type="number" value={formData.size?.height || ''} onChange={handleSizeChange} />
+                        <Label htmlFor="media">Media Type</Label>
+                        <Select onValueChange={(value) => handleSelectChange('media', value)} value={formData.media}>
+                            <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                            <SelectContent>
+                                {mediaTypes.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
                     </div>
                   </div>
 
-                   <div>
-                    <Label htmlFor="totalSqft">Total SQFT</Label>
-                    <Input id="totalSqft" name="totalSqft" type="number" value={formData.totalSqft || ''} readOnly className="bg-muted" />
+                  <div className="md:col-span-3 border-t pt-4 mt-4 grid md:grid-cols-3 gap-4">
+                     <div>
+                        <Label htmlFor="state">State</Label>
+                        <Select onValueChange={(value) => handleSelectChange('state', value)} value={formData.state}>
+                            <SelectTrigger><SelectValue placeholder="Select state" /></SelectTrigger>
+                            <SelectContent>
+                                {statesAndDistricts.states.map(s => <SelectItem key={s.name} value={s.name}>{s.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                     <div>
+                        <Label htmlFor="district">District</Label>
+                        <Select onValueChange={(value) => handleSelectChange('district', value)} value={formData.district} disabled={!formData.state}>
+                            <SelectTrigger><SelectValue placeholder="Select district" /></SelectTrigger>
+                            <SelectContent>
+                                {statesAndDistricts.states.find(s => s.name === formData.state)?.districts.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                     <div>
+                        <Label htmlFor="area">Area</Label>
+                        <Input id="area" name="area" value={formData.area || ''} onChange={handleFormChange} />
+                     </div>
+                     <div className='md:col-span-2'>
+                        <Label htmlFor="location">Location Details</Label>
+                        <Input id="location" name="location" value={formData.location || ''} onChange={handleFormChange} />
+                    </div>
+                     <div>
+                        <Label htmlFor="direction">Direction</Label>
+                        <Input id="direction" name="direction" value={formData.direction || ''} onChange={handleFormChange} />
+                    </div>
+                  </div>
+                 
+                  <div className="md:col-span-3 border-t pt-4 mt-4 grid md:grid-cols-3 gap-4">
+                        <div>
+                            <Label htmlFor="width">Width (ft)</Label>
+                            <Input id="width" name="width" type="number" value={formData.size?.width || ''} onChange={(e) => handleSizeChange(e, 1)} />
+                        </div>
+                        <div>
+                            <Label htmlFor="height">Height (ft)</Label>
+                            <Input id="height" name="height" type="number" value={formData.size?.height || ''} onChange={(e) => handleSizeChange(e, 1)} />
+                        </div>
+                       <div>
+                            <Label htmlFor="totalSqft">Face 1 SQFT</Label>
+                            <Input id="totalSqft" name="totalSqft" type="number" value={formData.totalSqft || ''} readOnly className="bg-muted" />
+                        </div>
+
+                        <div className="flex items-center space-x-2 pt-6">
+                            <Switch id="multiface" checked={formData.multiface} onCheckedChange={(checked) => setFormData(prev => ({...prev, multiface: checked}))} />
+                            <Label htmlFor="multiface">Multi-face</Label>
+                        </div>
+
+                        {formData.multiface && (
+                             <>
+                                <div>
+                                    <Label htmlFor="width2">Face 2 Width (ft)</Label>
+                                    <Input id="width2" name="width" type="number" value={formData.size2?.width || ''} onChange={(e) => handleSizeChange(e, 2)} />
+                                </div>
+                                <div>
+                                    <Label htmlFor="height2">Face 2 Height (ft)</Label>
+                                    <Input id="height2" name="height" type="number" value={formData.size2?.height || ''} onChange={(e) => handleSizeChange(e, 2)} />
+                                </div>
+                                <div>
+                                    <Label htmlFor="totalSqft2">Face 2 SQFT</Label>
+                                    <Input id="totalSqft2" name="totalSqft2" type="number" value={formData.totalSqft2 || ''} readOnly className="bg-muted" />
+                                </div>
+                             </>
+                        )}
+                        <div className="md:col-span-3">
+                            <Label>Total Combined SQFT</Label>
+                            <Input value={combinedSqft} readOnly className="bg-muted font-bold text-lg" />
+                        </div>
                   </div>
 
-                  <div>
-                    <Label htmlFor="dimensions">Dimensions</Label>
-                    <Input id="dimensions" name="dimensions" value={formData.dimensions || ''} onChange={handleFormChange} />
+                  <div className="md:col-span-3 border-t pt-4 mt-4 grid md:grid-cols-3 gap-4">
+                    <div>
+                        <Label htmlFor="status">Status</Label>
+                         <Select onValueChange={(value) => handleSelectChange('status', value as AssetStatus)} value={formData.status}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">Available</SelectItem>
+                            <SelectItem value="booked">Booked</SelectItem>
+                            <SelectItem value="blocked">Blocked</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                       <div>
+                        <Label htmlFor="ownership">Ownership</Label>
+                         <Select onValueChange={(value) => handleSelectChange('ownership', value as AssetOwnership)} value={formData.ownership}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select ownership" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="own">Own</SelectItem>
+                            <SelectItem value="rented">Rented</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="rate">Rate (per month)</Label>
+                        <Input id="rate" name="rate" type="number" value={formData.rate || ''} onChange={handleFormChange} />
+                      </div>
                   </div>
 
-                  <div className="flex items-center space-x-2 pt-6">
-                    <Switch id="multiface" checked={formData.multiface} onCheckedChange={(checked) => setFormData(prev => ({...prev, multiface: checked}))} />
-                    <Label htmlFor="multiface">Multi-face</Label>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="status">Status</Label>
-                     <Select onValueChange={(value) => handleSelectChange('status', value as AssetStatus)} value={formData.status}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Available</SelectItem>
-                        <SelectItem value="booked">Booked</SelectItem>
-                        <SelectItem value="blocked">Blocked</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                   <div>
-                    <Label htmlFor="ownership">Ownership</Label>
-                     <Select onValueChange={(value) => handleSelectChange('ownership', value as AssetOwnership)} value={formData.ownership}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select ownership" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="own">Own</SelectItem>
-                        <SelectItem value="rented">Rented</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="rate">Rate (per month)</Label>
-                    <Input id="rate" name="rate" type="number" value={formData.rate || ''} onChange={handleFormChange} />
-                  </div>
-
-                  <div className="md:col-span-2">
+                  <div className="md:col-span-3 border-t pt-4 mt-4">
                     <Label htmlFor="images">Asset Images</Label>
-                    <Button type="button" variant="outline" size="sm" onClick={() => imageInputRef.current?.click()} disabled={!currentAsset?.id || isUploading}>
-                        <Upload className="mr-2 h-4 w-4"/>
-                        Upload Images
-                    </Button>
+                    <div className='flex items-center gap-4'>
+                        <Button type="button" variant="outline" size="sm" onClick={() => imageInputRef.current?.click()} disabled={!currentAsset?.id || isUploading}>
+                            <Upload className="mr-2 h-4 w-4"/>
+                            Upload Images
+                        </Button>
+                         {isUploading && <Loader2 className="animate-spin" />}
+                    </div>
+
                     <Input ref={imageInputRef} id="images" type="file" multiple accept="image/*" onChange={handleImageFileChange} className="hidden" />
 
-                    {isUploading && <Loader2 className="animate-spin mt-2" />}
                     <div className="mt-2 flex flex-wrap gap-2">
                       {(formData.imageUrls || []).map(url => (
                         <div key={url} className="relative h-24 w-24 group">
@@ -459,6 +535,6 @@ export function MediaManager() {
           </form>
         </DialogContent>
       </Dialog>
-    </TooltipProvider>
+    </>
   );
 }
