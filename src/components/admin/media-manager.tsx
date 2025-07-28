@@ -46,6 +46,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Switch } from '../ui/switch';
 import { statesAndDistricts } from '@/lib/india-states';
 import { Card, CardContent, CardHeader } from '../ui/card';
+import ExifParser from 'exif-parser';
 
 export function MediaManager() {
   const { user } = useAuth();
@@ -137,6 +138,23 @@ export function MediaManager() {
           description: `${file.name} is over 2MB. Please compress it.`,
         });
         continue;
+      }
+
+      // Check for GPS data in EXIF
+      const arrayBuffer = await file.arrayBuffer();
+      try {
+        const parser = ExifParser.create(arrayBuffer);
+        const result = parser.parse();
+        if (result.tags.GPSLatitude && result.tags.GPSLongitude) {
+           setFormData(prev => ({
+              ...prev,
+              latitude: result.tags.GPSLatitude,
+              longitude: result.tags.GPSLongitude,
+           }));
+           toast({ title: 'Geotag Found!', description: `Latitude & Longitude updated from ${file.name}.` });
+        }
+      } catch (exifError) {
+        console.warn('Could not parse EXIF data from image.', exifError);
       }
       
       try {
@@ -379,7 +397,7 @@ export function MediaManager() {
                         <Input id="iid" name="iid" value={formData.iid || ''} onChange={handleFormChange} />
                     </div>
                      <div>
-                        <Label htmlFor="name">Name</Label>
+                        <Label htmlFor="name">Location Name</Label>
                         <Input id="name" name="name" value={formData.name || ''} onChange={handleFormChange} required />
                       </div>
                     <div>
@@ -417,12 +435,20 @@ export function MediaManager() {
                         <Input id="area" name="area" value={formData.area || ''} onChange={handleFormChange} />
                      </div>
                      <div className='md:col-span-2'>
-                        <Label htmlFor="location">Location Details</Label>
+                        <Label htmlFor="location">Location Description</Label>
                         <Input id="location" name="location" value={formData.location || ''} onChange={handleFormChange} />
                     </div>
                      <div>
                         <Label htmlFor="direction">Direction</Label>
                         <Input id="direction" name="direction" value={formData.direction || ''} onChange={handleFormChange} />
+                    </div>
+                    <div>
+                        <Label htmlFor="latitude">Latitude</Label>
+                        <Input id="latitude" name="latitude" type="number" value={formData.latitude || ''} onChange={handleFormChange} />
+                    </div>
+                     <div>
+                        <Label htmlFor="longitude">Longitude</Label>
+                        <Input id="longitude" name="longitude" type="number" value={formData.longitude || ''} onChange={handleFormChange} />
                     </div>
                   </div>
                  

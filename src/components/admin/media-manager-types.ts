@@ -5,15 +5,17 @@ export type AssetOwnership = 'own' | 'rented';
 export interface Asset {
   id: string; // Document ID from Firestore
   iid?: string; // Media ID
-  name?: string; // New field from schema
+  name?: string; // Location Name
   companyId?: string; // Reference to companies collection
   
   // Location
   state?: string;
   district?: string;
   area?: string;
-  location?: string;
+  location?: string; // Location Description
   direction?: string;
+  latitude?: number;
+  longitude?: number;
   
   // Details
   media?: string; // e.g., "Hoarding", "Unipole"
