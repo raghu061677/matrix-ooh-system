@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -63,11 +64,12 @@ export function MediaManager() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
   const [currentAsset, setCurrentAsset] = useState<Asset | null>(null);
   const [formData, setFormData] = useState<Partial<Asset>>({});
   
+  // State for new image files to be uploaded
+  const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
+
   const imageInputRef = useRef<HTMLInputElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
 
@@ -163,38 +165,9 @@ export function MediaManager() {
 
   const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    let assetId = currentAsset?.id;
-
     if (!files || files.length === 0) return;
     
-    // If it's a new asset, save it first to get an ID.
-    if (!assetId) {
-        toast({ title: "Saving Asset...", description: "Please wait, creating asset before uploading images." });
-        const newDocRef = await addDoc(mediaAssetsCollectionRef, { 
-            ...formData, 
-            companyId: user?.companyId, 
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            imageUrls: [] 
-        });
-        assetId = newDocRef.id;
-        const newAsset = { ...formData, id: assetId, imageUrls: [] } as Asset;
-        setCurrentAsset(newAsset);
-        setFormData(newAsset);
-        await getMediaAssets();
-    }
-    
-    if (!assetId) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not create asset. Please try saving again.'});
-        return;
-    }
-
-
-    setIsUploading(true);
-    toast({ title: `Uploading ${files.length} image(s)...` });
-
-    let currentImageUrls = formData.imageUrls || [];
-
+    const validFiles: File[] = [];
     for (const file of Array.from(files)) {
       if (file.size > 2 * 1024 * 1024) { // 2MB limit
         toast({
@@ -204,10 +177,11 @@ export function MediaManager() {
         });
         continue;
       }
+      validFiles.push(file);
 
       // Check for GPS data in EXIF
-      const arrayBuffer = await file.arrayBuffer();
       try {
+        const arrayBuffer = await file.arrayBuffer();
         const parser = ExifParser.create(arrayBuffer);
         const result = parser.parse();
         if (result.tags.GPSLatitude && result.tags.GPSLongitude) {
@@ -216,35 +190,15 @@ export function MediaManager() {
               latitude: result.tags.GPSLatitude,
               longitude: result.tags.GPSLongitude,
            }));
-           toast({ title: 'Geotag Found!', description: `Latitude & Longitude updated from ${file.name}.` });
+           toast({ title: 'Geotag Found!', description: `Coordinates updated from ${file.name}.` });
         }
       } catch (exifError) {
         console.warn('Could not parse EXIF data from image.', exifError);
       }
-      
-      try {
-        const imageRef = ref(storage, `media-assets/${assetId}/${file.name}_${Date.now()}`);
-        const snapshot = await uploadBytes(imageRef, file);
-        const downloadURL = await getDownloadURL(snapshot.ref);
-        currentImageUrls.push(downloadURL);
-      } catch (uploadError) {
-        console.error("Error uploading image:", uploadError);
-        toast({ variant: 'destructive', title: 'Upload Failed', description: `Could not upload ${file.name}.` });
-      }
     }
     
-    setFormData(prev => ({ ...prev, imageUrls: [...currentImageUrls] }));
-    
-    // Batch update Firestore once
-    const assetDoc = doc(db, 'mediaAssets', assetId);
-    await updateDoc(assetDoc, { imageUrls: currentImageUrls });
-    
-    await getMediaAssets();
-    setIsUploading(false);
-    toast({
-        title: 'Upload Complete!',
-        description: `Images uploaded successfully.`,
-    });
+    setNewImageFiles(prev => [...prev, ...validFiles]);
+
     // Clear file input
     if (imageInputRef.current) {
         imageInputRef.current.value = '';
@@ -252,10 +206,17 @@ export function MediaManager() {
   };
 
 
-  const handleDeleteImage = async (imageUrlToDelete: string) => {
+  const handleDeleteImage = async (imageUrlToDelete: string, isNew: boolean) => {
+      if (isNew) {
+        // It's a file object, just remove from state
+        setNewImageFiles(prev => prev.filter(file => file.name !== imageUrlToDelete));
+        return;
+      }
+
+    // It's an existing URL, delete from Storage
     if (!currentAsset?.id || !imageUrlToDelete) return;
 
-    setIsUploading(true);
+    setIsSaving(true);
     toast({ title: 'Deleting image...', description: 'Please wait.' });
 
     try {
@@ -274,7 +235,7 @@ export function MediaManager() {
         console.error("Error deleting image: ", error);
         toast({ variant: 'destructive', title: 'Deletion failed', description: 'Could not delete the image. Please try again.' });
     } finally {
-        setIsUploading(false);
+        setIsSaving(false);
     }
   };
 
@@ -283,43 +244,72 @@ export function MediaManager() {
     if(!user?.companyId) return;
     setIsSaving(true);
     
-    const dataToSave: Partial<Asset> = {
-      ...Object.fromEntries(Object.entries(formData).filter(([key, v]) => v !== undefined && key !== 'id')),
-      companyId: user.companyId,
-      updatedAt: new Date()
-    };
+    let assetId = currentAsset?.id;
+    let existingImageUrls = formData.imageUrls || [];
 
-    if (!dataToSave.multiface) {
-        delete dataToSave.size2;
-        delete dataToSave.totalSqft2;
-    }
-
+    // Step 1: Save or Update Asset Text Data
     try {
-      if (currentAsset?.id) {
-        const assetDoc = doc(db, 'mediaAssets', currentAsset.id);
-        await updateDoc(assetDoc, dataToSave);
-        toast({ title: 'Asset Updated!', description: 'The media asset details have been saved.' });
-      } else {
-        const docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, createdAt: serverTimestamp(), imageUrls: [] });
-        const newAsset = { ...dataToSave, id: docRef.id, imageUrls: [] } as Asset;
-        setCurrentAsset(newAsset);
-        setFormData(newAsset);
-        toast({ title: 'Asset Added!', description: 'You can now upload images to this asset.' });
-      }
-      
-      await getMediaAssets();
-       if (!currentAsset?.id) closeDialog(); // Close only when creating a new one
-    } catch (error) {
-        console.error("Error saving asset: ", error);
-        toast({ variant: 'destructive', title: 'Save failed', description: `Could not save asset details. ${error}` });
-    } finally {
-      setIsSaving(false);
+        const dataToSave: Partial<Asset> = {
+            ...Object.fromEntries(Object.entries(formData).filter(([key, v]) => v !== undefined && key !== 'id')),
+            companyId: user.companyId,
+            updatedAt: new Date()
+        };
+
+        if (!dataToSave.multiface) {
+            delete dataToSave.size2;
+            delete dataToSave.totalSqft2;
+        }
+
+        if (assetId) {
+            const assetDoc = doc(db, 'mediaAssets', assetId);
+            await updateDoc(assetDoc, dataToSave);
+        } else {
+            const docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, createdAt: serverTimestamp(), imageUrls: [] });
+            assetId = docRef.id;
+            const newAsset = { ...dataToSave, id: assetId, imageUrls: [] } as Asset;
+            setCurrentAsset(newAsset);
+            setFormData(newAsset);
+            toast({ title: 'Asset Created!', description: 'Now uploading images...' });
+        }
+    } catch(error) {
+        console.error("Error saving asset details:", error);
+        toast({ variant: 'destructive', title: 'Save Failed', description: `Could not save asset details. ${error}` });
+        setIsSaving(false);
+        return;
     }
+
+
+    // Step 2: Upload new images if any
+    if (newImageFiles.length > 0) {
+        toast({ title: `Uploading ${newImageFiles.length} image(s)...` });
+        const uploadPromises = newImageFiles.map(file => {
+            const imageRef = ref(storage, `media-assets/${assetId}/${file.name}_${Date.now()}`);
+            return uploadBytes(imageRef, file).then(snapshot => getDownloadURL(snapshot.ref));
+        });
+
+        try {
+            const newImageUrls = await Promise.all(uploadPromises);
+            existingImageUrls = [...existingImageUrls, ...newImageUrls];
+            const assetDoc = doc(db, 'mediaAssets', assetId);
+            await updateDoc(assetDoc, { imageUrls: existingImageUrls });
+            toast({ title: 'Upload Complete!', description: 'All images uploaded successfully.' });
+        } catch(error) {
+             console.error("Error uploading images:", error);
+             toast({ variant: 'destructive', title: 'Image Upload Failed', description: 'Could not upload some or all new images.' });
+        }
+    }
+    
+    // Step 3: Finalize and refresh
+    await getMediaAssets();
+    setIsSaving(false);
+    toast({ title: 'Asset Saved!', description: 'The media asset has been successfully saved.' });
+    closeDialog();
   };
 
   const openDialog = (asset: Asset | null = null) => {
     setCurrentAsset(asset);
     setFormData(asset || { status: 'active', ownership: 'own', companyId: user?.companyId, multiface: false });
+    setNewImageFiles([]);
     setIsDialogOpen(true);
   };
 
@@ -327,8 +317,8 @@ export function MediaManager() {
     setIsDialogOpen(false);
     setCurrentAsset(null);
     setFormData({});
+    setNewImageFiles([]);
     setIsSaving(false);
-    setIsUploading(false);
   };
   
   const handleDelete = async (asset: Asset) => {
@@ -406,7 +396,7 @@ export function MediaManager() {
     const file = e.target.files?.[0];
     if (!file || !user?.companyId) return;
 
-    setIsImporting(true);
+    setIsSaving(true);
     toast({ title: 'Importing assets...', description: 'Please wait.' });
 
     const reader = new FileReader();
@@ -437,7 +427,7 @@ export function MediaManager() {
             console.error("Import error:", error);
             toast({ variant: 'destructive', title: 'Import Failed', description: 'Could not import assets. Please check file format.'});
         } finally {
-            setIsImporting(false);
+            setIsSaving(false);
             if (importInputRef.current) {
                 importInputRef.current.value = '';
             }
@@ -503,7 +493,7 @@ export function MediaManager() {
                 <DropdownMenuTrigger asChild>
                     <Button variant="outline">
                        <FileDown className="mr-2" />
-                        {isImporting ? <Loader2 className="animate-spin" /> : 'Data'}
+                        {isSaving ? <Loader2 className="animate-spin" /> : 'Data'}
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -769,28 +759,44 @@ export function MediaManager() {
                             <CardHeader><Label htmlFor="images">Asset Images</Label></CardHeader>
                             <CardContent>
                                 <div className='flex items-center gap-4'>
-                                    <Button type="button" variant="outline" size="sm" onClick={() => imageInputRef.current?.click()} disabled={isUploading}>
+                                    <Button type="button" variant="outline" size="sm" onClick={() => imageInputRef.current?.click()} disabled={isSaving}>
                                         <Upload className="mr-2 h-4 w-4"/>
-                                        {isUploading ? <Loader2 className="animate-spin" /> : 'Upload Images'}
+                                        {isSaving ? <Loader2 className="animate-spin" /> : 'Choose Images...'}
                                     </Button>
                                 </div>
 
                                 <Input ref={imageInputRef} id="images" type="file" multiple accept="image/*" onChange={handleImageFileChange} className="hidden" />
-
+                                
+                                <p className="text-xs text-muted-foreground mt-2">Previews of new images. They will be uploaded on save.</p>
                                 <div className="mt-4 grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                                 {(formData.imageUrls || []).map(url => (
                                     <div key={url} className="relative h-24 w-24 group">
-                                    <Image src={url} alt="Asset image" fill className="rounded-md object-cover" />
-                                    <Button
-                                        type="button"
-                                        variant="destructive"
-                                        size="icon"
-                                        className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                                        onClick={() => handleDeleteImage(url)}
-                                        disabled={isUploading}
-                                        >
-                                        <X className="h-4 w-4" />
-                                    </Button>
+                                        <Image src={url} alt="Existing asset image" fill className="rounded-md object-cover" />
+                                        <Button
+                                            type="button"
+                                            variant="destructive"
+                                            size="icon"
+                                            className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                            onClick={() => handleDeleteImage(url, false)}
+                                            disabled={isSaving}
+                                            >
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ))}
+                                {newImageFiles.map((file, index) => (
+                                     <div key={index} className="relative h-24 w-24 group">
+                                        <Image src={URL.createObjectURL(file)} alt="New asset image preview" fill className="rounded-md object-cover" />
+                                         <Button
+                                            type="button"
+                                            variant="destructive"
+                                            size="icon"
+                                            className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                            onClick={() => handleDeleteImage(file.name, true)}
+                                            disabled={isSaving}
+                                            >
+                                            <X className="h-4 w-4" />
+                                        </Button>
                                     </div>
                                 ))}
                                 </div>
@@ -813,3 +819,5 @@ export function MediaManager() {
     </>
   );
 }
+
+    
