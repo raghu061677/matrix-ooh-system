@@ -65,8 +65,11 @@ type SortConfig = {
 type SearchableField = 'name' | 'gst' | 'email' | 'phone';
 
 const sampleCustomers: Customer[] = [
-    { id: 'customer-1', companyId: 'company-1', name: 'Matrix-OOH', gst: '29AAACN1234F1Z5', email: 'contact@matrix.com', phone: '9876543210', billingAddress: { street: '123 Cyberabad', city: 'Hyderabad', state: 'Telangana', postalCode: '500081' } },
-    { id: 'customer-2', companyId: 'company-1', name: 'Founding Years Learning', gst: '36ABCFY1234G1Z2', email: 'info@foundingyears.com', phone: '9876543211', billingAddress: { street: '456 Jubilee Hills', city: 'Hyderabad', state: 'Telangana', postalCode: '500033' } },
+    { id: 'customer-1', companyId: 'company-1', name: 'ARAVINDA EDUCATIONAL SOCIETY', gst: 'AABTA1310J' },
+    { id: 'customer-2', companyId: 'company-1', name: 'CANDEUR DEVELOPERS AND BUILDERS', gst: '36AAOFC5551E1ZF' },
+    { id: 'customer-3', companyId: 'company-1', name: 'KESHAV MEMORIAL EDUCATIONAL SOCIETY', gst: '36AACFK6404C1ZT' },
+    { id: 'customer-4', companyId: 'company-1', name: 'Active Telugu Film Producers Guild', gst: '36AAIAA1895N1Z7' },
+    { id: 'customer-5', companyId: 'company-1', name: 'AKRITTI EXHIBITIONS AND EVENTS', gst: '36AAZFA2377F1Z2' },
 ];
 
 
@@ -358,5 +361,3 @@ export function CustomerManager() {
     </TooltipProvider>
   );
 }
-
-    

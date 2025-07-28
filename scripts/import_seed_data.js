@@ -1,3 +1,4 @@
+
 // Firebase Admin initialization required
 // Run using: node scripts/import_seed_data.js
 const admin = require("firebase-admin");
