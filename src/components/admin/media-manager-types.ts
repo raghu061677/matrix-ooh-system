@@ -1,7 +1,7 @@
 
 export type AssetStatus = 'active' | 'booked' | 'blocked' | 'deleted';
 export type AssetOwnership = 'own' | 'rented';
-export type AssetLightType = 'Frontlit' | 'Backlit' | 'Unlit' | 'Ambient';
+export type AssetLightType = 'Back Lit' | 'Non Lit' | 'Front Lit' | 'LED';
 
 export interface Asset {
   id: string; // Document ID from Firestore
@@ -53,5 +53,5 @@ export const mediaTypes = [
 ];
 
 export const lightTypes: AssetLightType[] = [
-    'Frontlit', 'Backlit', 'Unlit', 'Ambient'
+    'Back Lit', 'Non Lit', 'Front Lit', 'LED'
 ];
