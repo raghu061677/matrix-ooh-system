@@ -31,11 +31,11 @@ import { cn } from '@/lib/utils';
 import { ThemeProvider, useTheme } from '@/components/admin/theme-provider';
 import { ThemeToggle } from '@/components/admin/theme-toggle';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useAuth, AuthProvider } from '@/hooks/use-auth';
+import { AuthProvider, useAuth } from '@/hooks/use-auth';
 
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const { theme } = useTheme();
@@ -52,14 +52,6 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     // Since login is disabled, this just redirects to the "login" page which will redirect back to dashboard
     router.push('/login');
   };
-
-  if (loading) {
-     return (
-      <div className="flex items-center justify-center h-screen bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   return (
     <SidebarProvider>
@@ -418,6 +410,39 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   );
 }
 
+function ProtectedAdminLayout({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    // If loading is finished and there's no user, redirect to login
+    if (!loading && !user) {
+      router.replace('/login');
+    }
+  }, [user, loading, router]);
+
+  // While loading, show a spinner
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // If there's a user, show the main layout
+  if (user) {
+    return <AdminLayoutContent>{children}</AdminLayoutContent>;
+  }
+
+  // If no user and not loading (i.e., redirecting), show a spinner or null
+  return (
+    <div className="flex items-center justify-center h-screen bg-background">
+      <Loader2 className="h-12 w-12 animate-spin text-primary" />
+    </div>
+  );
+}
+
 
 export default function AdminLayout({
   children,
@@ -427,7 +452,7 @@ export default function AdminLayout({
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AdminLayoutContent>{children}</AdminLayoutContent>
+        <ProtectedAdminLayout>{children}</ProtectedAdminLayout>
       </AuthProvider>
     </ThemeProvider>
   );
