@@ -2,9 +2,7 @@
 'use client';
 
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
-import { getAuth, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { firebaseApp, db } from '@/lib/firebase';
+import { User as FirebaseUser } from 'firebase/auth';
 import { User } from '@/types/firestore';
 
 interface AuthContextType {
@@ -21,59 +19,26 @@ const AuthContext = createContext<AuthContextType>({
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const auth = getAuth(firebaseApp);
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      if (fbUser) {
-        setFirebaseUser(fbUser);
-        try {
-            const userDocRef = doc(db, 'users', fbUser.uid);
-            const userDoc = await getDoc(userDocRef);
-            
-            if (userDoc.exists()) {
-              let userData = { id: userDoc.id, uid: userDoc.id, ...userDoc.data() } as User;
-              
-              // Hardcode the superadmin role for the specified email
-              if (userData.email === 'raghu@matrix-networksolutions.com') {
-                userData.role = 'superadmin';
-              }
-              
-              setUser(userData);
-            } else {
-              console.warn(`No user document found in Firestore for UID: ${fbUser.uid}`);
-              // If it's the superadmin email, create a temporary user object
-              if (fbUser.email === 'raghu@matrix-networksolutions.com') {
-                  setUser({
-                      id: fbUser.uid,
-                      uid: fbUser.uid,
-                      name: 'Raghu (Super Admin)',
-                      email: fbUser.email,
-                      role: 'superadmin',
-                      status: 'active'
-                  });
-              } else {
-                  setUser(null);
-              }
-            }
-        } catch (error) {
-            console.error("Error fetching user document from Firestore:", error);
-            setUser(null);
-        }
-      } else {
-        setFirebaseUser(null);
-        setUser(null);
-      }
-      setLoading(false);
-    });
+    // Simulate a logged-in super admin user
+    const mockUser: User = {
+      id: 'superadmin-mock-id',
+      uid: 'superadmin-mock-uid',
+      name: 'Super Admin',
+      email: 'raghu@matrix-networksolutions.com',
+      role: 'superadmin',
+      companyId: 'company-1', // Mock company ID
+      status: 'active',
+    };
 
-    return () => unsubscribe();
+    setUser(mockUser);
+    setLoading(false);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, firebaseUser, loading }}>
+    <AuthContext.Provider value={{ user, firebaseUser: null, loading }}>
       {children}
     </AuthContext.Provider>
   );

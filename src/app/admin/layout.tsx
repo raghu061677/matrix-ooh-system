@@ -2,9 +2,7 @@
 'use client';
 
 import { useState, useEffect, ReactNode } from 'react';
-import { getAuth, signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
-import { firebaseApp } from '@/lib/firebase';
 import Image from 'next/image';
 import {
   SidebarProvider,
@@ -33,12 +31,12 @@ import { cn } from '@/lib/utils';
 import { ThemeProvider, useTheme } from '@/components/admin/theme-provider';
 import { ThemeToggle } from '@/components/admin/theme-toggle';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { AuthProvider, useAuth } from '@/hooks/use-auth';
+import { useAuth, AuthProvider } from '@/hooks/use-auth';
+
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
-  const { user, firebaseUser, loading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
-  const auth = getAuth(firebaseApp);
   const pathname = usePathname();
   const { theme } = useTheme();
   
@@ -51,22 +49,17 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
 
   const handleLogout = async () => {
-    await signOut(auth);
+    // Since login is disabled, this just redirects to the "login" page which will redirect back to dashboard
     router.push('/login');
   };
 
-  // This check is a fallback, but the main protection is in ProtectedAdminLayout
-   if (!firebaseUser || !user) {
+  if (loading) {
      return (
-      <div className="flex flex-col items-center justify-center h-screen bg-background">
-        <p className="text-lg text-muted-foreground mb-4">You need to be logged in to access this page.</p>
-        <Button asChild>
-            <Link href="/login">Go to Login</Link>
-        </Button>
+      <div className="flex items-center justify-center h-screen bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
   }
-
 
   return (
     <SidebarProvider>
@@ -425,29 +418,6 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ProtectedAdminLayout({ children }: { children: ReactNode }) {
-  const { user, firebaseUser, loading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!loading && !firebaseUser) {
-      router.push('/login');
-    }
-  }, [firebaseUser, loading, router]);
-
-  if (loading || !firebaseUser || !user) {
-    // If loading, or if authentication is done and there's no user, show spinner.
-    // This covers the case where the user profile is still being fetched from Firestore.
-    return (
-      <div className="flex items-center justify-center h-screen bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  return <AdminLayoutContent>{children}</AdminLayoutContent>;
-}
-
 
 export default function AdminLayout({
   children,
@@ -457,7 +427,7 @@ export default function AdminLayout({
   return (
     <ThemeProvider>
       <AuthProvider>
-        <ProtectedAdminLayout>{children}</ProtectedAdminLayout>
+        <AdminLayoutContent>{children}</AdminLayoutContent>
       </AuthProvider>
     </ThemeProvider>
   );
