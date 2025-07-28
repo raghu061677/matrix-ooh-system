@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -44,6 +44,9 @@ import { User } from '@/types/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '../ui/badge';
 
+// In a real app, you would use Firebase Auth Admin SDK to create users.
+// For simplicity here, we'll just prompt for a UID for new users.
+
 export function UserManager() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +63,7 @@ export function UserManager() {
     setLoading(true);
     try {
         const data = await getDocs(usersCollectionRef);
-        setUsers(data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as User)));
+        setUsers(data.docs.map((doc) => ({ ...doc.data(), id: doc.id, uid: doc.id } as User)));
     } catch(e) {
          console.error("Error fetching users:", e);
          toast({
@@ -91,18 +94,26 @@ export function UserManager() {
 
     try {
       if (currentUser) {
-        const userDoc = doc(db, 'users', currentUser.id);
+        // Editing an existing user
+        const userDoc = doc(db, 'users', currentUser.uid); // Use UID for doc ref
         await updateDoc(userDoc, formData);
-        await getUsers();
         toast({ title: 'User Updated!', description: 'The user has been successfully updated.' });
       } else {
-        // This is a simplified user creation. In a real app, you'd use Firebase Auth to create a user first.
-        await addDoc(usersCollectionRef, { ...formData, companyId: authUser?.companyId, uid: `new-user-${Date.now()}`, status: 'active' }); 
-        await getUsers();
+        // Creating a new user
+        // In a real app, you'd get the UID from Firebase Auth creation. Here we assume it's entered.
+        if (!formData.uid) {
+            toast({ variant: 'destructive', title: 'UID is required', description: 'Please provide a unique ID for the new user.'});
+            setIsSaving(false);
+            return;
+        }
+        const userDoc = doc(db, 'users', formData.uid);
+        await setDoc(userDoc, { ...formData, companyId: authUser?.companyId, status: 'active' }); 
         toast({ title: 'User Added!', description: 'The new user has been added.' });
       }
+      await getUsers();
       closeDialog();
     } catch (error) {
+       console.error("Error saving user:", error);
        toast({ variant: 'destructive', title: 'Save failed', description: 'Could not save the user. Please try again.' });
     } finally {
       setIsSaving(false);
@@ -123,7 +134,7 @@ export function UserManager() {
   
   const handleDelete = async (userToDelete: User) => {
      if (!confirm(`Are you sure you want to permanently delete ${userToDelete.name}? This action cannot be undone.`)) return;
-     const userDoc = doc(db, 'users', userToDelete.id);
+     const userDoc = doc(db, 'users', userToDelete.uid);
      await deleteDoc(userDoc);
      await getUsers();
      toast({ title: 'User Deleted', description: `${userToDelete.name} has been removed.` });
@@ -135,7 +146,7 @@ export function UserManager() {
      if (!confirm(`Are you sure you want to ${action.toLowerCase()} ${userToUpdate.name}?`)) return;
 
     try {
-        const userDoc = doc(db, 'users', userToUpdate.id);
+        const userDoc = doc(db, 'users', userToUpdate.uid);
         await updateDoc(userDoc, { status: newStatus });
         await getUsers();
         toast({ title: `User ${action}`, description: `${userToUpdate.name}'s account has been ${action.toLowerCase()}.` });
@@ -181,7 +192,7 @@ export function UserManager() {
           </TableHeader>
           <TableBody>
             {users.map(user => (
-              <TableRow key={user.id}>
+              <TableRow key={user.uid}>
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <Avatar>
@@ -212,7 +223,7 @@ export function UserManager() {
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                                 onSelect={() => handleToggleStatus(user)}
-                                disabled={user.id === authUser.id}
+                                disabled={user.uid === authUser.uid}
                             >
                                 {user.status === 'active' ? (
                                     <><UserX className="mr-2 h-4 w-4" /> Deactivate</>
@@ -242,6 +253,12 @@ export function UserManager() {
             </DialogHeader>
             <form onSubmit={handleSave}>
                 <div className="grid gap-4 py-4">
+                 {!currentUser && (
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="uid" className="text-right">Auth UID</Label>
+                        <Input id="uid" name="uid" value={formData.uid || ''} onChange={handleFormChange} className="col-span-3" required />
+                    </div>
+                 )}
                 <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="name" className="text-right">Name</Label>
                     <Input id="name" name="name" value={formData.name || ''} onChange={handleFormChange} className="col-span-3" required />
