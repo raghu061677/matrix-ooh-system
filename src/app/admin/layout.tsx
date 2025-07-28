@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useState, useEffect, ReactNode } from 'react';
-import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
+import { getAuth, signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { firebaseApp } from '@/lib/firebase';
 import Image from 'next/image';
@@ -42,7 +41,6 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { theme } = useTheme();
   
-  // State for collapsible sidebar sections
   const [mediaOpen, setMediaOpen] = useState(pathname.startsWith('/admin/media'));
   const [reportsOpen, setReportsOpen] = useState(pathname.startsWith('/admin/reports'));
   const [expensesOpen, setExpensesOpen] = useState(pathname.startsWith('/admin/expenses'));
@@ -62,13 +60,25 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
-  if (loading || !firebaseUser || !user) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
   }
+  
+   if (!firebaseUser || !user) {
+     return (
+      <div className="flex flex-col items-center justify-center h-screen bg-background">
+        <p className="text-lg text-muted-foreground mb-4">You need to be logged in to access this page.</p>
+        <Button asChild>
+            <Link href="/login">Go to Login</Link>
+        </Button>
+      </div>
+    );
+  }
+
 
   return (
     <SidebarProvider>
@@ -440,5 +450,3 @@ export default function AdminLayout({
     </ThemeProvider>
   );
 }
-
-    
