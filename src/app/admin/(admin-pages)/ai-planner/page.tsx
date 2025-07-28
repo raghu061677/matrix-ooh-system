@@ -1,10 +1,20 @@
 
+'use client';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Bot } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Bot, ChevronLeft } from 'lucide-react';
+import Link from 'next/link';
 
 export default function AiPlannerPage() {
   return (
     <div className="grid gap-6">
+        <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" asChild>
+                <Link href="/admin/media-plans"><ChevronLeft /></Link>
+            </Button>
+            <h1 className="text-xl font-bold">AI Media Planner</h1>
+        </div>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

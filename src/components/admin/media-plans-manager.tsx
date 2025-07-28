@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2, Loader2, FileText, MoreHorizontal } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, FileText, MoreHorizontal, Bot } from 'lucide-react';
 import { MediaPlan } from '@/types/media-plan';
 import { Customer, User } from '@/types/firestore';
 import { format } from 'date-fns';
@@ -173,6 +173,12 @@ export function MediaPlansManager() {
             onChange={(e) => setFilter(e.target.value)}
             className="w-64"
           />
+          <Button variant="outline" asChild>
+            <Link href="/admin/ai-planner">
+              <Bot className="mr-2" />
+              AI Plan
+            </Link>
+          </Button>
           <Button onClick={() => openPlanForm()}>
             <PlusCircle className="mr-2" />
             Add Plan

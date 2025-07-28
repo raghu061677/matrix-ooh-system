@@ -90,14 +90,6 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                    </Link>
                  </SidebarMenuButton>
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                 <SidebarMenuButton asChild isActive={pathname.startsWith('/admin/ai-planner')} tooltip="AI Planner">
-                   <Link href="/admin/ai-planner">
-                    <Bot />
-                    <span className="whitespace-nowrap">AI Planner</span>
-                   </Link>
-                 </SidebarMenuButton>
-              </SidebarMenuItem>
             </SidebarMenu>
 
              <Collapsible open={mediaOpen} onOpenChange={setMediaOpen} className="w-full">
