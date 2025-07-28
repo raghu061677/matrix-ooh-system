@@ -35,8 +35,8 @@ import { SelectAssetsDialog } from './select-assets-dialog';
 import { Asset } from './media-manager-types';
 
 const sampleData: MediaPlan[] = [
-    { id: '1', customerId: 'customer-1', displayName: 'CRI Campaign', createdAt: new Date(), startDate: new Date('2025-07-26'), endDate: new Date('2025-08-24'), status: 'Draft', costSummary: { displayCost: 0, printingCost: 0, installationCost: 0, totalBeforeTax: 380000, gst: 68400, grandTotal: 448400 } },
-    { id: '2', customerId: 'customer-2', displayName: 'Matrix Launch', createdAt: new Date(), startDate: new Date('2025-07-24'), endDate: new Date('2025-08-22'), status: 'Draft', costSummary: { displayCost: 0, printingCost: 0, installationCost: 0, totalBeforeTax: 500000, gst: 90000, grandTotal: 590000 } },
+    { id: '1', customerId: 'customer-1', displayName: 'City Bus Shelter Campaign', createdAt: new Date('2024-07-01'), startDate: new Date('2024-08-01'), endDate: new Date('2024-08-30'), status: 'Draft', costSummary: { displayCost: 380000, printingCost: 0, installationCost: 0, totalBeforeTax: 380000, gst: 68400, grandTotal: 448400 } },
+    { id: '2', customerId: 'customer-2', displayName: 'Tech Park Launch', createdAt: new Date('2024-07-15'), startDate: new Date('2024-09-01'), endDate: new Date('2024-09-30'), status: 'Approved', costSummary: { displayCost: 500000, printingCost: 25000, installationCost: 10000, totalBeforeTax: 535000, gst: 96300, grandTotal: 631300 } },
 ];
 
 const mockEmployees: User[] = [

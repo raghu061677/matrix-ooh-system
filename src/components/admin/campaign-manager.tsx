@@ -19,15 +19,21 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { MoreHorizontal, Search, Download, Loader2, ListChecks } from 'lucide-react';
-import { Campaign } from '@/types/media-plan';
+import { Campaign, CampaignStatus } from '@/types/media-plan';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, DocumentData } from 'firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '../ui/badge';
 import { Customer } from '@/types/firestore';
+
+const sampleCampaigns: Campaign[] = [
+    { id: 'camp-1', planId: '1', title: 'City Bus Shelter Campaign', startDate: new Date('2024-08-01'), endDate: addDays(new Date('2024-08-01'), 30), status: 'Running', companyId: 'company-1' },
+    { id: 'camp-2', planId: '2', title: 'Tech Park Launch', startDate: new Date('2024-09-01'), endDate: addDays(new Date('2024-09-01'), 30), status: 'Completed', companyId: 'company-1'},
+    { id: 'camp-3', planId: '3', title: 'Monsoon Sale Offer', startDate: new Date('2024-06-15'), endDate: addDays(new Date('2024-06-15'), 30), status: 'Completed', companyId: 'company-1' },
+];
 
 export function CampaignManager() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -45,16 +51,21 @@ export function CampaignManager() {
         try {
             const campaignsQuery = query(collection(db, "campaigns"), where("companyId", "==", user.companyId));
             const campaignsSnapshot = await getDocs(campaignsQuery);
-            const fetchedCampaigns = campaignsSnapshot.docs.map(doc => {
-                const data = doc.data() as DocumentData;
-                return {
-                    ...data,
-                    id: doc.id,
-                    startDate: data.startDate?.toDate(),
-                    endDate: data.endDate?.toDate(),
-                } as Campaign;
-            });
-            setCampaigns(fetchedCampaigns);
+            if (campaignsSnapshot.empty) {
+                setCampaigns(sampleCampaigns);
+            } else {
+                const fetchedCampaigns = campaignsSnapshot.docs.map(doc => {
+                    const data = doc.data() as DocumentData;
+                    return {
+                        ...data,
+                        id: doc.id,
+                        startDate: data.startDate?.toDate(),
+                        endDate: data.endDate?.toDate(),
+                    } as Campaign;
+                });
+                setCampaigns(fetchedCampaigns);
+            }
+
 
              const customersQuery = query(collection(db, "customers"), where("companyId", "==", user.companyId));
              const customersSnapshot = await getDocs(customersQuery);
@@ -66,6 +77,7 @@ export function CampaignManager() {
                 variant: 'destructive',
                 title: 'Failed to fetch campaigns',
             });
+            setCampaigns(sampleCampaigns);
         } finally {
             setLoading(false);
         }
@@ -81,6 +93,19 @@ export function CampaignManager() {
     );
   }, [campaigns, filter]);
   
+  const getStatusVariant = (status: CampaignStatus) => {
+    switch (status) {
+        case 'Running':
+            return 'default';
+        case 'Completed':
+            return 'secondary';
+        case 'Cancelled':
+            return 'destructive'
+        default:
+            return 'outline'
+    }
+  }
+
   if (loading) {
     return (
         <div className="flex items-center justify-center h-48">
@@ -124,7 +149,7 @@ export function CampaignManager() {
                 <TableCell>{campaign.endDate ? format(new Date(campaign.endDate as any), 'dd MMM yyyy') : 'N/A'}</TableCell>
                 <TableCell>
                   <Badge 
-                    variant={campaign.status === 'Running' ? 'default' : 'secondary'}
+                    variant={getStatusVariant(campaign.status)}
                     className="capitalize"
                   >
                     {campaign.status}
