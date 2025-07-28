@@ -49,12 +49,6 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const [settingsOpen, setSettingsOpen] = useState(pathname.startsWith('/admin/settings'));
 
 
-  useEffect(() => {
-    if (!loading && !firebaseUser) {
-      router.push('/login');
-    }
-  }, [firebaseUser, loading, router]);
-  
   const handleLogout = async () => {
     await signOut(auth);
     router.push('/login');
@@ -437,6 +431,28 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   );
 }
 
+function ProtectedAdminLayout({ children }: { children: ReactNode }) {
+  const { firebaseUser, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !firebaseUser) {
+      router.push('/login');
+    }
+  }, [firebaseUser, loading, router]);
+
+  if (loading || !firebaseUser) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return <AdminLayoutContent>{children}</AdminLayoutContent>;
+}
+
+
 export default function AdminLayout({
   children,
 }: {
@@ -445,7 +461,7 @@ export default function AdminLayout({
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AdminLayoutContent>{children}</AdminLayoutContent>
+        <ProtectedAdminLayout>{children}</ProtectedAdminLayout>
       </AuthProvider>
     </ThemeProvider>
   );
