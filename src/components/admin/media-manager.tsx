@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -42,7 +41,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2, Loader2, Image as ImageIcon, MoreHorizontal, X, Upload, ArrowUpDown, Settings } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, Image as ImageIcon, MoreHorizontal, X, Upload, ArrowUpDown, Settings, FileDown } from 'lucide-react';
 import { Asset, sampleAssets, AssetStatus, AssetOwnership, mediaTypes, lightTypes, AssetLightType } from './media-manager-types';
 import { ScrollArea } from '../ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
@@ -50,6 +49,8 @@ import { Switch } from '../ui/switch';
 import { statesAndDistricts } from '@/lib/india-states';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import ExifParser from 'exif-parser';
+import * as XLSX from 'xlsx';
+
 
 type SortConfig = {
   key: keyof Asset;
@@ -63,10 +64,13 @@ export function MediaManager() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [currentAsset, setCurrentAsset] = useState<Asset | null>(null);
   const [formData, setFormData] = useState<Partial<Asset>>({});
   
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
+
   const [filter, setFilter] = useState('');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const [columnVisibility, setColumnVisibility] = useState({
@@ -79,6 +83,7 @@ export function MediaManager() {
       status: true,
       totalSqft: true,
       cardRate: true,
+      baseRate: true,
   });
 
 
@@ -340,6 +345,77 @@ export function MediaManager() {
     return sqft1 + sqft2;
   }, [formData.totalSqft, formData.totalSqft2, formData.multiface]);
 
+  const handleExport = (sample = false) => {
+    const dataToExport = sample 
+      ? [{ 
+          iid: 'HYD-001',
+          name: 'Sample Location Name',
+          location: 'Sample Location Description',
+          area: 'Sample Area',
+          district: 'Hyderabad',
+          state: 'Telangana',
+          media: 'Hoarding',
+          lightType: 'Frontlit',
+          status: 'active',
+          ownership: 'own',
+          cardRate: 50000,
+          baseRate: 40000,
+          'size.width': 40,
+          'size.height': 30,
+        }]
+      : sortedAndFilteredAssets.map(asset => ({...asset, 'size.width': asset.size?.width, 'size.height': asset.size?.height}));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Media Assets');
+    XLSX.writeFile(workbook, sample ? 'sample-media-assets.xlsx' : 'media-assets-export.xlsx');
+  };
+  
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.companyId) return;
+
+    setIsImporting(true);
+    toast({ title: 'Importing assets...', description: 'Please wait.' });
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+        try {
+            const data = event.target?.result;
+            const workbook = XLSX.read(data, { type: 'binary' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+            let successCount = 0;
+            for (const item of json) {
+                 const newAsset: Partial<Asset> = {
+                    ...item,
+                    companyId: user.companyId,
+                    createdAt: serverTimestamp(),
+                    size: { width: item['size.width'], height: item['size.height'] },
+                    imageUrls: [],
+                 };
+                 await addDoc(mediaAssetsCollectionRef, newAsset);
+                 successCount++;
+            }
+            toast({ title: 'Import Complete!', description: `${successCount} assets were imported.`});
+            await getMediaAssets();
+
+        } catch (error) {
+            console.error("Import error:", error);
+            toast({ variant: 'destructive', title: 'Import Failed', description: 'Could not import assets. Please check file format.'});
+        } finally {
+            setIsImporting(false);
+            if (importInputRef.current) {
+                importInputRef.current.value = '';
+            }
+        }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+
   if (loading && !isDialogOpen) {
     return (
         <div className="flex items-center justify-center h-48">
@@ -392,6 +468,21 @@ export function MediaManager() {
                     ))}
                 </DropdownMenuContent>
             </DropdownMenu>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline">
+                       <FileDown className="mr-2" />
+                        {isImporting ? <Loader2 className="animate-spin" /> : 'Data'}
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => handleExport(false)}>Export Current View</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => handleExport(true)}>Download Sample File</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => importInputRef.current?.click()}>Import from Excel</DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+             <input type="file" ref={importInputRef} onChange={handleImport} className="hidden" accept=".xlsx, .xls" />
           <Button onClick={() => openDialog()}>
             <PlusCircle className="mr-2" />
             Add New Asset
@@ -412,6 +503,7 @@ export function MediaManager() {
               {columnVisibility.status && <TableHead>Status</TableHead>}
               {columnVisibility.totalSqft && <TableHead>SQFT</TableHead>}
               {columnVisibility.cardRate && renderSortableHeader('Card Rate', 'cardRate')}
+              {columnVisibility.baseRate && renderSortableHeader('Base Rate', 'baseRate')}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -442,7 +534,7 @@ export function MediaManager() {
                 {columnVisibility.status && <TableCell>{asset.status}</TableCell>}
                 {columnVisibility.totalSqft && <TableCell>{(asset.totalSqft || 0) + (asset.multiface ? (asset.totalSqft2 || 0) : 0)}</TableCell>}
                 {columnVisibility.cardRate && <TableCell>{asset.cardRate?.toLocaleString('en-IN')}</TableCell>}
-
+                {columnVisibility.baseRate && <TableCell>{asset.baseRate?.toLocaleString('en-IN')}</TableCell>}
                 <TableCell className="text-right">
                    <DropdownMenu>
                     <DropdownMenuTrigger asChild>
