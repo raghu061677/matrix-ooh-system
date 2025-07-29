@@ -69,8 +69,10 @@ export function MediaManager() {
   const [currentAsset, setCurrentAsset] = useState<Asset | null>(null);
   const [formData, setFormData] = useState<Partial<Asset>>({});
   
-  // State for new image files to be uploaded
   const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
+
+  const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
+  const [mapAsset, setMapAsset] = useState<Asset | null>(null);
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -518,6 +520,11 @@ export function MediaManager() {
     };
     reader.readAsBinaryString(file);
   };
+  
+  const openMapDialog = (asset: Asset) => {
+    setMapAsset(asset);
+    setIsMapDialogOpen(true);
+  }
 
 
   if (loading && !isDialogOpen) {
@@ -644,15 +651,12 @@ export function MediaManager() {
                   {asset.latitude && asset.longitude && (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" asChild>
-                            <Link href={`https://www.google.com/maps/search/?api=1&query=${asset.latitude},${asset.longitude}`} target="_blank" rel="noopener noreferrer">
-                                <MapPin className="h-4 w-4 text-blue-500" />
-                            </Link>
+                        <Button variant="ghost" size="icon" onClick={() => openMapDialog(asset)}>
+                            <MapPin className="h-4 w-4 text-blue-500" />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p><strong>Dimension:</strong> {asset.dimensions || 'N/A'}</p>
-                        <p><strong>Light Type:</strong> {asset.lightType || 'N/A'}</p>
+                        <p>Click to view map</p>
                       </TooltipContent>
                     </Tooltip>
                   )}
@@ -914,6 +918,34 @@ export function MediaManager() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={isMapDialogOpen} onOpenChange={setIsMapDialogOpen}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Asset Location</DialogTitle>
+             <DialogDescription>{mapAsset?.location}</DialogDescription>
+          </DialogHeader>
+          <div className="aspect-video w-full rounded-md border overflow-hidden">
+            {mapAsset?.latitude && mapAsset?.longitude && (
+              <iframe
+                width="100%"
+                height="100%"
+                loading="lazy"
+                allowFullScreen
+                referrerPolicy="no-referrer-when-downgrade"
+                src={`https://maps.google.com/maps?q=${mapAsset.latitude},${mapAsset.longitude}&hl=es&z=14&output=embed`}
+              ></iframe>
+            )}
+          </div>
+          <DialogFooter className="sm:justify-start">
+             <div className="flex items-center gap-4 text-sm">
+                <span><strong>Dimension:</strong> {mapAsset?.dimensions || 'N/A'}</span>
+                 <span><strong>Light Type:</strong> {mapAsset?.lightType || 'N/A'}</span>
+             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </TooltipProvider>
   );
 }
