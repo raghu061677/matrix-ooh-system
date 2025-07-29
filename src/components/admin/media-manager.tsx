@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -50,8 +51,8 @@ import { useAuth } from '@/hooks/use-auth';
 import { Switch } from '../ui/switch';
 import { statesAndDistricts } from '@/lib/india-states';
 import { Card, CardContent, CardHeader } from '../ui/card';
-import ExifParser from 'exif-parser';
 import imageCompression from 'browser-image-compression';
+import ExifParser from 'exif-parser';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 
@@ -526,6 +527,13 @@ export function MediaManager() {
     setIsMapDialogOpen(true);
   }
 
+  const getAssetTotalSqft = (asset: Asset | null) => {
+    if (!asset) return 0;
+    const sqft1 = asset.totalSqft || 0;
+    const sqft2 = asset.multiface ? (asset.totalSqft2 || 0) : 0;
+    return sqft1 + sqft2;
+  };
+
 
   if (loading && !isDialogOpen) {
     return (
@@ -611,7 +619,6 @@ export function MediaManager() {
               {columnVisibility.district && <TableHead>District</TableHead>}
               {columnVisibility.area && renderSortableHeader('Area', 'area')}
               {columnVisibility.location && <TableHead>Location</TableHead>}
-              <TableHead>Map</TableHead>
               {columnVisibility.direction && <TableHead>Direction</TableHead>}
               {columnVisibility.dimensions && <TableHead>Dimension</TableHead>}
               {columnVisibility.width && <TableHead>Width</TableHead>}
@@ -621,6 +628,7 @@ export function MediaManager() {
               {columnVisibility.baseRate && renderSortableHeader('Base Rate', 'baseRate')}
               {columnVisibility.cardRate && renderSortableHeader('Card Rate', 'cardRate')}
               {columnVisibility.status && <TableHead>Status</TableHead>}
+              <TableHead>Map</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -647,6 +655,15 @@ export function MediaManager() {
                 {columnVisibility.district && <TableCell>{asset.district}</TableCell>}
                 {columnVisibility.area && <TableCell>{asset.area}</TableCell>}
                 {columnVisibility.location && <TableCell className="max-w-[200px] truncate">{asset.location}</TableCell>}
+                {columnVisibility.direction && <TableCell>{asset.direction}</TableCell>}
+                {columnVisibility.dimensions && <TableCell>{asset.dimensions}</TableCell>}
+                {columnVisibility.width && <TableCell>{asset.size?.width}</TableCell>}
+                {columnVisibility.height && <TableCell>{asset.size?.height}</TableCell>}
+                {columnVisibility.totalSqft && <TableCell>{getAssetTotalSqft(asset)}</TableCell>}
+                {columnVisibility.lightType && <TableCell>{asset.lightType}</TableCell>}
+                {columnVisibility.baseRate && <TableCell>{asset.baseRate?.toLocaleString('en-IN')}</TableCell>}
+                {columnVisibility.cardRate && <TableCell>{asset.cardRate?.toLocaleString('en-IN')}</TableCell>}
+                {columnVisibility.status && <TableCell>{asset.status}</TableCell>}
                 <TableCell>
                   {asset.latitude && asset.longitude && (
                     <Tooltip>
@@ -661,15 +678,6 @@ export function MediaManager() {
                     </Tooltip>
                   )}
                 </TableCell>
-                {columnVisibility.direction && <TableCell>{asset.direction}</TableCell>}
-                {columnVisibility.dimensions && <TableCell>{asset.dimensions}</TableCell>}
-                {columnVisibility.width && <TableCell>{asset.size?.width}</TableCell>}
-                {columnVisibility.height && <TableCell>{asset.size?.height}</TableCell>}
-                {columnVisibility.totalSqft && <TableCell>{(asset.totalSqft || 0) + (asset.multiface ? (asset.totalSqft2 || 0) : 0)}</TableCell>}
-                {columnVisibility.lightType && <TableCell>{asset.lightType}</TableCell>}
-                {columnVisibility.baseRate && <TableCell>{asset.baseRate?.toLocaleString('en-IN')}</TableCell>}
-                {columnVisibility.cardRate && <TableCell>{asset.cardRate?.toLocaleString('en-IN')}</TableCell>}
-                {columnVisibility.status && <TableCell>{asset.status}</TableCell>}
                 <TableCell className="text-right">
                    <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -922,8 +930,8 @@ export function MediaManager() {
       <Dialog open={isMapDialogOpen} onOpenChange={setIsMapDialogOpen}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Asset Location</DialogTitle>
-             <DialogDescription>{mapAsset?.location}</DialogDescription>
+            <DialogTitle>{mapAsset?.location}</DialogTitle>
+             <DialogDescription>Direction: {mapAsset?.direction || 'N/A'}</DialogDescription>
           </DialogHeader>
           <div className="aspect-video w-full rounded-md border overflow-hidden">
             {mapAsset?.latitude && mapAsset?.longitude && (
@@ -938,9 +946,11 @@ export function MediaManager() {
             )}
           </div>
           <DialogFooter className="sm:justify-start">
-             <div className="flex items-center gap-4 text-sm">
+             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm w-full">
                 <span><strong>Dimension:</strong> {mapAsset?.dimensions || 'N/A'}</span>
-                 <span><strong>Light Type:</strong> {mapAsset?.lightType || 'N/A'}</span>
+                <span><strong>Total SqFt:</strong> {getAssetTotalSqft(mapAsset)}</span>
+                <span><strong>Light Type:</strong> {mapAsset?.lightType || 'N/A'}</span>
+                <span><strong>Area:</strong> {mapAsset?.area || 'N/A'}</span>
              </div>
           </DialogFooter>
         </DialogContent>
