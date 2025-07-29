@@ -303,41 +303,45 @@ export function MediaManager() {
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!user?.companyId) {
-        toast({ variant: 'destructive', title: 'Authentication Error', description: 'User company not found.' });
+    if (!user?.companyId || !user?.uid) {
+        toast({ variant: 'destructive', title: 'Authentication Error', description: 'User company or ID not found.' });
         return;
     }
+    
     setIsSaving(true);
 
     try {
-        const { iid, location } = formData;
-        if ((iid || location) && !currentAsset?.id) { // Only check for duplicates on creation
-            const iidQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("iid", "==", iid));
-            const locationQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("location", "==", location));
+        // Step 1: Prepare asset data and save/update text fields
+        const dataToSave: Partial<Asset> = { ...formData, companyId: user.companyId };
+        let assetId = currentAsset?.id;
+        let finalImageUrls = currentAsset?.imageUrls || [];
+
+        // Uniqueness check for new assets
+        if (!assetId && (dataToSave.iid || dataToSave.location)) {
+            const iidQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("iid", "==", dataToSave.iid));
+            const locationQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("location", "==", dataToSave.location));
             
             const [iidSnapshot, locationSnapshot] = await Promise.all([getDocs(iidQuery), getDocs(locationQuery)]);
             
-            if (!iidSnapshot.empty) throw new Error(`An asset with the code "${iid}" already exists.`);
-            if (!locationSnapshot.empty) throw new Error(`An asset with the location "${location}" already exists.`);
+            if (!iidSnapshot.empty) throw new Error(`An asset with the code "${dataToSave.iid}" already exists.`);
+            if (!locationSnapshot.empty) throw new Error(`An asset with the location "${dataToSave.location}" already exists.`);
         }
-        
-        let assetId = currentAsset?.id;
-        const dataToSave = { ...formData, companyId: user.companyId };
-        
-        let finalImageUrls = formData.imageUrls || [];
 
-        if (!assetId) {
-            // Create new asset
+        if (assetId) {
+            // Update existing asset
+            await updateDoc(doc(db, 'mediaAssets', assetId), { ...dataToSave, updatedAt: serverTimestamp() });
+        } else {
+            // Create new asset to get an ID
             const docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, imageUrls: [], createdAt: serverTimestamp() });
             assetId = docRef.id;
-            toast({ title: 'Asset Created', description: 'Now uploading images...' });
+            setCurrentAsset({ ...dataToSave, id: assetId }); // Update current asset for image upload step
         }
         
-        // Image Upload Logic for both new and existing assets
-        if (assetId && newImageFiles.length > 0) {
+        // Step 2: Upload new images if any
+        if (newImageFiles.length > 0) {
             toast({ title: `Uploading ${newImageFiles.length} image(s)...` });
             const uploadPromises = newImageFiles.map(file => {
-                const imageRef = ref(storage, `media-assets/${assetId}/${file.name}_${Date.now()}`);
+                const imageRef = ref(storage, `uploads/${user.uid}/${file.name}_${Date.now()}`);
                 return uploadBytes(imageRef, file).then(snapshot => getDownloadURL(snapshot.ref));
             });
             const newImageUrls = await Promise.all(uploadPromises);
@@ -345,9 +349,8 @@ export function MediaManager() {
             toast({ title: 'Upload Complete!', description: 'All images uploaded successfully.' });
         }
 
-        // Final Update for both new and existing assets
-        const assetDoc = doc(db, 'mediaAssets', assetId);
-        await updateDoc(assetDoc, { ...dataToSave, imageUrls: finalImageUrls, updatedAt: serverTimestamp() });
+        // Step 3: Final update with image URLs
+        await updateDoc(doc(db, 'mediaAssets', assetId), { imageUrls: finalImageUrls });
 
         await getMediaAssets();
         toast({ title: 'Asset Saved!', description: 'The media asset has been successfully saved.' });
@@ -660,7 +663,7 @@ export function MediaManager() {
                 {columnVisibility.baseRate && <TableCell>{asset.baseRate?.toLocaleString('en-IN')}</TableCell>}
                 {columnVisibility.cardRate && <TableCell>{asset.cardRate?.toLocaleString('en-IN')}</TableCell>}
                 {columnVisibility.status && <TableCell>{asset.status}</TableCell>}
-                <TableCell>
+                 <TableCell>
                   {asset.latitude && asset.longitude && (
                     <Tooltip>
                       <TooltipTrigger asChild>
