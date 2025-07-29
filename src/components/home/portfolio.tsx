@@ -11,8 +11,7 @@ import Link from 'next/link';
 const sampleLocations: Asset[] = [
   {
     id: 'sample-1',
-    name: 'Jubilee Hills Hoarding',
-    location: 'Road No. 36, High-Traffic Junction, Hyderabad',
+    location: 'Jubilee Hills Hoarding, Road No. 36, High-Traffic Junction, Hyderabad',
     media: 'Hoarding',
     status: 'active',
     rate: 120000,
@@ -20,8 +19,7 @@ const sampleLocations: Asset[] = [
   },
   {
     id: 'sample-2',
-    name: 'Koramangala Unipole',
-    location: 'Near Sony World Signal, Bengaluru',
+    location: 'Koramangala Unipole, Near Sony World Signal, Bengaluru',
     media: 'Unipole',
     status: 'active',
     rate: 95000,
@@ -29,8 +27,7 @@ const sampleLocations: Asset[] = [
   },
   {
     id: 'sample-3',
-    name: 'Bandra Gantry',
-    location: 'Linking Road, Shopper\'s Hub, Mumbai',
+    location: 'Bandra Gantry, Linking Road, Shopper\'s Hub, Mumbai',
     media: 'Gantry',
     status: 'active',
     rate: 150000,
@@ -55,7 +52,6 @@ export function Portfolio() {
               <LocationCard 
                 key={location.id}
                 id={location.id}
-                title={location.name || 'Untitled'}
                 location={location.location || 'Unknown Location'}
                 imageUrl={location.imageUrls?.[0] || 'https://placehold.co/600x400.png'}
                 aiHint="city street billboard"

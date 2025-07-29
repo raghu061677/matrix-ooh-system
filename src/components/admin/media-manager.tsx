@@ -52,6 +52,8 @@ import { statesAndDistricts } from '@/lib/india-states';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import ExifParser from 'exif-parser';
 import * as XLSX from 'xlsx';
+import 'browser-image-compression';
+import imageCompression from 'browser-image-compression';
 
 
 type SortConfig = {
@@ -217,20 +219,28 @@ export function MediaManager() {
     if (!files || files.length === 0) return;
     
     const validFiles: File[] = [];
+    const compressionOptions = {
+        maxSizeMB: 2,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true,
+    }
+
     for (const file of Array.from(files)) {
-      if (file.size > 2 * 1024 * 1024) { // 2MB limit
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit before compression
         toast({
           variant: 'destructive',
           title: 'File Too Large',
-          description: `${file.name} is over 2MB. Please compress it.`,
+          description: `${file.name} is over 5MB. Please select a smaller file.`,
         });
         continue;
       }
-      validFiles.push(file);
 
-      // Check for GPS data in EXIF
       try {
-        const arrayBuffer = await file.arrayBuffer();
+        const compressedFile = await imageCompression(file, compressionOptions);
+        validFiles.push(compressedFile);
+
+        // Check for GPS data in EXIF
+        const arrayBuffer = await file.arrayBuffer(); // use original file for exif
         const parser = ExifParser.create(arrayBuffer);
         const result = parser.parse();
         if (result.tags.GPSLatitude && result.tags.GPSLongitude) {
@@ -241,8 +251,9 @@ export function MediaManager() {
            }));
            toast({ title: 'Geotag Found!', description: `Coordinates updated from ${file.name}.` });
         }
-      } catch (exifError) {
-        console.warn('Could not parse EXIF data from image.', exifError);
+      } catch (error) {
+         toast({ variant: 'destructive', title: 'Compression Failed', description: `Could not process ${file.name}.` });
+         console.error('Compression error:', error);
       }
     }
     
@@ -371,11 +382,11 @@ export function MediaManager() {
   };
   
   const handleDelete = async (asset: Asset) => {
-     if(!confirm(`Are you sure you want to delete asset ${asset.name} (${asset.location})?`)) return;
+     if(!confirm(`Are you sure you want to delete asset ${asset.location}?`)) return;
      const assetDoc = doc(db, 'mediaAssets', asset.id);
      await deleteDoc(assetDoc);
      await getMediaAssets();
-     toast({ title: 'Asset Deleted', description: `${asset.name} has been removed.` });
+     toast({ title: 'Asset Deleted', description: `${asset.location} has been removed.` });
   };
   
   const sortedAndFilteredAssets = useMemo(() => {
@@ -419,7 +430,6 @@ export function MediaManager() {
     const dataToExport = sample 
       ? [{ 
           iid: 'HYD-001',
-          name: 'Sample Location Name',
           location: 'Sample Location Description',
           area: 'Sample Area',
           district: 'Hyderabad',
@@ -659,10 +669,6 @@ export function MediaManager() {
                         <Label htmlFor="iid">Asset ID</Label>
                         <Input id="iid" name="iid" value={formData.iid || ''} onChange={handleFormChange} />
                     </div>
-                     <div>
-                        <Label htmlFor="name">Location Name</Label>
-                        <Input id="name" name="name" value={formData.name || ''} onChange={handleFormChange} required />
-                      </div>
                     <div>
                         <Label htmlFor="media">Media Type</Label>
                         <Select onValueChange={(value) => handleSelectChange('media', value)} value={formData.media}>
@@ -698,8 +704,8 @@ export function MediaManager() {
                         <Input id="area" name="area" value={formData.area || ''} onChange={handleFormChange} />
                      </div>
                      <div className='md:col-span-2'>
-                        <Label htmlFor="location">Location Description</Label>
-                        <Input id="location" name="location" value={formData.location || ''} onChange={handleFormChange} />
+                        <Label htmlFor="location">Location</Label>
+                        <Input id="location" name="location" value={formData.location || ''} onChange={handleFormChange} required />
                     </div>
                      <div>
                         <Label htmlFor="direction">Direction</Label>

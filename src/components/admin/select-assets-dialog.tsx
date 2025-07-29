@@ -133,7 +133,6 @@ export function SelectAssetsDialog({
                     />
                   </TableHead>
                   <TableHead>Image</TableHead>
-                  <TableHead>Name</TableHead>
                   <TableHead>Location</TableHead>
                   <TableHead>Media Type</TableHead>
                   <TableHead>Rate</TableHead>
@@ -165,8 +164,7 @@ export function SelectAssetsDialog({
                         </div>
                       )}
                     </TableCell>
-                    <TableCell className="font-medium">{asset.name}</TableCell>
-                    <TableCell>{asset.location}</TableCell>
+                    <TableCell className="font-medium">{asset.location}</TableCell>
                     <TableCell>{asset.media}</TableCell>
                     <TableCell>{asset.rate?.toLocaleString('en-IN')}</TableCell>
                     <TableCell>{asset.status}</TableCell>

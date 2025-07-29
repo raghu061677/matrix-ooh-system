@@ -15,7 +15,6 @@ import Link from 'next/link';
 
 type LocationCardProps = {
   id: string;
-  title: string;
   location: string;
   imageUrl: string;
   aiHint: string;
@@ -25,7 +24,6 @@ type LocationCardProps = {
 
 export function LocationCard({
   id,
-  title,
   location,
   imageUrl,
   aiHint,
@@ -38,7 +36,7 @@ export function LocationCard({
         <div className="relative h-56 w-full">
           <Image
             src={imageUrl}
-            alt={`Image of ${title}`}
+            alt={`Image of ${location}`}
             data-ai-hint={aiHint}
             fill
             className="object-cover"
@@ -47,7 +45,7 @@ export function LocationCard({
       </CardHeader>
       <CardContent className="p-6 flex-grow">
         <div className="flex justify-between items-start mb-2">
-            <CardTitle className="text-xl font-headline">{title}</CardTitle>
+            <CardTitle className="text-xl font-headline">{location}</CardTitle>
             <Badge variant={'secondary'}>{category}</Badge>
         </div>
         <CardDescription className="flex items-center gap-2 text-muted-foreground mb-4">

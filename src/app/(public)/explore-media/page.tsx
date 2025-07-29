@@ -64,7 +64,6 @@ export default function ExploreMediaPage() {
   const filteredAssets = useMemo(() => {
     return assets.filter(asset => {
       const matchesText = filter ? 
-        asset.name?.toLowerCase().includes(filter.toLowerCase()) || 
         asset.location?.toLowerCase().includes(filter.toLowerCase()) : true;
       
       const matchesType = mediaTypeFilter !== 'all' ? asset.media === mediaTypeFilter : true;
@@ -90,7 +89,7 @@ export default function ExploreMediaPage() {
        <Card className="mb-8">
             <CardContent className="p-4 flex flex-col md:flex-row gap-4">
                 <Input 
-                    placeholder="Search by name or location..."
+                    placeholder="Search by location..."
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
                     className="flex-grow"
@@ -116,7 +115,6 @@ export default function ExploreMediaPage() {
                 <LocationCard 
                     key={asset.id}
                     id={asset.id}
-                    title={asset.name || 'Untitled'}
                     location={asset.location || 'Unknown Location'}
                     imageUrl={asset.imageUrls?.[0] || 'https://placehold.co/600x400.png'}
                     aiHint="city street billboard"

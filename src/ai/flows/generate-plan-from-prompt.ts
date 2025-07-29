@@ -21,7 +21,6 @@ export type GeneratePlanFromPromptInput = z.infer<typeof GeneratePlanFromPromptI
 
 const SuggestedAssetSchema = z.object({
     id: z.string(),
-    name: z.string(),
     location: z.string(),
     rate: z.number(),
     reason: z.string().describe("A brief explanation of why this asset was chosen.")
@@ -39,7 +38,6 @@ const getAvailableAssetsTool = ai.defineTool(
         description: 'Retrieves a list of all available media assets from the database.',
         outputSchema: z.array(z.object({
             id: z.string(),
-            name: z.string().optional(),
             location: z.string().optional(),
             status: z.string(),
             rate: z.number().optional(),

@@ -72,7 +72,7 @@ export default function EnquiryPage() {
                    {asset && (
                        <Card>
                             <CardHeader>
-                                <CardTitle className="font-headline text-2xl">Enquiry for: {asset.name}</CardTitle>
+                                <CardTitle className="font-headline text-2xl">Enquiry for: {asset.location}</CardTitle>
                                 <CardDescription className="flex items-center gap-2 pt-2">
                                     <MapPin className="w-4 h-4" />
                                     {asset.location}
@@ -82,7 +82,7 @@ export default function EnquiryPage() {
                                 <div className="relative h-64 w-full rounded-lg overflow-hidden mb-4">
                                      <Image 
                                         src={asset.imageUrls?.[0] || 'https://placehold.co/600x400.png'}
-                                        alt={asset.name || 'Media asset'}
+                                        alt={asset.location || 'Media asset'}
                                         fill
                                         className="object-cover"
                                      />
