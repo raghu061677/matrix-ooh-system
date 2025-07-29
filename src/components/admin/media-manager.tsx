@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -303,79 +304,63 @@ export function MediaManager() {
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user?.companyId) {
-      toast({ variant: 'destructive', title: 'Authentication Error', description: 'User company not found.' });
-      return;
+        toast({ variant: 'destructive', title: 'Authentication Error', description: 'User company not found.' });
+        return;
     }
-    
     setIsSaving(true);
 
     try {
-      const { iid, location } = formData;
-      if (iid || location) {
-        const iidQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("iid", "==", iid));
-        const locationQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("location", "==", location));
-        
-        const [iidSnapshot, locationSnapshot] = await Promise.all([getDocs(iidQuery), getDocs(locationQuery)]);
-        
-        const isIidDuplicate = !iidSnapshot.empty && iidSnapshot.docs.some(doc => doc.id !== currentAsset?.id);
-        const isLocationDuplicate = !locationSnapshot.empty && locationSnapshot.docs.some(doc => doc.id !== currentAsset?.id);
-
-        if (isIidDuplicate) {
-          throw new Error(`An asset with the code "${iid}" already exists.`);
+        const { iid, location } = formData;
+        if ((iid || location) && !currentAsset?.id) { // Only check for duplicates on creation
+            const iidQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("iid", "==", iid));
+            const locationQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("location", "==", location));
+            
+            const [iidSnapshot, locationSnapshot] = await Promise.all([getDocs(iidQuery), getDocs(locationQuery)]);
+            
+            if (!iidSnapshot.empty) throw new Error(`An asset with the code "${iid}" already exists.`);
+            if (!locationSnapshot.empty) throw new Error(`An asset with the location "${location}" already exists.`);
         }
-        if (isLocationDuplicate) {
-          throw new Error(`An asset with the location "${location}" already exists.`);
-        }
-      }
-
-      let assetId = currentAsset?.id;
-      let dataToSave: Partial<Asset> = {
-        ...Object.fromEntries(Object.entries(formData).filter(([key, v]) => v !== undefined && key !== 'id')),
-        companyId: user.companyId,
-        updatedAt: new Date(),
-      };
-
-      if (!dataToSave.multiface) {
-        delete (dataToSave as any).size2;
-        delete (dataToSave as any).totalSqft2;
-      }
-
-      if (assetId) {
-        const assetDoc = doc(db, 'mediaAssets', assetId);
-        await updateDoc(assetDoc, dataToSave);
-      } else {
-        const docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, createdAt: serverTimestamp(), imageUrls: [] });
-        assetId = docRef.id;
-        toast({ title: 'Asset Created!', description: 'Now checking for images to upload...' });
-      }
-
-      if (assetId && newImageFiles.length > 0) {
-        toast({ title: `Uploading ${newImageFiles.length} image(s)...` });
-        const uploadPromises = newImageFiles.map(file => {
-          const imageRef = ref(storage, `media-assets/${assetId}/${file.name}_${Date.now()}`);
-          return uploadBytes(imageRef, file).then(snapshot => getDownloadURL(snapshot.ref));
-        });
-
-        const newImageUrls = await Promise.all(uploadPromises);
-        const assetDoc = doc(db, 'mediaAssets', assetId);
-        const assetSnap = await getDoc(assetDoc);
-        const existingImageUrls = assetSnap.data()?.imageUrls || [];
         
-        await updateDoc(assetDoc, { imageUrls: [...existingImageUrls, ...newImageUrls] });
-        toast({ title: 'Upload Complete!', description: 'All images uploaded successfully.' });
-      }
+        let assetId = currentAsset?.id;
+        const dataToSave = { ...formData, companyId: user.companyId };
+        
+        let finalImageUrls = formData.imageUrls || [];
 
-      await getMediaAssets();
-      toast({ title: 'Asset Saved!', description: 'The media asset has been successfully saved.' });
-      closeDialog();
+        if (!assetId) {
+            // Create new asset
+            const docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, imageUrls: [], createdAt: serverTimestamp() });
+            assetId = docRef.id;
+            toast({ title: 'Asset Created', description: 'Now uploading images...' });
+        }
+        
+        // Image Upload Logic for both new and existing assets
+        if (assetId && newImageFiles.length > 0) {
+            toast({ title: `Uploading ${newImageFiles.length} image(s)...` });
+            const uploadPromises = newImageFiles.map(file => {
+                const imageRef = ref(storage, `media-assets/${assetId}/${file.name}_${Date.now()}`);
+                return uploadBytes(imageRef, file).then(snapshot => getDownloadURL(snapshot.ref));
+            });
+            const newImageUrls = await Promise.all(uploadPromises);
+            finalImageUrls = [...finalImageUrls, ...newImageUrls];
+            toast({ title: 'Upload Complete!', description: 'All images uploaded successfully.' });
+        }
+
+        // Final Update for both new and existing assets
+        const assetDoc = doc(db, 'mediaAssets', assetId);
+        await updateDoc(assetDoc, { ...dataToSave, imageUrls: finalImageUrls, updatedAt: serverTimestamp() });
+
+        await getMediaAssets();
+        toast({ title: 'Asset Saved!', description: 'The media asset has been successfully saved.' });
+        closeDialog();
 
     } catch (error: any) {
-      console.error("Error saving asset:", error);
-      toast({ variant: 'destructive', title: 'Save Failed', description: error.message || 'Could not save asset details.' });
+        console.error("Error saving asset:", error);
+        toast({ variant: 'destructive', title: 'Save Failed', description: error.message || 'Could not save asset details.' });
     } finally {
-      setIsSaving(false);
+        setIsSaving(false);
     }
-  };
+};
+
 
   const openDialog = (asset: Asset | null = null) => {
     setCurrentAsset(asset);
