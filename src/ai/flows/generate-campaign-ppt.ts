@@ -10,7 +10,6 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import PptxGenJS from 'pptxgenjs';
-import fetch from 'node-fetch';
 import { db, storage } from './assign-invoice-number'; // Import the shared db and storage instances
 
 const GenerateCampaignPptInputSchema = z.object({
@@ -123,10 +122,10 @@ const generateCampaignPptFlow = ai.defineFlow(
         },
     });
     
-    // 5. Return the public URL
+    // 5. Get and return the public URL
     const [downloadUrl] = await file.getSignedUrl({
         action: 'read',
-        expires: '03-09-2491', // Far-future expiration date
+        expires: '03-09-2491', // A very far future date for public access
     });
     
     return { downloadUrl };

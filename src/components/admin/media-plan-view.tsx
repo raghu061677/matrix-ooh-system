@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -50,8 +49,8 @@ const InfoRow: React.FC<{ label: string; value?: string | number | null; childre
 // Helper function to upload a file to Firebase Storage and return its URL
 async function uploadFileAndGetURL(planId: string, fileBlob: Blob, fileName: string) {
   const exportRef = ref(storage, `exports/plans/${planId}/${fileName}`);
-  await uploadBytes(exportRef, fileBlob);
-  return await getDownloadURL(exportRef);
+  const snapshot = await uploadBytes(exportRef, fileBlob);
+  return await getDownloadURL(snapshot.ref);
 }
 
 
@@ -117,19 +116,16 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   // Helper to fetch an image and convert it to a base64 data URI
   async function imageToBase64(url: string): Promise<string> {
     try {
-      // Use a CORS proxy if running locally and facing CORS issues
-      const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-      const response = await fetch(proxyUrl + url);
-      if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
-      const blob = await response.blob();
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.statusText}`);
+      }
+      const buffer = await response.arrayBuffer();
+      const contentType = response.headers.get('content-type') || 'image/jpeg';
+      return `data:${contentType};base64,${Buffer.from(buffer).toString('base64')}`;
     } catch (error) {
       console.error(`Error converting image to base64: ${url}`, error);
+      // Return a placeholder or handle the error as needed
       return ''; 
     }
   }
@@ -168,9 +164,9 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
             }
         }
     }
-
-    const buffer = await ppt.write({ outputType: "arraybuffer" });
-    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
+    
+    const pptxBuffer = await ppt.write({ outputType: "buffer" });
+    const blob = new Blob([pptxBuffer as ArrayBuffer], { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
     
     const filename = `Preview Deck - ${plan.displayName || plan.id}.pptx`;
 
@@ -233,8 +229,8 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
       const filename = `plan.xlsx`;
 
       // Write to Blob
-      const excelBlob = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-      const blob = new Blob([excelBlob], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+      const blob = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
 
       try {
         const url = await uploadFileAndGetURL(planId, blob, filename);

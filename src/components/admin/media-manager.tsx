@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -330,7 +328,7 @@ export function MediaManager() {
         }
     }
 
-    let finalAssetId = currentAsset?.id;
+    let assetId = currentAsset?.id;
     let dataToSave: Partial<Asset> = {
       ...Object.fromEntries(
         Object.entries(formData).filter(([key, v]) => v !== undefined && key !== 'id')
@@ -345,27 +343,27 @@ export function MediaManager() {
     }
 
     try {
-      if (finalAssetId) {
+      if (assetId) {
         // Updating an existing asset
-        const assetDoc = doc(db, 'mediaAssets', finalAssetId);
+        const assetDoc = doc(db, 'mediaAssets', assetId);
         await updateDoc(assetDoc, dataToSave);
       } else {
         // Creating a new asset
         const docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, createdAt: serverTimestamp(), imageUrls: [] });
-        finalAssetId = docRef.id; // Get the ID of the newly created document
+        assetId = docRef.id; // Get the ID of the newly created document
         toast({ title: 'Asset Created!', description: 'Now checking for images to upload...' });
       }
 
       // Proceed with image upload only if we have a valid asset ID and new files
-      if (finalAssetId && newImageFiles.length > 0) {
+      if (assetId && newImageFiles.length > 0) {
         toast({ title: `Uploading ${newImageFiles.length} image(s)...` });
         const uploadPromises = newImageFiles.map(file => {
-          const imageRef = ref(storage, `media-assets/${finalAssetId}/${file.name}_${Date.now()}`);
+          const imageRef = ref(storage, `media-assets/${assetId}/${file.name}_${Date.now()}`);
           return uploadBytes(imageRef, file).then(snapshot => getDownloadURL(snapshot.ref));
         });
 
         const newImageUrls = await Promise.all(uploadPromises);
-        const assetDoc = doc(db, 'mediaAssets', finalAssetId);
+        const assetDoc = doc(db, 'mediaAssets', assetId);
         const assetSnap = await getDoc(assetDoc);
         const existingImageUrls = assetSnap.data()?.imageUrls || [];
         
