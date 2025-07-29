@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -139,17 +140,38 @@ export function MediaManager() {
     const { name, value, type } = e.target;
     
     if (name === 'dimensions') {
-        const parts = value.split(/x|X/);
-        const width = parseFloat(parts[0]) || 0;
-        const height = parseFloat(parts[1]) || 0;
-        const totalSqft = width * height;
+        const updatedFormData: Partial<Asset> = { dimensions: value };
+        
+        // Check for multi-face format like "25x5-12x3"
+        if (value.includes('-')) {
+            const [face1Dim, face2Dim] = value.split('-');
+            updatedFormData.multiface = true;
+            
+            if (face1Dim) {
+                const parts1 = face1Dim.split(/x|X/);
+                const width1 = parseFloat(parts1[0]) || 0;
+                const height1 = parseFloat(parts1[1]) || 0;
+                updatedFormData.size = { width: width1, height: height1 };
+                updatedFormData.totalSqft = width1 * height1;
+            }
+            
+            if (face2Dim) {
+                const parts2 = face2Dim.split(/x|X/);
+                const width2 = parseFloat(parts2[0]) || 0;
+                const height2 = parseFloat(parts2[1]) || 0;
+                updatedFormData.size2 = { width: width2, height: height2 };
+                updatedFormData.totalSqft2 = width2 * height2;
+            }
 
-        setFormData(prev => ({
-            ...prev,
-            dimensions: value,
-            size: { width, height },
-            totalSqft: totalSqft > 0 ? totalSqft : 0
-        }));
+        } else { // Single face
+            const parts = value.split(/x|X/);
+            const width = parseFloat(parts[0]) || 0;
+            const height = parseFloat(parts[1]) || 0;
+            updatedFormData.size = { width, height };
+            updatedFormData.totalSqft = width * height;
+        }
+
+        setFormData(prev => ({ ...prev, ...updatedFormData }));
     } else {
         setFormData(prev => ({ ...prev, [name]: type === 'number' ? parseFloat(value) || 0 : value }));
     }
@@ -160,15 +182,26 @@ export function MediaManager() {
     const sizeKey = face === 1 ? 'size' : 'size2';
     const sqftKey = face === 1 ? 'totalSqft' : 'totalSqft2';
 
-    const newSize = { ...formData[sizeKey], [name]: parseFloat(value) || 0 };
+    const newSize = { ...(formData[sizeKey] || {}), [name]: parseFloat(value) || 0 };
     const totalSqft = (newSize.width || 0) * (newSize.height || 0);
 
-    setFormData(prev => ({ 
-        ...prev, 
-        [sizeKey]: newSize,
-        [sqftKey]: totalSqft > 0 ? totalSqft : 0,
-        dimensions: `${newSize.width || 0} x ${newSize.height || 0}`
-    }));
+    setFormData(prev => {
+        const updatedData = {
+            ...prev,
+            [sizeKey]: newSize,
+            [sqftKey]: totalSqft > 0 ? totalSqft : 0
+        };
+
+        const face1Dim = `${updatedData.size?.width || 0}x${updatedData.size?.height || 0}`;
+        if (updatedData.multiface) {
+            const face2Dim = `${updatedData.size2?.width || 0}x${updatedData.size2?.height || 0}`;
+            updatedData.dimensions = `${face1Dim}-${face2Dim}`;
+        } else {
+            updatedData.dimensions = face1Dim;
+        }
+
+        return updatedData;
+    });
   };
 
   const handleSelectChange = (name: keyof Asset, value: string) => {
@@ -682,7 +715,7 @@ export function MediaManager() {
                  
                   <div className="md:col-span-3 border-t pt-4 mt-4 grid md:grid-cols-3 gap-4">
                         <div>
-                            <Label htmlFor="dimensions">Dimension (e.g. 40x30)</Label>
+                            <Label htmlFor="dimensions">Dimension (e.g. 40x30 or 25x5-12x3)</Label>
                             <Input id="dimensions" name="dimensions" value={formData.dimensions || ''} onChange={handleFormChange} />
                         </div>
                         <div>
