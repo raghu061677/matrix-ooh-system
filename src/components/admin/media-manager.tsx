@@ -302,12 +302,16 @@ export function MediaManager() {
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!user?.companyId) return;
+    if (!user?.companyId) {
+      toast({ variant: 'destructive', title: 'Authentication Error', description: 'User company not found.' });
+      return;
+    }
+    
     setIsSaving(true);
 
-    const { iid, location } = formData;
-
-    if (iid || location) {
+    try {
+      const { iid, location } = formData;
+      if (iid || location) {
         const iidQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("iid", "==", iid));
         const locationQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("location", "==", location));
         
@@ -317,44 +321,34 @@ export function MediaManager() {
         const isLocationDuplicate = !locationSnapshot.empty && locationSnapshot.docs.some(doc => doc.id !== currentAsset?.id);
 
         if (isIidDuplicate) {
-            toast({ variant: 'destructive', title: 'Duplicate Media Code', description: `An asset with the code "${iid}" already exists.` });
-            setIsSaving(false);
-            return;
+          throw new Error(`An asset with the code "${iid}" already exists.`);
         }
         if (isLocationDuplicate) {
-            toast({ variant: 'destructive', title: 'Duplicate Location', description: `An asset with the location "${location}" already exists.` });
-            setIsSaving(false);
-            return;
+          throw new Error(`An asset with the location "${location}" already exists.`);
         }
-    }
+      }
 
-    let assetId = currentAsset?.id;
-    let dataToSave: Partial<Asset> = {
-      ...Object.fromEntries(
-        Object.entries(formData).filter(([key, v]) => v !== undefined && key !== 'id')
-      ),
-      companyId: user.companyId,
-      updatedAt: new Date(),
-    };
-    
-    if (!dataToSave.multiface) {
-      delete (dataToSave as any).size2;
-      delete (dataToSave as any).totalSqft2;
-    }
+      let assetId = currentAsset?.id;
+      let dataToSave: Partial<Asset> = {
+        ...Object.fromEntries(Object.entries(formData).filter(([key, v]) => v !== undefined && key !== 'id')),
+        companyId: user.companyId,
+        updatedAt: new Date(),
+      };
 
-    try {
+      if (!dataToSave.multiface) {
+        delete (dataToSave as any).size2;
+        delete (dataToSave as any).totalSqft2;
+      }
+
       if (assetId) {
-        // Updating an existing asset
         const assetDoc = doc(db, 'mediaAssets', assetId);
         await updateDoc(assetDoc, dataToSave);
       } else {
-        // Creating a new asset
         const docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, createdAt: serverTimestamp(), imageUrls: [] });
-        assetId = docRef.id; // Get the ID of the newly created document
+        assetId = docRef.id;
         toast({ title: 'Asset Created!', description: 'Now checking for images to upload...' });
       }
 
-      // Proceed with image upload only if we have a valid asset ID and new files
       if (assetId && newImageFiles.length > 0) {
         toast({ title: `Uploading ${newImageFiles.length} image(s)...` });
         const uploadPromises = newImageFiles.map(file => {
@@ -375,11 +369,11 @@ export function MediaManager() {
       toast({ title: 'Asset Saved!', description: 'The media asset has been successfully saved.' });
       closeDialog();
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving asset:", error);
-      toast({ variant: 'destructive', title: 'Save Failed', description: `Could not save asset details. ${error}` });
+      toast({ variant: 'destructive', title: 'Save Failed', description: error.message || 'Could not save asset details.' });
     } finally {
-        setIsSaving(false);
+      setIsSaving(false);
     }
   };
 
