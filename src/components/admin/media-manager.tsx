@@ -1,7 +1,9 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -41,7 +43,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2, Loader2, Image as ImageIcon, MoreHorizontal, X, Upload, ArrowUpDown, Settings, FileDown } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, Image as ImageIcon, MoreHorizontal, X, Upload, ArrowUpDown, Settings, FileDown, MapPin } from 'lucide-react';
 import { Asset, sampleAssets, AssetStatus, AssetOwnership, mediaTypes, lightTypes, AssetLightType } from './media-manager-types';
 import { ScrollArea } from '../ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
@@ -49,8 +51,8 @@ import { Switch } from '../ui/switch';
 import { statesAndDistricts } from '@/lib/india-states';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import ExifParser from 'exif-parser';
-import * as XLSX from 'xlsx';
 import imageCompression from 'browser-image-compression';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 
 type SortConfig = {
@@ -78,8 +80,8 @@ export function MediaManager() {
   const [columnVisibility, setColumnVisibility] = useState({
       iid: true, // Media Code
       media: true, // Media Type
-      latitude: true,
-      longitude: true,
+      latitude: false,
+      longitude: false,
       district: true,
       area: true,
       location: true,
@@ -298,69 +300,66 @@ export function MediaManager() {
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if(!user?.companyId) return;
+    if (!user?.companyId) return;
     setIsSaving(true);
-    
+
     let assetId = currentAsset?.id;
-    let existingImageUrls = formData.imageUrls || [];
-
-    // Step 1: Save or Update Asset Text Data
-    try {
-        const dataToSave: Partial<Asset> = {
-            ...Object.fromEntries(Object.entries(formData).filter(([key, v]) => v !== undefined && key !== 'id')),
-            companyId: user.companyId,
-            updatedAt: new Date()
-        };
-
-        if (!dataToSave.multiface) {
-            delete (dataToSave as any).size2;
-            delete (dataToSave as any).totalSqft2;
-        }
-
-        if (assetId) {
-            const assetDoc = doc(db, 'mediaAssets', assetId);
-            await updateDoc(assetDoc, dataToSave);
-        } else {
-            const docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, createdAt: serverTimestamp(), imageUrls: [] });
-            assetId = docRef.id;
-            const newAsset = { ...dataToSave, id: assetId, imageUrls: [] } as Asset;
-            setCurrentAsset(newAsset);
-            setFormData(newAsset);
-            toast({ title: 'Asset Created!', description: 'Now uploading images...' });
-        }
-    } catch(error) {
-        console.error("Error saving asset details:", error);
-        toast({ variant: 'destructive', title: 'Save Failed', description: `Could not save asset details. ${error}` });
-        setIsSaving(false);
-        return;
+    let dataToSave: Partial<Asset> = {
+      ...Object.fromEntries(
+        Object.entries(formData).filter(([key, v]) => v !== undefined && key !== 'id')
+      ),
+      companyId: user.companyId,
+      updatedAt: new Date(),
+    };
+    
+    if (!dataToSave.multiface) {
+      delete (dataToSave as any).size2;
+      delete (dataToSave as any).totalSqft2;
     }
 
+    try {
+      if (assetId) {
+        // Update existing asset
+        const assetDoc = doc(db, 'mediaAssets', assetId);
+        await updateDoc(assetDoc, dataToSave);
+      } else {
+        // Create new asset
+        const docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, createdAt: serverTimestamp(), imageUrls: [] });
+        assetId = docRef.id;
+        const newAsset = { ...dataToSave, id: assetId, imageUrls: [] } as Asset;
+        setCurrentAsset(newAsset);
+        setFormData(newAsset);
+        toast({ title: 'Asset Created!', description: 'Now uploading images...' });
+      }
 
-    // Step 2: Upload new images if any
-    if (newImageFiles.length > 0) {
+      // Step 2: Upload new images if any and if assetId is available
+      if (assetId && newImageFiles.length > 0) {
         toast({ title: `Uploading ${newImageFiles.length} image(s)...` });
         const uploadPromises = newImageFiles.map(file => {
-            const imageRef = ref(storage, `media-assets/${assetId}/${file.name}_${Date.now()}`);
-            return uploadBytes(imageRef, file).then(snapshot => getDownloadURL(snapshot.ref));
+          const imageRef = ref(storage, `media-assets/${assetId}/${file.name}_${Date.now()}`);
+          return uploadBytes(imageRef, file).then(snapshot => getDownloadURL(snapshot.ref));
         });
 
-        try {
-            const newImageUrls = await Promise.all(uploadPromises);
-            existingImageUrls = [...existingImageUrls, ...newImageUrls];
-            const assetDoc = doc(db, 'mediaAssets', assetId!);
-            await updateDoc(assetDoc, { imageUrls: existingImageUrls });
-            toast({ title: 'Upload Complete!', description: 'All images uploaded successfully.' });
-        } catch(error) {
-             console.error("Error uploading images:", error);
-             toast({ variant: 'destructive', title: 'Image Upload Failed', description: 'Could not upload some or all new images.' });
-        }
+        const newImageUrls = await Promise.all(uploadPromises);
+        const assetDoc = doc(db, 'mediaAssets', assetId);
+        const assetSnap = await getDoc(assetDoc);
+        const existingImageUrls = assetSnap.data()?.imageUrls || [];
+        
+        await updateDoc(assetDoc, { imageUrls: [...existingImageUrls, ...newImageUrls] });
+        toast({ title: 'Upload Complete!', description: 'All images uploaded successfully.' });
+      }
+
+      // Step 3: Finalize and refresh
+      await getMediaAssets();
+      setIsSaving(false);
+      toast({ title: 'Asset Saved!', description: 'The media asset has been successfully saved.' });
+      closeDialog();
+
+    } catch (error) {
+      console.error("Error saving asset:", error);
+      toast({ variant: 'destructive', title: 'Save Failed', description: `Could not save asset details. ${error}` });
+      setIsSaving(false);
     }
-    
-    // Step 3: Finalize and refresh
-    await getMediaAssets();
-    setIsSaving(false);
-    toast({ title: 'Asset Saved!', description: 'The media asset has been successfully saved.' });
-    closeDialog();
   };
 
   const openDialog = (asset: Asset | null = null) => {
@@ -515,7 +514,7 @@ export function MediaManager() {
   );
 
   return (
-    <>
+    <TooltipProvider>
       <div className="flex justify-between items-center mb-6 gap-4">
         <div className="flex items-center gap-2">
            <Input
@@ -578,11 +577,10 @@ export function MediaManager() {
               <TableHead>Image</TableHead>
               {columnVisibility.iid && <TableHead>Media Code</TableHead>}
               {columnVisibility.media && renderSortableHeader('Media Type', 'media')}
-              {columnVisibility.latitude && <TableHead>Latitude</TableHead>}
-              {columnVisibility.longitude && <TableHead>Longitude</TableHead>}
               {columnVisibility.district && <TableHead>District</TableHead>}
               {columnVisibility.area && renderSortableHeader('Area', 'area')}
               {columnVisibility.location && <TableHead>Location</TableHead>}
+              <TableHead>Map</TableHead>
               {columnVisibility.direction && <TableHead>Direction</TableHead>}
               {columnVisibility.dimensions && <TableHead>Dimension</TableHead>}
               {columnVisibility.width && <TableHead>Width</TableHead>}
@@ -615,11 +613,26 @@ export function MediaManager() {
                 </TableCell>
                 {columnVisibility.iid && <TableCell>{asset.iid}</TableCell>}
                 {columnVisibility.media && <TableCell>{asset.media}</TableCell>}
-                {columnVisibility.latitude && <TableCell>{asset.latitude}</TableCell>}
-                {columnVisibility.longitude && <TableCell>{asset.longitude}</TableCell>}
                 {columnVisibility.district && <TableCell>{asset.district}</TableCell>}
                 {columnVisibility.area && <TableCell>{asset.area}</TableCell>}
-                {columnVisibility.location && <TableCell>{asset.location}</TableCell>}
+                {columnVisibility.location && <TableCell className="max-w-[200px] truncate">{asset.location}</TableCell>}
+                <TableCell>
+                  {asset.latitude && asset.longitude && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" asChild>
+                            <Link href={`https://www.google.com/maps/search/?api=1&query=${asset.latitude},${asset.longitude}`} target="_blank" rel="noopener noreferrer">
+                                <MapPin className="h-4 w-4 text-blue-500" />
+                            </Link>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p><strong>Dimension:</strong> {asset.dimensions || 'N/A'}</p>
+                        <p><strong>Light Type:</strong> {asset.lightType || 'N/A'}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </TableCell>
                 {columnVisibility.direction && <TableCell>{asset.direction}</TableCell>}
                 {columnVisibility.dimensions && <TableCell>{asset.dimensions}</TableCell>}
                 {columnVisibility.width && <TableCell>{asset.size?.width}</TableCell>}
@@ -877,6 +890,6 @@ export function MediaManager() {
           </form>
         </DialogContent>
       </Dialog>
-    </>
+    </TooltipProvider>
   );
 }
