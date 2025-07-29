@@ -137,7 +137,22 @@ export function MediaManager() {
   
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
-    setFormData(prev => ({ ...prev, [name]: type === 'number' ? parseFloat(value) || 0 : value }));
+    
+    if (name === 'dimensions') {
+        const parts = value.split(/x|X/);
+        const width = parseFloat(parts[0]) || 0;
+        const height = parseFloat(parts[1]) || 0;
+        const totalSqft = width * height;
+
+        setFormData(prev => ({
+            ...prev,
+            dimensions: value,
+            size: { width, height },
+            totalSqft: totalSqft > 0 ? totalSqft : 0
+        }));
+    } else {
+        setFormData(prev => ({ ...prev, [name]: type === 'number' ? parseFloat(value) || 0 : value }));
+    }
   };
   
   const handleSizeChange = (e: React.ChangeEvent<HTMLInputElement>, face: 1 | 2) => {
@@ -256,8 +271,8 @@ export function MediaManager() {
         };
 
         if (!dataToSave.multiface) {
-            delete dataToSave.size2;
-            delete dataToSave.totalSqft2;
+            delete (dataToSave as any).size2;
+            delete (dataToSave as any).totalSqft2;
         }
 
         if (assetId) {
@@ -290,7 +305,7 @@ export function MediaManager() {
         try {
             const newImageUrls = await Promise.all(uploadPromises);
             existingImageUrls = [...existingImageUrls, ...newImageUrls];
-            const assetDoc = doc(db, 'mediaAssets', assetId);
+            const assetDoc = doc(db, 'mediaAssets', assetId!);
             await updateDoc(assetDoc, { imageUrls: existingImageUrls });
             toast({ title: 'Upload Complete!', description: 'All images uploaded successfully.' });
         } catch(error) {
@@ -667,6 +682,10 @@ export function MediaManager() {
                  
                   <div className="md:col-span-3 border-t pt-4 mt-4 grid md:grid-cols-3 gap-4">
                         <div>
+                            <Label htmlFor="dimensions">Dimension (e.g. 40x30)</Label>
+                            <Input id="dimensions" name="dimensions" value={formData.dimensions || ''} onChange={handleFormChange} />
+                        </div>
+                        <div>
                             <Label htmlFor="width">Width (ft)</Label>
                             <Input id="width" name="width" type="number" value={formData.size?.width || ''} onChange={(e) => handleSizeChange(e, 1)} />
                         </div>
@@ -819,5 +838,7 @@ export function MediaManager() {
     </>
   );
 }
+
+    
 
     
