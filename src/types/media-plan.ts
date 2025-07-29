@@ -1,9 +1,10 @@
 
 import type { Timestamp } from 'firebase/firestore';
 import { User } from './firestore';
+import { Asset } from './admin/media-manager-types';
 
-export type PlanStatus = 'Draft' | 'Approved' | 'Rejected' | 'Converted';
-export type CampaignStatus = 'active' | 'completed' | 'cancelled';
+export type PlanStatus = 'Draft' | 'Approved' | 'Rejected' | 'Converted' | 'Confirmed';
+export type CampaignStatus = 'Running' | 'Completed' | 'Cancelled';
 
 export interface MediaPlan {
   id: string; // Firestore document ID
@@ -24,6 +25,7 @@ export interface MediaPlan {
   days?: number;
 
   mediaAssetIds?: string[];
+  mediaAssets?: Partial<Asset>[];
 
   // Summaries & Statistics
   costSummary?: {
@@ -66,13 +68,7 @@ export interface MediaPlan {
   createdAt?: Date | Timestamp;
 }
 
-export type Campaign = {
-  id: string;
+export type Campaign = MediaPlan & {
   planId: string;
-  title: string;
-  startDate: Date | Timestamp;
-  endDate: Date | Timestamp;
-  images?: string[];
   status: CampaignStatus;
-  companyId: string;
 };

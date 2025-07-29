@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -87,11 +85,11 @@ export function MediaManager() {
       location: true,
       direction: true,
       dimensions: true, // Dimension
-      width: true,
-      height: true,
+      width: false,
+      height: false,
       totalSqft: true, // Sft
       lightType: true,
-      baseRate: true,
+      baseRate: false,
       cardRate: true,
       status: true,
   });
@@ -521,7 +519,7 @@ export function MediaManager() {
       <div className="flex justify-between items-center mb-6 gap-4">
         <div className="flex items-center gap-2">
            <Input
-            placeholder="Filter assets..."
+            placeholder="Filter by district, area, location, direction..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             className="max-w-sm"
@@ -882,7 +880,3 @@ export function MediaManager() {
     </>
   );
 }
-
-    
-
-    

@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
 import { format, addDays } from 'date-fns';
-import { MoreHorizontal, Search, Download, Loader2, ListChecks } from 'lucide-react';
+import { MoreHorizontal, Search, Download, Loader2, ListChecks, FileInput } from 'lucide-react';
 import { Campaign, CampaignStatus } from '@/types/media-plan';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -28,17 +28,20 @@ import { collection, getDocs, query, where, DocumentData } from 'firebase/firest
 import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '../ui/badge';
 import { Customer } from '@/types/firestore';
+import { generateCampaignPpt } from '@/ai/flows/generate-campaign-ppt';
+import Link from 'next/link';
 
 const sampleCampaigns: Campaign[] = [
-    { id: 'camp-1', planId: '1', title: 'City Bus Shelter Campaign', startDate: new Date('2024-08-01'), endDate: addDays(new Date('2024-08-01'), 30), status: 'Running', companyId: 'company-1' },
-    { id: 'camp-2', planId: '2', title: 'Tech Park Launch', startDate: new Date('2024-09-01'), endDate: addDays(new Date('2024-09-01'), 30), status: 'Completed', companyId: 'company-1'},
-    { id: 'camp-3', planId: '3', title: 'Monsoon Sale Offer', startDate: new Date('2024-06-15'), endDate: addDays(new Date('2024-06-15'), 30), status: 'Completed', companyId: 'company-1' },
+    { id: 'camp-1', planId: '1', displayName: 'CRI', customerId: 'customer-1', customerName: 'Matrix-OOH', startDate: new Date('2024-08-01'), endDate: addDays(new Date('2024-08-01'), 30), status: 'Running', companyId: 'company-1' },
+    { id: 'camp-2', planId: '2', displayName: 'Matrix ®', customerId: 'customer-2', customerName: 'Matrix', startDate: new Date('2024-09-01'), endDate: addDays(new Date('2024-09-01'), 30), status: 'Completed', companyId: 'company-1'},
+    { id: 'camp-3', planId: '3', displayName: 'Education', customerId: 'customer-3', customerName: 'Founding Years Learning Solutions Pvt Ltd', startDate: new Date('2024-06-15'), endDate: addDays(new Date('2024-06-15'), 30), status: 'Completed', companyId: 'company-1' },
 ];
 
 export function CampaignManager() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filter, setFilter] = useState('');
+  const [generatingPptId, setGeneratingPptId] = useState<string | null>(null);
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
@@ -84,6 +87,33 @@ export function CampaignManager() {
     }
     fetchData();
   }, [user, toast]);
+  
+  const handleGeneratePpt = async (campaignId: string) => {
+    setGeneratingPptId(campaignId);
+    toast({ title: 'Generating PPT...', description: 'This may take a moment. Please wait.'});
+    try {
+        const result = await generateCampaignPpt({ campaignId });
+        if (result.downloadUrl) {
+            toast({ 
+                title: 'PPT Generated Successfully!',
+                description: 'Your download link is ready.',
+                action: <a href={result.downloadUrl} target="_blank" rel="noopener noreferrer"><Button variant="outline">Download</Button></a>
+            });
+        } else {
+             throw new Error('PPT generation failed to return a URL.');
+        }
+    } catch (error) {
+        console.error("Error generating PPT: ", error);
+        toast({
+            variant: 'destructive',
+            title: 'PPT Generation Failed',
+            description: 'Could not generate the presentation. Please check the logs.',
+        });
+    } finally {
+        setGeneratingPptId(null);
+    }
+  };
+
 
   const filteredCampaigns = useMemo(() => {
     return campaigns.filter(campaign =>
@@ -132,7 +162,8 @@ export function CampaignManager() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Title</TableHead>
+              <TableHead>Campaign Name</TableHead>
+              <TableHead>Customer</TableHead>
               <TableHead>Start Date</TableHead>
               <TableHead>End Date</TableHead>
               <TableHead>Status</TableHead>
@@ -143,7 +174,10 @@ export function CampaignManager() {
             {filteredCampaigns.map((campaign) => (
               <TableRow key={campaign.id}>
                 <TableCell className="font-medium">
-                    {campaign.title}
+                    {campaign.displayName}
+                </TableCell>
+                 <TableCell>
+                    {campaign.customerName || campaign.customerId}
                 </TableCell>
                 <TableCell>{campaign.startDate ? format(new Date(campaign.startDate as any), 'dd MMM yyyy') : 'N/A'}</TableCell>
                 <TableCell>{campaign.endDate ? format(new Date(campaign.endDate as any), 'dd MMM yyyy') : 'N/A'}</TableCell>
@@ -163,8 +197,17 @@ export function CampaignManager() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
-                       <DropdownMenuItem>View Details</DropdownMenuItem>
-                       <DropdownMenuItem>Manage Photos</DropdownMenuItem>
+                       <DropdownMenuItem asChild>
+                         <Link href={`/admin/operations/photo-library?campaignId=${campaign.id}`}>Manage Photos</Link>
+                       </DropdownMenuItem>
+                       <DropdownMenuItem onClick={() => handleGeneratePpt(campaign.id)} disabled={generatingPptId === campaign.id}>
+                          {generatingPptId === campaign.id ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="mr-2 h-4 w-4" />
+                          )}
+                          Generate PPT
+                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
@@ -172,7 +215,7 @@ export function CampaignManager() {
             ))}
              {filteredCampaigns.length === 0 && (
                 <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">No campaigns found.</TableCell>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">No campaigns found.</TableCell>
                 </TableRow>
              )}
           </TableBody>
