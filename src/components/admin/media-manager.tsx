@@ -330,7 +330,7 @@ export function MediaManager() {
         }
     }
 
-    let assetId = currentAsset?.id;
+    let finalAssetId = currentAsset?.id;
     let dataToSave: Partial<Asset> = {
       ...Object.fromEntries(
         Object.entries(formData).filter(([key, v]) => v !== undefined && key !== 'id')
@@ -345,24 +345,27 @@ export function MediaManager() {
     }
 
     try {
-      if (assetId) {
-        const assetDoc = doc(db, 'mediaAssets', assetId);
+      if (finalAssetId) {
+        // Updating an existing asset
+        const assetDoc = doc(db, 'mediaAssets', finalAssetId);
         await updateDoc(assetDoc, dataToSave);
       } else {
+        // Creating a new asset
         const docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, createdAt: serverTimestamp(), imageUrls: [] });
-        assetId = docRef.id;
+        finalAssetId = docRef.id; // Get the ID of the newly created document
         toast({ title: 'Asset Created!', description: 'Now checking for images to upload...' });
       }
 
-      if (assetId && newImageFiles.length > 0) {
+      // Proceed with image upload only if we have a valid asset ID and new files
+      if (finalAssetId && newImageFiles.length > 0) {
         toast({ title: `Uploading ${newImageFiles.length} image(s)...` });
         const uploadPromises = newImageFiles.map(file => {
-          const imageRef = ref(storage, `media-assets/${assetId}/${file.name}_${Date.now()}`);
+          const imageRef = ref(storage, `media-assets/${finalAssetId}/${file.name}_${Date.now()}`);
           return uploadBytes(imageRef, file).then(snapshot => getDownloadURL(snapshot.ref));
         });
 
         const newImageUrls = await Promise.all(uploadPromises);
-        const assetDoc = doc(db, 'mediaAssets', assetId);
+        const assetDoc = doc(db, 'mediaAssets', finalAssetId);
         const assetSnap = await getDoc(assetDoc);
         const existingImageUrls = assetSnap.data()?.imageUrls || [];
         
