@@ -52,7 +52,6 @@ import { statesAndDistricts } from '@/lib/india-states';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import ExifParser from 'exif-parser';
 import * as XLSX from 'xlsx';
-import 'browser-image-compression';
 import imageCompression from 'browser-image-compression';
 
 
@@ -393,11 +392,15 @@ export function MediaManager() {
     let sortableAssets = [...mediaAssets];
 
     if (filter) {
-      sortableAssets = sortableAssets.filter(asset =>
-        Object.values(asset).some(val => 
-          String(val).toLowerCase().includes(filter.toLowerCase())
-        )
-      );
+      sortableAssets = sortableAssets.filter(asset => {
+        const searchTerm = filter.toLowerCase();
+        return (
+          asset.district?.toLowerCase().includes(searchTerm) ||
+          asset.area?.toLowerCase().includes(searchTerm) ||
+          asset.location?.toLowerCase().includes(searchTerm) ||
+          asset.direction?.toLowerCase().includes(searchTerm)
+        );
+      });
     }
 
     if (sortConfig !== null) {
