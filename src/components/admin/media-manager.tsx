@@ -54,6 +54,7 @@ import { Card, CardContent, CardHeader } from '../ui/card';
 import imageCompression from 'browser-image-compression';
 import ExifParser from 'exif-parser';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
+import * as XLSX from 'xlsx';
 
 
 type SortConfig = {
@@ -308,7 +309,6 @@ export function MediaManager() {
 
     const { iid, location } = formData;
 
-    // Uniqueness check
     if (iid || location) {
         const iidQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("iid", "==", iid));
         const locationQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("location", "==", location));
@@ -346,20 +346,14 @@ export function MediaManager() {
 
     try {
       if (assetId) {
-        // Update existing asset
         const assetDoc = doc(db, 'mediaAssets', assetId);
         await updateDoc(assetDoc, dataToSave);
       } else {
-        // Create new asset
         const docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, createdAt: serverTimestamp(), imageUrls: [] });
         assetId = docRef.id;
-        const newAsset = { ...dataToSave, id: assetId, imageUrls: [] } as Asset;
-        setCurrentAsset(newAsset);
-        setFormData(newAsset);
-        toast({ title: 'Asset Created!', description: 'Now uploading images...' });
+        toast({ title: 'Asset Created!', description: 'Now checking for images to upload...' });
       }
 
-      // Step 2: Upload new images if any and if assetId is available
       if (assetId && newImageFiles.length > 0) {
         toast({ title: `Uploading ${newImageFiles.length} image(s)...` });
         const uploadPromises = newImageFiles.map(file => {
@@ -376,16 +370,15 @@ export function MediaManager() {
         toast({ title: 'Upload Complete!', description: 'All images uploaded successfully.' });
       }
 
-      // Step 3: Finalize and refresh
       await getMediaAssets();
-      setIsSaving(false);
       toast({ title: 'Asset Saved!', description: 'The media asset has been successfully saved.' });
       closeDialog();
 
     } catch (error) {
       console.error("Error saving asset:", error);
       toast({ variant: 'destructive', title: 'Save Failed', description: `Could not save asset details. ${error}` });
-      setIsSaving(false);
+    } finally {
+        setIsSaving(false);
     }
   };
 
@@ -457,20 +450,36 @@ export function MediaManager() {
     const dataToExport = sample 
       ? [{ 
           iid: 'HYD-001',
-          location: 'Sample Location Description',
-          area: 'Sample Area',
-          district: 'Hyderabad',
           state: 'Telangana',
+          district: 'Hyderabad',
+          area: 'Sample Area',
+          location: 'Sample Location Description',
+          direction: 'Towards X',
+          latitude: 17.3850,
+          longitude: 78.4867,
           media: 'Hoarding',
-          lightType: 'Frontlit',
+          lightType: 'Front Lit',
           status: 'active',
           ownership: 'own',
+          dimensions: '40x30',
+          multiface: false,
           cardRate: 50000,
           baseRate: 40000,
+          rate: 45000,
           'size.width': 40,
           'size.height': 30,
+          totalSqft: 1200
         }]
-      : sortedAndFilteredAssets.map(asset => ({...asset, 'size.width': asset.size?.width, 'size.height': asset.size?.height}));
+      : sortedAndFilteredAssets.map(asset => ({
+        ...asset, 
+        'size.width': asset.size?.width, 
+        'size.height': asset.size?.height,
+        'size2.width': asset.size2?.width,
+        'size2.height': asset.size2?.height,
+        // Remove nested objects to avoid issues
+        size: undefined,
+        size2: undefined
+      }));
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
@@ -501,8 +510,15 @@ export function MediaManager() {
                     companyId: user.companyId,
                     createdAt: serverTimestamp(),
                     size: { width: item['size.width'], height: item['size.height'] },
+                    size2: item.multiface ? { width: item['size2.width'], height: item['size2.height'] } : undefined,
                     imageUrls: [],
                  };
+                 // Clean up flattened keys
+                 delete (newAsset as any)['size.width'];
+                 delete (newAsset as any)['size.height'];
+                 delete (newAsset as any)['size2.width'];
+                 delete (newAsset as any)['size2.height'];
+
                  await addDoc(mediaAssetsCollectionRef, newAsset);
                  successCount++;
             }
