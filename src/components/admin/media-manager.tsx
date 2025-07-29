@@ -169,6 +169,7 @@ export function MediaManager() {
             const height = parseFloat(parts[1]) || 0;
             updatedFormData.size = { width, height };
             updatedFormData.totalSqft = width * height;
+            updatedFormData.multiface = false;
         }
 
         setFormData(prev => ({ ...prev, ...updatedFormData }));
@@ -531,6 +532,7 @@ export function MediaManager() {
                             onCheckedChange={value =>
                                 setColumnVisibility(prev => ({...prev, [key]: !!value}))
                             }
+                            onSelect={(e) => e.preventDefault()}
                         >
                             {key.replace(/([A-Z])/g, ' $1')}
                         </DropdownMenuCheckboxItem>
