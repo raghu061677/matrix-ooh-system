@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, where } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, where, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { Button } from '@/components/ui/button';
 import {
@@ -302,6 +302,30 @@ export function MediaManager() {
     e.preventDefault();
     if (!user?.companyId) return;
     setIsSaving(true);
+
+    const { iid, location } = formData;
+
+    // Uniqueness check
+    if (iid || location) {
+        const iidQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("iid", "==", iid));
+        const locationQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("location", "==", location));
+        
+        const [iidSnapshot, locationSnapshot] = await Promise.all([getDocs(iidQuery), getDocs(locationQuery)]);
+        
+        const isIidDuplicate = !iidSnapshot.empty && iidSnapshot.docs.some(doc => doc.id !== currentAsset?.id);
+        const isLocationDuplicate = !locationSnapshot.empty && locationSnapshot.docs.some(doc => doc.id !== currentAsset?.id);
+
+        if (isIidDuplicate) {
+            toast({ variant: 'destructive', title: 'Duplicate Media Code', description: `An asset with the code "${iid}" already exists.` });
+            setIsSaving(false);
+            return;
+        }
+        if (isLocationDuplicate) {
+            toast({ variant: 'destructive', title: 'Duplicate Location', description: `An asset with the location "${location}" already exists.` });
+            setIsSaving(false);
+            return;
+        }
+    }
 
     let assetId = currentAsset?.id;
     let dataToSave: Partial<Asset> = {
