@@ -40,7 +40,7 @@ const allAssetFields: (keyof Asset)[] = [
     'iid', 'name', 'state', 'district', 'area', 'location', 'direction',
     'latitude', 'longitude', 'media', 'lightType', 'status', 'ownership',
     'dimensions', 'multiface', 'cardRate', 'baseRate', 'rate',
-    'totalSqft', 'totalSqft2'
+    'totalSqft', 'totalSqft2', 'size', 'size2'
 ];
 
 export function ImportWizard({
@@ -254,7 +254,7 @@ export function ImportWizard({
                                                 {requiredAssetFields.includes(field as any) && <span className="text-destructive">*</span>}
                                             </TableCell>
                                             <TableCell>
-                                                <Select onValueChange={(value) => handleMappingChange(field, value)} value={fieldMapping[field]}>
+                                                <Select onValueChange={(value) => handleMappingChange(field.toString(), value)} value={fieldMapping[field.toString()]}>
                                                     <SelectTrigger><SelectValue placeholder="Select a column..."/></SelectTrigger>
                                                     <SelectContent>
                                                         <SelectItem value="--skip--">-- Skip this field --</SelectItem>
@@ -281,18 +281,18 @@ export function ImportWizard({
                              <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        {allAssetFields.filter(f => fieldMapping[f] && fieldMapping[f] !== '--skip--').map(field => (
-                                            <TableHead key={field} className="capitalize">{field.replace(/([A-Z])/g, ' $1')}</TableHead>
+                                        {allAssetFields.filter(f => fieldMapping[f.toString()] && fieldMapping[f.toString()] !== '--skip--').map(field => (
+                                            <TableHead key={field.toString()} className="capitalize">{field.toString().replace(/([A-Z])/g, ' $1')}</TableHead>
                                         ))}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {parsedData?.rows.slice(0, 10).map((row, rowIndex) => (
                                         <TableRow key={rowIndex}>
-                                            {allAssetFields.filter(f => fieldMapping[f] && fieldMapping[f] !== '--skip--').map(field => {
-                                                const header = fieldMapping[field];
+                                            {allAssetFields.filter(f => fieldMapping[f.toString()] && fieldMapping[f.toString()] !== '--skip--').map(field => {
+                                                const header = fieldMapping[field.toString()];
                                                 const headerIndex = parsedData.headers.indexOf(header);
-                                                return <TableCell key={field}>{row[headerIndex]}</TableCell>
+                                                return <TableCell key={field.toString()}>{row[headerIndex]}</TableCell>
                                             })}
                                         </TableRow>
                                     ))}
