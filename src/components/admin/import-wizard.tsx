@@ -17,9 +17,10 @@ import { Loader2, FileUp, Check, X, ArrowRight, Table as TableIcon } from 'lucid
 import { Stepper, useStepper } from '@/components/ui/stepper';
 import * as XLSX from 'xlsx';
 import { useAuth } from '@/hooks/use-auth';
-import { collection, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, writeBatch, doc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Asset } from './media-manager-types';
+import { Customer } from '@/types/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { ScrollArea } from '../ui/scroll-area';
@@ -28,6 +29,7 @@ interface ImportWizardProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onImportComplete: () => void;
+  importType: 'assets' | 'customers';
 }
 
 type ParsedData = {
@@ -35,18 +37,33 @@ type ParsedData = {
   rows: any[][];
 };
 
-const requiredAssetFields: (keyof Asset)[] = ['name', 'location', 'status'];
-const allAssetFields: (keyof Asset)[] = [
+// Define fields for each import type
+const assetFields = {
+  required: ['name', 'location', 'status'] as (keyof Asset)[],
+  all: [
     'iid', 'name', 'state', 'district', 'area', 'location', 'direction',
     'latitude', 'longitude', 'media', 'lightType', 'status', 'ownership',
     'dimensions', 'multiface', 'cardRate', 'baseRate', 'rate',
     'totalSqft', 'totalSqft2', 'size', 'size2'
-];
+  ] as (keyof Asset)[]
+};
+
+const customerFields = {
+  required: ['name'] as (keyof Customer)[],
+  all: [
+    'name', 'gst', 'pan', 'email', 'phone', 'website', 'paymentTerms',
+    'billingAddress.street', 'billingAddress.city', 'billingAddress.state', 'billingAddress.postalCode',
+    'shippingAddress.street', 'shippingAddress.city', 'shippingAddress.state', 'shippingAddress.postalCode',
+    'notes'
+  ] as string[]
+};
+
 
 export function ImportWizard({
   isOpen,
   onOpenChange,
   onImportComplete,
+  importType,
 }: ImportWizardProps) {
     const { activeStep, goToNextStep, goToPreviousStep, resetSteps, setStep, ...stepperProps } = useStepper({
         initialStep: 0,
@@ -54,6 +71,7 @@ export function ImportWizard({
             { label: 'Upload File' },
             { label: 'Map Fields' },
             { label: 'Preview & Import' },
+            { label: 'Results' }
         ],
     });
     const [parsedData, setParsedData] = React.useState<ParsedData | null>(null);
@@ -63,6 +81,8 @@ export function ImportWizard({
 
     const { user } = useAuth();
     const { toast } = useToast();
+    
+    const currentFields = importType === 'assets' ? assetFields : customerFields;
 
     const resetWizard = () => {
         resetSteps();
@@ -100,10 +120,10 @@ export function ImportWizard({
 
                 // Auto-map fields
                 const newMapping: Record<string, string> = {};
-                allAssetFields.forEach(assetField => {
-                    const foundHeader = headers.find(h => h.toLowerCase().replace(/[\s\.]/g, '') === assetField.toLowerCase());
+                currentFields.all.forEach(appField => {
+                    const foundHeader = headers.find(h => h.toLowerCase().replace(/[\s\.]/g, '') === appField.toLowerCase().replace(/[\s\.]/g, ''));
                     if(foundHeader) {
-                        newMapping[assetField] = foundHeader;
+                        newMapping[appField] = foundHeader;
                     }
                 });
                 setFieldMapping(newMapping);
@@ -128,87 +148,96 @@ export function ImportWizard({
         setIsProcessing(true);
         setImportResult({success: 0, failed: 0, errors: []});
         
-        const BATCH_SIZE = 400; // Firestore batch limit is 500
-        const batches: any[] = [];
-        let currentBatch = writeBatch(db);
-        let currentBatchSize = 0;
-
-        const mediaAssetsCollection = collection(db, 'mediaAssets');
         let successCount = 0;
         const localErrors: string[] = [];
 
-        parsedData.rows.forEach((row, index) => {
-            const assetData: Partial<Asset> & { [key: string]: any } = {};
+        const collectionRef = collection(db, importType === 'assets' ? 'mediaAssets' : 'customers');
+
+        // For updates, we need to fetch existing docs first to check for existence
+        const existingDocs = new Map<string, string>(); // Map GST/IID to Firestore doc ID
+        if (importType === 'customers') {
+            const gstIndex = parsedData.headers.indexOf(fieldMapping['gst']);
+            if(gstIndex > -1) {
+                const gsts = parsedData.rows.map(r => r[gstIndex]).filter(Boolean);
+                const q = query(collectionRef, where('gst', 'in', gsts));
+                const snapshot = await getDocs(q);
+                snapshot.forEach(doc => existingDocs.set(doc.data().gst, doc.id));
+            }
+        }
+        
+        const BATCH_SIZE = 400; // Firestore batch limit is 500
+        const batches: any[] = [];
+        let batch = writeBatch(db);
+        let writeCount = 0;
+
+        for(let i=0; i < parsedData.rows.length; i++) {
+            const row = parsedData.rows[i];
+            const data: { [key: string]: any } = {};
             
-            allAssetFields.forEach(field => {
+            currentFields.all.forEach(field => {
                 const mappedHeader = fieldMapping[field];
                 if (mappedHeader && mappedHeader !== '--skip--') {
                     const headerIndex = parsedData.headers.indexOf(mappedHeader);
                     if (headerIndex > -1) {
-                         const value = row[headerIndex];
+                        const value = row[headerIndex];
                          if (value !== undefined && value !== null && value !== '') {
-                            (assetData as any)[field] = value;
+                            // Handle nested fields like 'billingAddress.street'
+                            const fieldParts = field.split('.');
+                            if(fieldParts.length > 1) {
+                                if(!data[fieldParts[0]]) data[fieldParts[0]] = {};
+                                data[fieldParts[0]][fieldParts[1]] = value;
+                            } else {
+                                data[field] = value;
+                            }
                          }
                     }
                 }
             });
             
-            // Reconstruct nested objects
-            assetData.size = {
-                width: Number(assetData['size.width']) || 0,
-                height: Number(assetData['size.height']) || 0,
-            };
-            assetData.size2 = {
-                width: Number(assetData['size2.width']) || 0,
-                height: Number(assetData['size2.height']) || 0,
-            };
-
             // Basic validation
-            const missingFields = requiredAssetFields.filter(field => !assetData[field]);
+            const missingFields = currentFields.required.filter(field => !data[field as string]);
             if (missingFields.length > 0) {
-                localErrors.push(`Row ${index + 2}: Missing required fields - ${missingFields.join(', ')}`);
-                return;
+                localErrors.push(`Row ${i + 2}: Missing required fields - ${missingFields.join(', ')}`);
+                continue;
+            }
+            
+            const finalData = { ...data, companyId: user.companyId, updatedAt: serverTimestamp() };
+
+            let docRef;
+            if(importType === 'customers' && data.gst && existingDocs.has(data.gst)) {
+                // Update existing customer
+                docRef = doc(db, 'customers', existingDocs.get(data.gst)!);
+                batch.update(docRef, finalData);
+            } else {
+                // Create new document
+                finalData.createdAt = serverTimestamp();
+                docRef = doc(collectionRef);
+                batch.set(docRef, finalData);
             }
 
-            // Data transformation and type casting
-            const finalAssetData: Partial<Asset> = {
-                ...assetData,
-                companyId: user.companyId,
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-                cardRate: Number(assetData.cardRate) || 0,
-                baseRate: Number(assetData.baseRate) || 0,
-                rate: Number(assetData.rate) || 0,
-                latitude: Number(assetData.latitude) || undefined,
-                longitude: Number(assetData.longitude) || undefined,
-                totalSqft: Number(assetData.totalSqft) || 0,
-                totalSqft2: Number(assetData.totalSqft2) || 0,
-                multiface: String(assetData.multiface).toLowerCase() === 'true',
-            };
-
-            const docRef = doc(mediaAssetsCollection);
-            currentBatch.set(docRef, finalAssetData);
-            currentBatchSize++;
+            writeCount++;
             successCount++;
 
-            if(currentBatchSize === BATCH_SIZE) {
-                batches.push(currentBatch);
-                currentBatch = writeBatch(db);
-                currentBatchSize = 0;
+            if(writeCount === BATCH_SIZE) {
+                batches.push(batch);
+                batch = writeBatch(db);
+                writeCount = 0;
             }
-        });
+        }
 
-        if (currentBatchSize > 0) {
-            batches.push(currentBatch);
+        if (writeCount > 0) {
+            batches.push(batch);
         }
         
         try {
-            await Promise.all(batches.map(batch => batch.commit()));
+            await Promise.all(batches.map(b => b.commit()));
             setImportResult({ success: successCount, failed: localErrors.length, errors: localErrors });
-            toast({ title: 'Import Complete!', description: `${successCount} records imported.` });
+            toast({ title: 'Import Complete!', description: `${successCount} records processed.` });
             onImportComplete();
         } catch (error: any) {
-            toast({ variant: 'destructive', title: 'Import Failed', description: `Could not commit changes to the database. ${error.message}` });
+            localErrors.push(`A critical error occurred during the database write operation: ${error.message}`);
+            setImportResult({ success: 0, failed: parsedData.rows.length, errors: localErrors });
+            toast({ variant: 'destructive', title: 'Import Failed', description: `Could not commit changes to the database.` });
         } finally {
             setIsProcessing(false);
             goToNextStep();
@@ -247,11 +276,11 @@ export function ImportWizard({
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {allAssetFields.map(field => (
-                                        <TableRow key={field}>
+                                    {currentFields.all.map(field => (
+                                        <TableRow key={field as string}>
                                             <TableCell className="font-medium capitalize">
-                                                {field.replace(/([A-Z])/g, ' $1')}
-                                                {requiredAssetFields.includes(field as any) && <span className="text-destructive">*</span>}
+                                                {(field as string).replace(/([A-Z])/g, ' $1').replace('.', ' ')}
+                                                {currentFields.required.includes(field as any) && <span className="text-destructive">*</span>}
                                             </TableCell>
                                             <TableCell>
                                                 <Select onValueChange={(value) => handleMappingChange(field.toString(), value)} value={fieldMapping[field.toString()]}>
@@ -275,21 +304,21 @@ export function ImportWizard({
                 return (
                      <div>
                         <DialogDescription className="mb-4">
-                           Review a preview of your data before starting the import.
+                           Review a preview of your data before starting the import. This shows the first 10 rows.
                         </DialogDescription>
                          <ScrollArea className="h-[400px] border rounded-md">
                              <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        {allAssetFields.filter(f => fieldMapping[f.toString()] && fieldMapping[f.toString()] !== '--skip--').map(field => (
-                                            <TableHead key={field.toString()} className="capitalize">{field.toString().replace(/([A-Z])/g, ' $1')}</TableHead>
+                                        {currentFields.all.filter(f => fieldMapping[f.toString()] && fieldMapping[f.toString()] !== '--skip--').map(field => (
+                                            <TableHead key={field.toString()} className="capitalize">{(field as string).replace(/([A-Z])/g, ' $1').replace('.', ' ')}</TableHead>
                                         ))}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {parsedData?.rows.slice(0, 10).map((row, rowIndex) => (
                                         <TableRow key={rowIndex}>
-                                            {allAssetFields.filter(f => fieldMapping[f.toString()] && fieldMapping[f.toString()] !== '--skip--').map(field => {
+                                            {currentFields.all.filter(f => fieldMapping[f.toString()] && fieldMapping[f.toString()] !== '--skip--').map(field => {
                                                 const header = fieldMapping[field.toString()];
                                                 const headerIndex = parsedData.headers.indexOf(header);
                                                 return <TableCell key={field.toString()}>{row[headerIndex]}</TableCell>
@@ -339,7 +368,7 @@ export function ImportWizard({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Import Media Assets</DialogTitle>
+          <DialogTitle>Import {importType === 'assets' ? 'Media Assets' : 'Customers'}</DialogTitle>
            <Stepper {...stepperProps} className="mt-4" />
         </DialogHeader>
         <div className="flex-grow overflow-hidden py-4 relative">

@@ -316,7 +316,7 @@ export function CustomerManager() {
       } else if (format === 'pdf') {
           const doc = new jsPDF();
           doc.text("Customer List", 14, 16);
-          autoTable(doc, {
+          (doc as any).autoTable({
               head: [['Name', 'GST', 'PAN', 'Email', 'Phone']],
               body: exportData.map(c => [c.Name, c.GST, c.PAN, c.Email, c.Phone]),
               startY: 20
@@ -596,6 +596,7 @@ export function CustomerManager() {
         isOpen={isImportWizardOpen}
         onOpenChange={setIsImportWizardOpen}
         onImportComplete={getCustomers}
+        importType="customers"
       />
     </TooltipProvider>
   );

@@ -3,12 +3,11 @@
 
 import React from 'react';
 import { db } from '@/lib/firebase';
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
-import { List } from 'lucide-react';
+import { Loader2, List, FileText, BarChart2, Presentation } from 'lucide-react';
 
 interface ExportDownloadLinksProps {
     planId: string;
@@ -20,27 +19,26 @@ export function ExportDownloadLinks({ planId }: ExportDownloadLinksProps) {
   const { toast } = useToast();
 
   React.useEffect(() => {
-    async function fetchExportLinks() {
-      if (!planId) return;
-      setLoading(true);
-      try {
-        const snap = await getDoc(doc(db, "plans", planId));
-        if (snap.exists()) {
-          const data = snap.data();
-          setUrls(data.exports || {});
+    if (!planId) return;
+    setLoading(true);
+    
+    const unsub = onSnapshot(doc(db, "plans", planId), (doc) => {
+        if (doc.exists()) {
+            const data = doc.data();
+            setUrls(data.exports || { pdfUrl: '', excelUrl: '', pptUrl: '' });
         }
-      } catch (error) {
+        setLoading(false);
+    }, (error) => {
         console.error("Error fetching export links:", error);
         toast({
           variant: 'destructive',
           title: 'Error',
           description: 'Could not fetch previously exported file links.',
         });
-      } finally {
         setLoading(false);
-      }
-    }
-    fetchExportLinks();
+    });
+
+    return () => unsub();
   }, [planId, toast]);
 
   if (loading) {
@@ -67,9 +65,9 @@ export function ExportDownloadLinks({ planId }: ExportDownloadLinksProps) {
       <CardContent>
         {hasLinks ? (
              <ul className="space-y-2">
-                {urls.pdfUrl && <li><Button asChild variant="link" className="p-0 h-auto"><a href={urls.pdfUrl} target="_blank" rel="noopener noreferrer">📄 View PDF (Work Order)</a></Button></li>}
-                {urls.excelUrl && <li><Button asChild variant="link" className="p-0 h-auto"><a href={urls.excelUrl} target="_blank" rel="noopener noreferrer">📊 View Excel Plan</a></Button></li>}
-                {urls.pptUrl && <li><Button asChild variant="link" className="p-0 h-auto"><a href={urls.pptUrl} target="_blank" rel="noopener noreferrer">📽️ View PPT Deck</a></Button></li>}
+                {urls.pdfUrl && <li><Button asChild variant="link" className="p-0 h-auto gap-2"><a href={urls.pdfUrl} target="_blank" rel="noopener noreferrer"><FileText />View PDF (Work Order)</a></Button></li>}
+                {urls.excelUrl && <li><Button asChild variant="link" className="p-0 h-auto gap-2"><a href={urls.excelUrl} target="_blank" rel="noopener noreferrer"><BarChart2 />View Excel Plan</a></Button></li>}
+                {urls.pptUrl && <li><Button asChild variant="link" className="p-0 h-auto gap-2"><a href={urls.pptUrl} target="_blank" rel="noopener noreferrer"><Presentation />View PPT Deck</a></Button></li>}
             </ul>
         ) : (
             <p className="text-sm text-muted-foreground">No files have been exported for this plan yet.</p>

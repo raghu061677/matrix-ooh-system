@@ -16,7 +16,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MediaPlan } from '@/types/media-plan';
 import { format } from 'date-fns';
-import { ChevronLeft, MoreVertical, Edit, Trash2, Ban, Copy, Share, List, Link as LinkIcon, Download, FileText, Send } from 'lucide-react';
+import { ChevronLeft, MoreVertical, Edit, Trash2, Ban, Copy, Share, List, Link as LinkIcon, Download, FileText, Send, Loader2 } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { cn } from '@/lib/utils';
 import { MediaPlanFormDialog } from './media-plan-form-dialog';
@@ -62,6 +62,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [isAssetSelectorOpen, setIsAssetSelectorOpen] = React.useState(false);
   const [pdfTemplate, setPdfTemplate] = React.useState('classic');
+  const [isExporting, setIsExporting] = React.useState(false);
   const { toast } = useToast();
 
   React.useEffect(() => {
@@ -153,6 +154,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   }
 
   const exportPlanToPPT = async () => {
+    setIsExporting(true);
     toast({ title: 'Generating PPT...', description: 'Please wait.' });
     const ppt = new PptxGenJS();
     ppt.author = "Matrix-OOH App";
@@ -161,6 +163,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
     const planSnap = await getDoc(doc(db, "plans", planId));
     if (!planSnap.exists()) {
       toast({variant: "destructive", title: "Plan not found"});
+      setIsExporting(false);
       return;
     }
     const planData = planSnap.data();
@@ -206,14 +209,18 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
     } catch (error) {
        toast({ variant: 'destructive', title: 'Upload Failed', description: 'Could not upload the PPTX file.' });
        console.error("Upload error:", error);
+    } finally {
+        setIsExporting(false);
     }
   };
   
   const exportPlanToExcel = async () => {
+      setIsExporting(true);
       const planId = plan.id;
       const planDoc = await getDoc(doc(db, "plans", planId));
       if (!planDoc.exists()) {
         toast({variant: "destructive", title: "Plan not found"});
+        setIsExporting(false);
         return;
       }
       const planData = planDoc.data();
@@ -268,15 +275,19 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
       } catch (error) {
         toast({ variant: 'destructive', title: 'Upload Failed', description: 'Could not upload the Excel file.' });
         console.error("Upload error:", error);
+      } finally {
+        setIsExporting(false);
       }
   };
 
   const exportPlanToPDF = async (templateStyle = 'classic') => {
+     setIsExporting(true);
      toast({ title: 'Generating PDF...', description: 'Please wait while we prepare your work order.' });
      const planId = plan.id;
      const planDocRef = await getDoc(doc(db, "plans", planId));
      if (!planDocRef.exists()) {
         toast({ variant: 'destructive', title: 'Error', description: 'Plan not found.' });
+        setIsExporting(false);
         return;
      }
      const planData = planDocRef.data() as MediaPlan;
@@ -365,36 +376,44 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
       } catch (error) {
         toast({ variant: 'destructive', title: 'Upload Failed', description: 'Could not upload the PDF file.' });
         console.error("Upload error:", error);
+      } finally {
+        setIsExporting(false);
       }
   };
 
   const handleSendToClient = async () => {
     toast({ title: 'Generating files...', description: 'Your downloads will begin shortly.' });
+    setIsExporting(true);
+    try {
+        // Generate and download all files first.
+        await exportPlanToPPT();
+        await exportPlanToExcel();
+        await exportPlanToPDF(pdfTemplate);
 
-    // Generate and download all files first.
-    await exportPlanToPPT();
-    await exportPlanToExcel();
-    await exportPlanToPDF(pdfTemplate);
+        // Find client info
+        const customer = customers.find(c => c.id === plan.customerId);
+        const clientEmail = customer?.email || 'client@example.com';
+        const clientName = customer?.name || 'Valued Client';
 
-    // Find client info
-    const customer = customers.find(c => c.id === plan.customerId);
-    const clientEmail = customer?.email || 'client@example.com';
-    const clientName = customer?.name || 'Valued Client';
+        // Prepare mailto link
+        const subject = encodeURIComponent(`Media Plan Quotation: ${plan.displayName}`);
+        const body = encodeURIComponent(`Dear ${clientName},\n\nPlease find the attached media plan proposal (PPT, Excel, and PDF) for your review.\n\nWe look forward to hearing from you.\n\nBest regards,\n\n${plan.employee?.name || 'Your contact at Matrix-OOH'}`);
+        
+        const mailtoLink = `mailto:${clientEmail}?subject=${subject}&body=${body}`;
+        
+        // Open email client
+        window.location.href = mailtoLink;
 
-    // Prepare mailto link
-    const subject = encodeURIComponent(`Media Plan Quotation: ${plan.displayName}`);
-    const body = encodeURIComponent(`Dear ${clientName},\n\nPlease find the attached media plan proposal (PPT, Excel, and PDF) for your review.\n\nWe look forward to hearing from you.\n\nBest regards,\n\n${plan.employee?.name || 'Your contact at Matrix-OOH'}`);
-    
-    const mailtoLink = `mailto:${clientEmail}?subject=${subject}&body=${body}`;
-    
-    // Open email client
-    window.location.href = mailtoLink;
-
-    toast({
-        title: 'Ready to Send!',
-        description: `Your email client should open. Please attach the downloaded files.`,
-        duration: 9000,
-    });
+        toast({
+            title: 'Ready to Send!',
+            description: `Your email client should open. Please attach the downloaded files.`,
+            duration: 9000,
+        });
+    } catch (e) {
+         toast({ variant: 'destructive', title: 'Error', description: 'Could not complete the send process.' });
+    } finally {
+        setIsExporting(false);
+    }
   }
 
   return (
@@ -508,6 +527,42 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                      <InfoRow label="Outstanding" value={formatCurrency(plan.clientGrade?.outstandingSales)} />
                 </CardContent>
             </Card>
+
+             {/* Export Actions Card */}
+            <Card className="md:col-span-2">
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Exports & Actions</CardTitle>
+                </CardHeader>
+                 <CardContent className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                         <Label htmlFor="pdf-template">Work Order Template</Label>
+                         <Select value={pdfTemplate} onValueChange={setPdfTemplate}>
+                            <SelectTrigger className="w-[180px]" id="pdf-template">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="classic">Classic</SelectItem>
+                                <SelectItem value="modern">Modern</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                       <Button variant="outline" onClick={() => exportPlanToPDF(pdfTemplate)} disabled={isExporting}>
+                         {isExporting ? <Loader2 className="animate-spin" /> : <>📄 PDF</>}
+                       </Button>
+                       <Button variant="outline" onClick={exportPlanToExcel} disabled={isExporting}>
+                         {isExporting ? <Loader2 className="animate-spin" /> : <>📊 Excel</>}
+                       </Button>
+                       <Button variant="outline" onClick={exportPlanToPPT} disabled={isExporting}>
+                          {isExporting ? <Loader2 className="animate-spin" /> : <>📽️ PPT</>}
+                       </Button>
+                       <Button onClick={handleSendToClient} disabled={isExporting}>
+                         {isExporting ? <Loader2 className="animate-spin" /> : <><Send className="mr-2"/> Send</>}
+                       </Button>
+                    </div>
+                </CardContent>
+            </Card>
+
         </div>
         
         {/* Right Sidebar */}
@@ -541,6 +596,9 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                      <InfoRow label="Others" value={plan.documents?.others || 0} />
                 </CardContent>
             </Card>
+            
+            <ExportDownloadLinks planId={plan.id} />
+
         </div>
       </main>
       

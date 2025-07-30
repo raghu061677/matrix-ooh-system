@@ -1059,6 +1059,7 @@ export function MediaManager() {
         isOpen={isImportWizardOpen}
         onOpenChange={setIsImportWizardOpen}
         onImportComplete={getMediaAssets}
+        importType="assets"
       />
 
       <Dialog open={isMapDialogOpen} onOpenChange={setIsMapDialogOpen}>
