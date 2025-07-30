@@ -3,7 +3,6 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, where, getDoc, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -55,6 +54,7 @@ import ExifParser from 'exif-parser';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import * as XLSX from 'xlsx';
 import { Checkbox } from '../ui/checkbox';
+import { ImportWizard } from './import-wizard';
 
 
 type SortConfig = {
@@ -75,9 +75,9 @@ export function MediaManager() {
 
   const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
   const [mapAsset, setMapAsset] = useState<Asset | null>(null);
+  const [isImportWizardOpen, setIsImportWizardOpen] = useState(false);
 
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const importInputRef = useRef<HTMLInputElement>(null);
 
   const [filter, setFilter] = useState('');
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
@@ -308,60 +308,64 @@ export function MediaManager() {
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user?.companyId || !user?.uid) {
-      toast({ variant: 'destructive', title: 'Authentication Error', description: 'User company or ID not found.' });
-      return;
+        toast({ variant: 'destructive', title: 'Authentication Error', description: 'User company or ID not found.' });
+        return;
     }
-
     setIsSaving(true);
-    let assetId = currentAsset?.id;
-    let docRef;
 
     try {
-      // Uniqueness checks
-      if (formData.iid && formData.iid !== currentAsset?.iid) {
-        const iidQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("iid", "==", formData.iid));
-        const iidSnapshot = await getDocs(iidQuery);
-        if (!iidSnapshot.empty) {
-          throw new Error(`An asset with the code "${formData.iid}" already exists.`);
+        let assetId = currentAsset?.id;
+        const { id, ...dataToSave } = formData;
+
+        // Uniqueness checks for IID
+        if (formData.iid && formData.iid !== currentAsset?.iid) {
+            const iidQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("iid", "==", formData.iid));
+            const iidSnapshot = await getDocs(iidQuery);
+            if (!iidSnapshot.empty) {
+                throw new Error(`An asset with the code "${formData.iid}" already exists.`);
+            }
         }
-      }
 
-      // Save/update asset data
-      const { id: _, ...dataToSave } = formData;
-      if (assetId) {
-        docRef = doc(db, 'mediaAssets', assetId);
-        await updateDoc(docRef, { ...dataToSave, updatedAt: serverTimestamp() });
-      } else {
-        const newDocData = { ...dataToSave, createdAt: serverTimestamp(), companyId: user.companyId, imageUrls: [] };
-        docRef = await addDoc(mediaAssetsCollectionRef, newDocData);
-        assetId = docRef.id;
-      }
+        // Handle image uploads first
+        const uploadedImageUrls = await Promise.all(
+            newImageFiles.map(file => {
+                const imageRef = ref(storage, `uploads/${user.uid}/${Date.now()}-${file.name}`);
+                return uploadBytes(imageRef, file).then(snapshot => getDownloadURL(snapshot.ref));
+            })
+        );
 
-      // Upload new images
-      if (newImageFiles.length > 0 && assetId) {
-        toast({ title: `Uploading ${newImageFiles.length} image(s)...` });
-        const uploadPromises = newImageFiles.map(file => {
-          const imageRef = ref(storage, `mediaAssets/${assetId}/${Date.now()}-${file.name}`);
-          return uploadBytes(imageRef, file).then(snapshot => getDownloadURL(snapshot.ref));
-        });
-        const newImageUrls = await Promise.all(uploadPromises);
+        const existingImageUrls = formData.imageUrls || [];
+        const finalImageUrls = [...existingImageUrls, ...uploadedImageUrls];
+        
+        const finalData = { 
+            ...dataToSave, 
+            imageUrls: finalImageUrls, 
+            companyId: user.companyId,
+            updatedAt: serverTimestamp(),
+        };
 
-        const assetDocForUrls = doc(db, 'mediaAssets', assetId);
-        const assetSnap = await getDoc(assetDocForUrls);
-        const existingImageUrls = assetSnap.data()?.imageUrls || [];
-        const finalImageUrls = [...existingImageUrls, ...newImageUrls];
-        await updateDoc(assetDocForUrls, { imageUrls: finalImageUrls });
-      }
+        if (assetId) {
+            // Editing existing asset
+            const docRef = doc(db, 'mediaAssets', assetId);
+            await updateDoc(docRef, finalData);
+        } else {
+            // Creating new asset
+            const docRef = await addDoc(mediaAssetsCollectionRef, {
+                ...finalData,
+                createdAt: serverTimestamp(),
+            });
+            assetId = docRef.id;
+        }
 
-      await getMediaAssets();
-      toast({ title: 'Asset Saved!', description: 'The media asset has been successfully saved.' });
-      closeDialog();
+        await getMediaAssets();
+        toast({ title: 'Asset Saved!', description: 'The media asset has been successfully saved.' });
+        closeDialog();
 
     } catch (error: any) {
-      console.error("Error saving asset:", error);
-      toast({ variant: 'destructive', title: 'Save Failed', description: error.message || 'Could not save asset details.' });
+        console.error("Error saving asset:", error);
+        toast({ variant: 'destructive', title: 'Save Failed', description: error.message || 'Could not save asset details.' });
     } finally {
-      setIsSaving(false);
+        setIsSaving(false);
     }
   };
 
@@ -503,126 +507,32 @@ export function MediaManager() {
         'size2.width': 20, 'size2.height': 10, totalSqft2: 200,
       }];
     } else {
-      const flattenedData = sortedAndFilteredAssets.map(asset => ({
-        iid: asset.iid, name: asset.name, state: asset.state, district: asset.district,
-        area: asset.area, location: asset.location, direction: asset.direction,
-        latitude: asset.latitude, longitude: asset.longitude, media: asset.media, lightType: asset.lightType,
-        status: asset.status, ownership: asset.ownership, dimensions: asset.dimensions, multiface: asset.multiface,
-        cardRate: asset.cardRate, baseRate: asset.baseRate, rate: asset.rate,
-        'size.width': asset.size?.width,
-        'size.height': asset.size?.height,
-        totalSqft: asset.totalSqft,
-        'size2.width': asset.size2?.width,
-        'size2.height': asset.size2?.height,
-        totalSqft2: asset.totalSqft2
-      }));
-
       const reorderKeys = (data: any[], keys: string[]) => {
-        return data.map(item => {
-          const newItem: { [key: string]: any } = {};
-          keys.forEach(key => {
-            newItem[key] = item[key] !== undefined ? item[key] : null;
+          return data.map(item => {
+              const flattenedItem: { [key: string]: any } = {
+                  ...item,
+                  'size.width': item.size?.width,
+                  'size.height': item.size?.height,
+                  'size2.width': item.size2?.width,
+                  'size2.height': item.size2?.height,
+              };
+              delete flattenedItem.size;
+              delete flattenedItem.size2;
+              
+              const newItem: { [key: string]: any } = {};
+              keys.forEach(key => {
+                  newItem[key] = flattenedItem[key] !== undefined ? flattenedItem[key] : null;
+              });
+              return newItem;
           });
-          return newItem;
-        });
       };
-
-      dataToExport = reorderKeys(flattenedData, headers);
+      dataToExport = reorderKeys(sortedAndFilteredAssets, headers);
     }
-
+    
     const worksheet = XLSX.utils.json_to_sheet(dataToExport, { header: headers });
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Media Assets');
     XLSX.writeFile(workbook, sample ? 'sample-media-assets.xlsx' : 'media-assets-export.xlsx');
-  };
-
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user?.companyId) return;
-
-    setIsSaving(true);
-    toast({ title: 'Importing assets...', description: 'Please wait. This may take a while for large files.' });
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const data = event.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const json: any[] = XLSX.utils.sheet_to_json(worksheet);
-
-        let successCount = 0;
-        const batchSize = 100;
-        for (let i = 0; i < json.length; i += batchSize) {
-          const batch = writeBatch(db);
-          const batchItems = json.slice(i, i + batchSize);
-
-          for (const item of batchItems) {
-            const docRef = doc(mediaAssetsCollectionRef); // Auto-generate ID
-
-            const multiface = String(item.multiface).toLowerCase() === 'true';
-
-            const newAsset: Omit<Asset, 'id'> = {
-              companyId: user.companyId,
-              createdAt: serverTimestamp(),
-              imageUrls: [],
-              iid: item.iid || '',
-              name: item.name || '',
-              state: item.state || '',
-              district: item.district || '',
-              area: item.area || '',
-              location: item.location || '',
-              direction: item.direction || '',
-              latitude: parseFloat(item.latitude) || undefined,
-              longitude: parseFloat(item.longitude) || undefined,
-              media: item.media || '',
-              lightType: item.lightType || 'Non Lit',
-              status: item.status || 'active',
-              ownership: item.ownership || 'own',
-              dimensions: item.dimensions || '',
-              multiface: multiface,
-              cardRate: parseFloat(item.cardRate) || 0,
-              baseRate: parseFloat(item.baseRate) || 0,
-              rate: parseFloat(item.rate) || 0,
-              size: {
-                width: parseFloat(item['size.width']) || 0,
-                height: parseFloat(item['size.height']) || 0,
-              },
-              totalSqft: parseFloat(item.totalSqft) || 0,
-              ...(multiface && {
-                size2: {
-                  width: parseFloat(item['size2.width']) || 0,
-                  height: parseFloat(item['size2.height']) || 0,
-                },
-                totalSqft2: parseFloat(item.totalSqft2) || 0
-              }),
-            };
-            batch.set(docRef, newAsset);
-            successCount++;
-          }
-          await batch.commit();
-          toast({ title: `Batch ${Math.ceil(i / batchSize) + 1} imported`, description: `Processed ${successCount} of ${json.length} assets.` });
-        }
-
-        toast({ title: 'Import Complete!', description: `${successCount} assets were imported successfully.` });
-        await getMediaAssets();
-
-      } catch (error: any) {
-        console.error("Import error:", error);
-        toast({
-          variant: 'destructive',
-          title: 'Import Failed',
-          description: `Could not import assets. Error: ${error.message}. Please check the file format and data.`
-        });
-      } finally {
-        setIsSaving(false);
-        if (importInputRef.current) {
-          importInputRef.current.value = '';
-        }
-      }
-    };
-    reader.readAsBinaryString(file);
   };
 
   const openMapDialog = (asset: Asset) => {
@@ -661,7 +571,20 @@ export function MediaManager() {
         <h1 className="text-2xl font-semibold flex items-center gap-2">
           Media Assets
         </h1>
-        <div className="flex items-center gap-2">
+      </div>
+      <div className="flex items-center justify-between mb-4">
+         <div className="flex items-center gap-2">
+            <Input
+              placeholder="Filter by Name, ID, District, Area..."
+              value={filter}
+              onChange={(e) => {
+                setFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="max-w-sm"
+            />
+          </div>
+          <div className="flex items-center gap-2">
           {selectedAssets.length > 0 && (
             <Button variant="destructive" onClick={handleDeleteSelected}>
               Delete Selected ({selectedAssets.length})
@@ -702,26 +625,14 @@ export function MediaManager() {
               <DropdownMenuItem onSelect={() => handleExport(false)}>Export Current View</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => handleExport(true)}>Download Sample File</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => importInputRef.current?.click()}>Import from Excel</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setIsImportWizardOpen(true)}>Import from Excel</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <input type="file" ref={importInputRef} onChange={handleImport} className="hidden" accept=".xlsx, .xls" />
           <Button onClick={() => openDialog()}>
             <PlusCircle className="mr-2" />
             Add New Asset
           </Button>
         </div>
-      </div>
-      <div className="flex items-center mb-4">
-        <Input
-          placeholder="Filter by Name, ID, District, Area..."
-          value={filter}
-          onChange={(e) => {
-            setFilter(e.target.value);
-            setCurrentPage(1);
-          }}
-          className="max-w-sm"
-        />
       </div>
 
       <div className="border rounded-lg">
@@ -730,7 +641,7 @@ export function MediaManager() {
             <TableRow>
               <TableHead className="w-[40px]">
                 <Checkbox
-                  checked={selectedAssets.length > 0 && selectedAssets.length === paginatedAssets.length}
+                  checked={selectedAssets.length > 0 && selectedAssets.length === paginatedAssets.length && paginatedAssets.length > 0}
                   onCheckedChange={(checked) => handleSelectAll(Boolean(checked))}
                 />
               </TableHead>
@@ -892,11 +803,11 @@ export function MediaManager() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 py-4">
                 <div className="md:col-span-3 grid md:grid-cols-3 gap-4">
                   <div>
-                    <Label htmlFor="iid">Asset ID</Label>
+                    <Label htmlFor="iid">MEDIA ID</Label>
                     <Input id="iid" name="iid" value={formData.iid || ''} onChange={handleFormChange} />
                   </div>
                   <div>
-                    <Label htmlFor="name">Asset Name</Label>
+                    <Label htmlFor="name">Name</Label>
                     <Input id="name" name="name" value={formData.name || ''} onChange={handleFormChange} />
                   </div>
                   <div>
@@ -1106,6 +1017,12 @@ export function MediaManager() {
           </form>
         </DialogContent>
       </Dialog>
+      
+      <ImportWizard 
+        isOpen={isImportWizardOpen}
+        onOpenChange={setIsImportWizardOpen}
+        onImportComplete={getMediaAssets}
+      />
 
       <Dialog open={isMapDialogOpen} onOpenChange={setIsMapDialogOpen}>
         <DialogContent className="sm:max-w-3xl">
@@ -1139,5 +1056,3 @@ export function MediaManager() {
     </TooltipProvider>
   );
 }
-
-    
