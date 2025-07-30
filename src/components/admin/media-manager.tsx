@@ -271,7 +271,7 @@ export function MediaManager() {
   const handleDeleteImage = async (imageUrlToDelete: string, isNew: boolean) => {
       if (isNew) {
         // It's a file object, just remove from state
-        setNewImageFiles(prev => prev.filter(file => file.name !== imageUrlToDelete));
+        setNewImageFiles(prev => prev.filter(file => URL.createObjectURL(file) !== imageUrlToDelete));
         return;
       }
 
@@ -329,16 +329,16 @@ export function MediaManager() {
       }
 
       // Step 2: Prepare asset data
-      let dataToSave: Partial<Asset> = { ...formData, companyId: user.companyId, imageUrls: formData.imageUrls || [] };
+      const { id: _, ...dataToSave} = formData;
       let docRef;
 
       if (assetId) {
         // Update existing asset's text data
         docRef = doc(db, 'mediaAssets', assetId);
-        await updateDoc(docRef, { ...dataToSave, updatedAt: serverTimestamp() });
+        await updateDoc(docRef, { ...dataToSave, updatedAt: serverTimestamp(), companyId: user.companyId });
       } else {
         // Create new asset to get an ID
-        docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, createdAt: serverTimestamp() });
+        docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, createdAt: serverTimestamp(), companyId: user.companyId });
         assetId = docRef.id;
       }
       
@@ -346,14 +346,14 @@ export function MediaManager() {
       if (newImageFiles.length > 0 && assetId) {
         toast({ title: `Uploading ${newImageFiles.length} image(s)...` });
         const uploadPromises = newImageFiles.map(file => {
-          const imageRef = ref(storage, `mediaAssets/${assetId}/${file.name}`);
+          const imageRef = ref(storage, `mediaAssets/${assetId}/${Date.now()}-${file.name}`);
           return uploadBytes(imageRef, file).then(snapshot => getDownloadURL(snapshot.ref));
         });
 
         const newImageUrls = await Promise.all(uploadPromises);
 
         // Step 4: Final update with combined image URLs
-        const existingImageUrls = dataToSave.imageUrls || [];
+        const existingImageUrls = formData.imageUrls || [];
         const finalImageUrls = [...existingImageUrls, ...newImageUrls];
         await updateDoc(docRef, { imageUrls: finalImageUrls });
       }
@@ -451,14 +451,17 @@ export function MediaManager() {
           lightType: 'Front Lit',
           status: 'active',
           ownership: 'own',
-          dimensions: '40x30',
-          multiface: false,
+          dimensions: '40x30-20x10',
+          multiface: true,
           cardRate: 50000,
           baseRate: 40000,
           rate: 45000,
           'size.width': 40,
           'size.height': 30,
-          totalSqft: 1200
+          totalSqft: 1200,
+          'size2.width': 20,
+          'size2.height': 10,
+          totalSqft2: 200,
         }]
       : sortedAndFilteredAssets.map(asset => ({
         ...asset, 
@@ -912,7 +915,7 @@ export function MediaManager() {
                                             variant="destructive"
                                             size="icon"
                                             className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                                            onClick={() => handleDeleteImage(file.name, true)}
+                                            onClick={() => handleDeleteImage(URL.createObjectURL(file), true)}
                                             disabled={isSaving}
                                             >
                                             <X className="h-4 w-4" />
