@@ -8,6 +8,8 @@ export interface Asset {
   iid?: string; // Media ID
   companyId?: string; // Reference to companies collection
   
+  name?: string; // Asset Name, often same as location
+  
   // Location
   state?: string;
   district?: string;

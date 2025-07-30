@@ -44,7 +44,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Edit, Trash2, Loader2, Image as ImageIcon, MoreHorizontal, X, Upload, ArrowUpDown, Settings, FileDown, MapPin } from 'lucide-react';
-import { Asset, sampleAssets, AssetStatus, AssetOwnership, mediaTypes, lightTypes, AssetLightType } from './media-manager-types';
+import { Asset, AssetStatus, AssetOwnership, mediaTypes, lightTypes, AssetLightType } from './media-manager-types';
 import { ScrollArea } from '../ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
 import { Switch } from '../ui/switch';
@@ -304,80 +304,78 @@ export function MediaManager() {
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user?.companyId || !user?.uid) {
-        toast({ variant: 'destructive', title: 'Authentication Error', description: 'User company or ID not found.' });
-        return;
+      toast({ variant: 'destructive', title: 'Authentication Error', description: 'User company or ID not found.' });
+      return;
     }
-    
+
     setIsSaving(true);
     let assetId = currentAsset?.id;
-
+    
     try {
-        // Step 1: Prepare asset data and save/update text fields
-        const dataToSave: Partial<Asset> = { ...formData, companyId: user.companyId };
-        
-        let existingImageUrls = currentAsset?.imageUrls || [];
+      // Step 1: Uniqueness check
+      if (formData.iid) {
+          const iidQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("iid", "==", formData.iid));
+          const iidSnapshot = await getDocs(iidQuery);
+          if (!iidSnapshot.empty && iidSnapshot.docs[0].id !== assetId) {
+                throw new Error(`An asset with the code "${formData.iid}" already exists.`);
+          }
+      }
+      if (formData.location) {
+          const locationQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("location", "==", formData.location));
+          const locationSnapshot = await getDocs(locationQuery);
+          if (!locationSnapshot.empty && locationSnapshot.docs[0].id !== assetId) {
+            throw new Error(`An asset with the location "${formData.location}" already exists.`);
+          }
+      }
 
-        // Uniqueness check for new assets or when location/iid changes
-        if (!assetId || (assetId && (dataToSave.iid !== currentAsset?.iid || dataToSave.location !== currentAsset?.location))) {
-            if (dataToSave.iid) {
-                const iidQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("iid", "==", dataToSave.iid));
-                const iidSnapshot = await getDocs(iidQuery);
-                if (!iidSnapshot.empty && iidSnapshot.docs[0].id !== assetId) {
-                     throw new Error(`An asset with the code "${dataToSave.iid}" already exists.`);
-                }
-            }
-            if (dataToSave.location) {
-                const locationQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("location", "==", dataToSave.location));
-                const locationSnapshot = await getDocs(locationQuery);
-                 if (!locationSnapshot.empty && locationSnapshot.docs[0].id !== assetId) {
-                    throw new Error(`An asset with the location "${dataToSave.location}" already exists.`);
-                }
-            }
-        }
-        
-        if (assetId) {
-            // Update existing asset
-            await updateDoc(doc(db, 'mediaAssets', assetId), { ...dataToSave, updatedAt: serverTimestamp() });
-        } else {
-            // Create new asset to get an ID
-            const docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, imageUrls: [], createdAt: serverTimestamp() });
-            assetId = docRef.id;
-        }
-        
-        // Step 2: Upload new images if any
-        if (newImageFiles.length > 0) {
-            toast({ title: `Uploading ${newImageFiles.length} image(s)...` });
-            const uploadPromises = newImageFiles.map(file => {
-                const imageRef = ref(storage, `uploads/${user.uid}/${assetId}-${file.name}`);
-                return uploadBytes(imageRef, file).then(snapshot => getDownloadURL(snapshot.ref));
-            });
-            const newImageUrls = await Promise.all(uploadPromises);
-            
-            // Combine with existing URLs
-            const finalImageUrls = [...existingImageUrls, ...newImageUrls];
+      // Step 2: Prepare asset data
+      const dataToSave: Partial<Asset> = { ...formData, companyId: user.companyId };
+      let docRef;
 
-            // Step 3: Final update with image URLs
-            await updateDoc(doc(db, 'mediaAssets', assetId), { imageUrls: finalImageUrls });
+      if (assetId) {
+        // Update existing asset's text data
+        docRef = doc(db, 'mediaAssets', assetId);
+        await updateDoc(docRef, { ...dataToSave, updatedAt: serverTimestamp() });
+      } else {
+        // Create new asset to get an ID, initially with no images
+        docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, imageUrls: [], createdAt: serverTimestamp() });
+        assetId = docRef.id;
+      }
+      
+      // Step 3: Upload new images if any
+      if (newImageFiles.length > 0) {
+        toast({ title: `Uploading ${newImageFiles.length} image(s)...` });
+        const uploadPromises = newImageFiles.map(file => {
+          const imageRef = ref(storage, `uploads/${user.uid}/${assetId}-${file.name}`);
+          return uploadBytes(imageRef, file).then(snapshot => getDownloadURL(snapshot.ref));
+        });
 
-            toast({ title: 'Upload Complete!', description: 'All images uploaded successfully.' });
-        }
+        const newImageUrls = await Promise.all(uploadPromises);
 
-        await getMediaAssets();
-        toast({ title: 'Asset Saved!', description: 'The media asset has been successfully saved.' });
-        closeDialog();
+        // Step 4: Final update with combined image URLs
+        const existingImageUrls = currentAsset?.imageUrls || [];
+        const finalImageUrls = [...existingImageUrls, ...newImageUrls];
+        await updateDoc(docRef, { imageUrls: finalImageUrls });
+
+        toast({ title: 'Upload Complete!', description: 'All images uploaded successfully.' });
+      }
+
+      await getMediaAssets();
+      toast({ title: 'Asset Saved!', description: 'The media asset has been successfully saved.' });
+      closeDialog();
 
     } catch (error: any) {
-        console.error("Error saving asset:", error);
-        toast({ variant: 'destructive', title: 'Save Failed', description: error.message || 'Could not save asset details.' });
+      console.error("Error saving asset:", error);
+      toast({ variant: 'destructive', title: 'Save Failed', description: error.message || 'Could not save asset details.' });
     } finally {
-        setIsSaving(false);
+      setIsSaving(false);
     }
-};
+  };
 
 
   const openDialog = (asset: Asset | null = null) => {
     setCurrentAsset(asset);
-    setFormData(asset || { status: 'active', ownership: 'own', companyId: user?.companyId, multiface: false });
+    setFormData(asset || { name: '', location: '', status: 'active', ownership: 'own', companyId: user?.companyId, multiface: false });
     setNewImageFiles([]);
     setIsDialogOpen(true);
   };
@@ -443,6 +441,7 @@ export function MediaManager() {
     const dataToExport = sample 
       ? [{ 
           iid: 'HYD-001',
+          name: 'Sample Location',
           state: 'Telangana',
           district: 'Hyderabad',
           area: 'Sample Area',
@@ -727,6 +726,10 @@ export function MediaManager() {
                     <div>
                         <Label htmlFor="iid">Asset ID</Label>
                         <Input id="iid" name="iid" value={formData.iid || ''} onChange={handleFormChange} />
+                    </div>
+                    <div>
+                        <Label htmlFor="name">Asset Name</Label>
+                        <Input id="name" name="name" value={formData.name || ''} onChange={handleFormChange} />
                     </div>
                     <div>
                         <Label htmlFor="media">Media Type</Label>
