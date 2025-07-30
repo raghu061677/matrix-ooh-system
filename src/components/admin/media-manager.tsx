@@ -303,70 +303,69 @@ export function MediaManager() {
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user?.companyId || !user?.uid) {
-      toast({ variant: 'destructive', title: 'Authentication Error', description: 'User company or ID not found.' });
-      return;
+        toast({ variant: 'destructive', title: 'Authentication Error', description: 'User company or ID not found.' });
+        return;
     }
 
     setIsSaving(true);
-    let assetId = currentAsset?.id;
-    
     try {
-      // Step 1: Uniqueness check
-      if (formData.iid && formData.iid !== currentAsset?.iid) {
-          const iidQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("iid", "==", formData.iid));
-          const iidSnapshot = await getDocs(iidQuery);
-          if (!iidSnapshot.empty) {
+        let assetId = currentAsset?.id;
+        
+        // Step 1: Uniqueness checks
+        if (formData.iid && formData.iid !== currentAsset?.iid) {
+            const iidQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("iid", "==", formData.iid));
+            const iidSnapshot = await getDocs(iidQuery);
+            if (!iidSnapshot.empty) {
                 throw new Error(`An asset with the code "${formData.iid}" already exists.`);
-          }
-      }
-      if (formData.location && formData.location !== currentAsset?.location) {
-          const locationQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("location", "==", formData.location));
-          const locationSnapshot = await getDocs(locationQuery);
-          if (!locationSnapshot.empty) {
-            throw new Error(`An asset with the location "${formData.location}" already exists.`);
-          }
-      }
+            }
+        }
+        if (formData.location && formData.location !== currentAsset?.location) {
+            const locationQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("location", "==", formData.location));
+            const locationSnapshot = await getDocs(locationQuery);
+            if (!locationSnapshot.empty) {
+                throw new Error(`An asset with the location "${formData.location}" already exists.`);
+            }
+        }
 
-      // Step 2: Prepare asset data
-      const { id: _, ...dataToSave} = formData;
-      const existingImageUrls = currentAsset?.imageUrls || [];
-      let docRef;
+        // Step 2: Prepare asset data and save/update text fields
+        const { id: _, ...dataToSave } = formData;
+        let docRef;
 
-      if (assetId) {
-        // Update existing asset's text data
-        docRef = doc(db, 'mediaAssets', assetId);
-        await updateDoc(docRef, { ...dataToSave, updatedAt: serverTimestamp(), companyId: user.companyId });
-      } else {
-        // Create new asset to get an ID
-        docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, createdAt: serverTimestamp(), companyId: user.companyId, imageUrls: [] });
-        assetId = docRef.id;
-      }
-      
-      // Step 3: Upload new images if any
-      if (newImageFiles.length > 0 && assetId) {
-        toast({ title: `Uploading ${newImageFiles.length} image(s)...` });
-        const uploadPromises = newImageFiles.map(file => {
-          const imageRef = ref(storage, `mediaAssets/${assetId}/${Date.now()}-${file.name}`);
-          return uploadBytes(imageRef, file).then(snapshot => getDownloadURL(snapshot.ref));
-        });
+        if (assetId) {
+            // Update existing asset
+            docRef = doc(db, 'mediaAssets', assetId);
+            await updateDoc(docRef, { ...dataToSave, updatedAt: serverTimestamp(), companyId: user.companyId });
+        } else {
+            // Create new asset
+            docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, createdAt: serverTimestamp(), companyId: user.companyId, imageUrls: [] });
+            assetId = docRef.id; // Get the new ID
+        }
 
-        const newImageUrls = await Promise.all(uploadPromises);
+        // Step 3: Upload new images if any
+        if (newImageFiles.length > 0 && assetId) {
+            toast({ title: `Uploading ${newImageFiles.length} image(s)...` });
+            const uploadPromises = newImageFiles.map(file => {
+                const imageRef = ref(storage, `mediaAssets/${assetId}/${Date.now()}-${file.name}`);
+                return uploadBytes(imageRef, file).then(snapshot => getDownloadURL(snapshot.ref));
+            });
+            const newImageUrls = await Promise.all(uploadPromises);
 
-        // Step 4: Final update with combined image URLs
-        const finalImageUrls = [...existingImageUrls, ...newImageUrls];
-        await updateDoc(docRef, { imageUrls: finalImageUrls });
-        setFormData(prev => ({...prev, imageUrls: finalImageUrls}));
-      }
+            // Step 4: Final update with combined image URLs
+            const assetDoc = await getDoc(docRef);
+            const existingImageUrls = assetDoc.data()?.imageUrls || [];
+            const finalImageUrls = [...existingImageUrls, ...newImageUrls];
+            await updateDoc(docRef, { imageUrls: finalImageUrls });
+        }
 
-      await getMediaAssets();
-      toast({ title: 'Asset Saved!', description: 'The media asset has been successfully saved.' });
-      closeDialog();
+        await getMediaAssets();
+        toast({ title: 'Asset Saved!', description: 'The media asset has been successfully saved.' });
+        closeDialog();
 
     } catch (error: any) {
-      console.error("Error saving asset:", error);
-      toast({ variant: 'destructive', title: 'Save Failed', description: error.message || 'Could not save asset details.' });
+        console.error("Error saving asset:", error);
+        toast({ variant: 'destructive', title: 'Save Failed', description: error.message || 'Could not save asset details.' });
     } finally {
-      setIsSaving(false);
+        setIsSaving(false);
     }
   };
 
@@ -437,11 +436,11 @@ export function MediaManager() {
 
   const handleExport = (sample = false) => {
     const headers = [
-        "iid", "name", "state", "district", "area", "location", "direction",
-        "latitude", "longitude", "media", "lightType", "status", "ownership",
-        "dimensions", "multiface", "cardRate", "baseRate", "rate",
-        "size.width", "size.height", "totalSqft",
-        "size2.width", "size2.height", "totalSqft2"
+      "iid", "name", "state", "district", "area", "location", "direction",
+      "latitude", "longitude", "media", "lightType", "status", "ownership",
+      "dimensions", "multiface", "cardRate", "baseRate", "rate",
+      "size.width", "size.height", "totalSqft",
+      "size2.width", "size2.height", "totalSqft2"
     ];
 
     let dataToExport;
@@ -457,7 +456,7 @@ export function MediaManager() {
             'size2.width': 20, 'size2.height': 10, totalSqft2: 200,
         }];
     } else {
-        dataToExport = sortedAndFilteredAssets.map(asset => ({
+        const flattenedData = sortedAndFilteredAssets.map(asset => ({
             iid: asset.iid, name: asset.name, state: asset.state, district: asset.district,
             area: asset.area, location: asset.location, direction: asset.direction,
             latitude: asset.latitude, longitude: asset.longitude, media: asset.media, lightType: asset.lightType,
@@ -470,6 +469,19 @@ export function MediaManager() {
             'size2.height': asset.size2?.height,
             totalSqft2: asset.totalSqft2
         }));
+        
+        // This helper function creates a new array of objects with keys in the specified order
+        const reorderKeys = (data: any[], keys: string[]) => {
+            return data.map(item => {
+                const newItem: {[key: string]: any} = {};
+                keys.forEach(key => {
+                    newItem[key] = item[key];
+                });
+                return newItem;
+            });
+        };
+        
+        dataToExport = reorderKeys(flattenedData, headers);
     }
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport, { header: headers });
@@ -563,14 +575,13 @@ export function MediaManager() {
     <TooltipProvider>
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-semibold flex items-center gap-2">
-          <LayoutGrid />
-          Media Manager
+            Media Assets
         </h1>
       </div>
       <div className="flex justify-between items-center mb-6 gap-4">
         <div className="flex items-center gap-2">
            <Input
-            placeholder="Filter by district, area, location, direction..."
+            placeholder="Filter by DISTRICT, AREA, etc"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             className="max-w-sm"
@@ -627,19 +638,19 @@ export function MediaManager() {
           <TableHeader>
             <TableRow>
               {columnVisibility.image && <TableHead>Image</TableHead>}
-              {columnVisibility.iid && renderSortableHeader('Media ID', 'iid')}
-              {columnVisibility.name && renderSortableHeader('Name', 'name')}
+              {columnVisibility.iid && renderSortableHeader('MEDIA ID', 'iid')}
+              {columnVisibility.name && renderSortableHeader('Asset Name', 'name')}
               {columnVisibility.state && renderSortableHeader('State', 'state')}
               {columnVisibility.district && renderSortableHeader('District', 'district')}
               {columnVisibility.area && renderSortableHeader('Area', 'area')}
               {columnVisibility.location && <TableHead>Location</TableHead>}
               {columnVisibility.direction && <TableHead>Direction</TableHead>}
-              {columnVisibility.media && renderSortableHeader('Media Type', 'media')}
-              {columnVisibility.lightType && renderSortableHeader('Light Type', 'lightType')}
+              {columnVisibility.media && renderSortableHeader('Media type', 'media')}
+              {columnVisibility.lightType && renderSortableHeader('Light type', 'lightType')}
               {columnVisibility.dimensions && <TableHead>Dimension</TableHead>}
               {columnVisibility.totalSqft && renderSortableHeader('SQFT', 'totalSqft')}
               {columnVisibility.cardRate && renderSortableHeader('Card Rate', 'cardRate')}
-              {columnVisibility.status && <TableHead>Status</TableHead>}
+              {columnVisibility.status && renderSortableHeader('Status', 'status')}
               {columnVisibility.map && <TableHead>Map</TableHead>}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -697,7 +708,7 @@ export function MediaManager() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
-                       <DropdownMenuItem onSelect={() => openDialog(asset)}>
+                       <DropdownMenuItem onClick={() => openDialog(asset)}>
                          <Edit className="mr-2 h-4 w-4" />
                          Edit
                        </DropdownMenuItem>
