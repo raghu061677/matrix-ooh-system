@@ -81,7 +81,7 @@ export function MediaManager() {
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   const [filter, setFilter] = useState('');
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'iid', direction: 'ascending' });
   const [columnVisibility, setColumnVisibility] = useState({
     image: true,
     iid: true,
@@ -504,7 +504,7 @@ export function MediaManager() {
     );
     
     // The google maps URL can get too long, so we only include a subset of markers if too many are selected.
-    const markers = assetsWithCoords.slice(0, 30).map(asset => `&q=${asset.latitude},${asset.longitude}(${encodeURIComponent(asset.name || '')})`).join('');
+    const markers = assetsWithCoords.slice(0, 30).map(asset => `&q=${asset.latitude},${asset.longitude}(${encodeURIComponent(`${asset.area || ''}: ${asset.location || ''}`)})`).join('');
     
     return `https://maps.google.com/maps?f=q&source=s_q&hl=en&geocode=&sll=${(bounds.minLat + bounds.maxLat)/2},${(bounds.minLng + bounds.maxLng)/2}${markers}&output=embed`;
 
@@ -601,7 +601,7 @@ export function MediaManager() {
     <TooltipProvider>
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-semibold flex items-center gap-2">
-          Media Assets
+          Media Manager
         </h1>
       </div>
       <div className="flex items-center justify-between mb-4">
