@@ -32,3 +32,5 @@ export function Footer() {
     </footer>
   );
 }
+
+    
