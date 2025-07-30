@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, where, getDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, where, getDoc, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { Button } from '@/components/ui/button';
 import {
@@ -300,72 +300,62 @@ export function MediaManager() {
     }
   };
 
-  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
+ const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user?.companyId || !user?.uid) {
-        toast({ variant: 'destructive', title: 'Authentication Error', description: 'User company or ID not found.' });
-        return;
+      toast({ variant: 'destructive', title: 'Authentication Error', description: 'User company or ID not found.' });
+      return;
     }
 
     setIsSaving(true);
     try {
-        let assetId = currentAsset?.id;
+      // Step 1: Uniqueness checks for new assets or changed unique fields
+      if (formData.iid && formData.iid !== currentAsset?.iid) {
+        const iidQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("iid", "==", formData.iid));
+        const iidSnapshot = await getDocs(iidQuery);
+        if (!iidSnapshot.empty) {
+          throw new Error(`An asset with the code "${formData.iid}" already exists.`);
+        }
+      }
+      
+      const { id: _, ...dataToSave } = formData;
+      let assetId = currentAsset?.id;
+      let docRef;
+
+      // Step 2: Prepare and save/update asset data (excluding images for now)
+      if (assetId) {
+        docRef = doc(db, 'mediaAssets', assetId);
+        await updateDoc(docRef, { ...dataToSave, updatedAt: serverTimestamp() });
+      } else {
+        const newDocData = { ...dataToSave, createdAt: serverTimestamp(), companyId: user.companyId, imageUrls: [] };
+        docRef = await addDoc(mediaAssetsCollectionRef, newDocData);
+        assetId = docRef.id; // Get the new ID for image upload
+      }
+      
+      // Step 3: Upload new images if any
+      if (newImageFiles.length > 0 && assetId) {
+        toast({ title: `Uploading ${newImageFiles.length} image(s)...` });
+        const uploadPromises = newImageFiles.map(file => {
+          const imageRef = ref(storage, `mediaAssets/${assetId}/${Date.now()}-${file.name}`);
+          return uploadBytes(imageRef, file).then(snapshot => getDownloadURL(snapshot.ref));
+        });
+        const newImageUrls = await Promise.all(uploadPromises);
         
-        // Step 1: Uniqueness checks
-        if (formData.iid && formData.iid !== currentAsset?.iid) {
-            const iidQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("iid", "==", formData.iid));
-            const iidSnapshot = await getDocs(iidQuery);
-            if (!iidSnapshot.empty) {
-                throw new Error(`An asset with the code "${formData.iid}" already exists.`);
-            }
-        }
-        if (formData.location && formData.location !== currentAsset?.location) {
-            const locationQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("location", "==", formData.location));
-            const locationSnapshot = await getDocs(locationQuery);
-            if (!locationSnapshot.empty) {
-                throw new Error(`An asset with the location "${formData.location}" already exists.`);
-            }
-        }
-
-        // Step 2: Prepare asset data and save/update text fields
-        const { id: _, ...dataToSave } = formData;
-        let docRef;
-
-        if (assetId) {
-            // Update existing asset
-            docRef = doc(db, 'mediaAssets', assetId);
-            await updateDoc(docRef, { ...dataToSave, updatedAt: serverTimestamp(), companyId: user.companyId });
-        } else {
-            // Create new asset
-            docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, createdAt: serverTimestamp(), companyId: user.companyId, imageUrls: [] });
-            assetId = docRef.id; // Get the new ID
-        }
-
-        // Step 3: Upload new images if any
-        if (newImageFiles.length > 0 && assetId) {
-            toast({ title: `Uploading ${newImageFiles.length} image(s)...` });
-            const uploadPromises = newImageFiles.map(file => {
-                const imageRef = ref(storage, `mediaAssets/${assetId}/${Date.now()}-${file.name}`);
-                return uploadBytes(imageRef, file).then(snapshot => getDownloadURL(snapshot.ref));
-            });
-            const newImageUrls = await Promise.all(uploadPromises);
-
-            // Step 4: Final update with combined image URLs
-            const assetDoc = await getDoc(docRef);
-            const existingImageUrls = assetDoc.data()?.imageUrls || [];
-            const finalImageUrls = [...existingImageUrls, ...newImageUrls];
-            await updateDoc(docRef, { imageUrls: finalImageUrls });
-        }
-
-        await getMediaAssets();
-        toast({ title: 'Asset Saved!', description: 'The media asset has been successfully saved.' });
-        closeDialog();
+        // Step 4: Final update with combined image URLs
+        const existingImageUrls = formData.imageUrls || [];
+        const finalImageUrls = [...existingImageUrls, ...newImageUrls];
+        await updateDoc(docRef, { imageUrls: finalImageUrls });
+      }
+      
+      await getMediaAssets();
+      toast({ title: 'Asset Saved!', description: 'The media asset has been successfully saved.' });
+      closeDialog();
 
     } catch (error: any) {
-        console.error("Error saving asset:", error);
-        toast({ variant: 'destructive', title: 'Save Failed', description: error.message || 'Could not save asset details.' });
+      console.error("Error saving asset:", error);
+      toast({ variant: 'destructive', title: 'Save Failed', description: error.message || 'Could not save asset details.' });
     } finally {
-        setIsSaving(false);
+      setIsSaving(false);
     }
   };
 
@@ -387,10 +377,15 @@ export function MediaManager() {
   
   const handleDelete = async (assetToDelete: Asset) => {
      if(!confirm(`Are you sure you want to delete asset ${assetToDelete.location}?`)) return;
-     const assetDoc = doc(db, 'mediaAssets', assetToDelete.id);
-     await deleteDoc(assetDoc);
-     await getMediaAssets();
-     toast({ title: 'Asset Deleted', description: `${assetToDelete.location} has been removed.` });
+     try {
+        const assetDoc = doc(db, 'mediaAssets', assetToDelete.id);
+        await deleteDoc(assetDoc);
+        await getMediaAssets();
+        toast({ title: 'Asset Deleted', description: `${assetToDelete.location} has been removed.` });
+     } catch (error) {
+        console.error("Error deleting asset:", error);
+        toast({ variant: 'destructive', title: 'Delete Failed', description: 'Could not delete the asset.' });
+     }
   };
   
   const sortedAndFilteredAssets = useMemo(() => {
@@ -434,7 +429,7 @@ export function MediaManager() {
     return sqft1 + sqft2;
   }, [formData.totalSqft, formData.totalSqft2, formData.multiface]);
 
-  const handleExport = (sample = false) => {
+ const handleExport = (sample = false) => {
     const headers = [
       "iid", "name", "state", "district", "area", "location", "direction",
       "latitude", "longitude", "media", "lightType", "status", "ownership",
@@ -490,12 +485,12 @@ export function MediaManager() {
     XLSX.writeFile(workbook, sample ? 'sample-media-assets.xlsx' : 'media-assets-export.xlsx');
 };
   
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+ const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user?.companyId) return;
 
     setIsSaving(true);
-    toast({ title: 'Importing assets...', description: 'Please wait.' });
+    toast({ title: 'Importing assets...', description: 'Please wait. This may take a while for large files.' });
 
     const reader = new FileReader();
     reader.onload = async (event) => {
@@ -507,30 +502,67 @@ export function MediaManager() {
             const json: any[] = XLSX.utils.sheet_to_json(worksheet);
 
             let successCount = 0;
-            for (const item of json) {
-                 const newAsset: Partial<Asset> = {
-                    ...item,
-                    companyId: user.companyId,
-                    createdAt: serverTimestamp(),
-                    size: { width: item['size.width'], height: item['size.height'] },
-                    size2: item.multiface ? { width: item['size2.width'], height: item['size2.height'] } : undefined,
-                    imageUrls: [],
-                 };
-                 // Clean up flattened keys
-                 delete (newAsset as any)['size.width'];
-                 delete (newAsset as any)['size.height'];
-                 delete (newAsset as any)['size2.width'];
-                 delete (newAsset as any)['size2.height'];
+            const batchSize = 100;
+            for (let i = 0; i < json.length; i += batchSize) {
+                const batch = db.batch();
+                const batchItems = json.slice(i, i + batchSize);
 
-                 await addDoc(mediaAssetsCollectionRef, newAsset);
-                 successCount++;
+                for (const item of batchItems) {
+                    const docRef = doc(mediaAssetsCollectionRef); // Auto-generate ID
+
+                    // Robust data parsing and cleaning
+                    const multiface = String(item.multiface).toLowerCase() === 'true';
+                    
+                    const newAsset: Omit<Asset, 'id'> = {
+                        companyId: user.companyId,
+                        createdAt: serverTimestamp(),
+                        imageUrls: [],
+                        iid: item.iid || '',
+                        name: item.name || '',
+                        state: item.state || '',
+                        district: item.district || '',
+                        area: item.area || '',
+                        location: item.location || '',
+                        direction: item.direction || '',
+                        latitude: parseFloat(item.latitude) || 0,
+                        longitude: parseFloat(item.longitude) || 0,
+                        media: item.media || '',
+                        lightType: item.lightType || 'Non Lit',
+                        status: item.status || 'active',
+                        ownership: item.ownership || 'own',
+                        dimensions: item.dimensions || '',
+                        multiface: multiface,
+                        cardRate: parseFloat(item.cardRate) || 0,
+                        baseRate: parseFloat(item.baseRate) || 0,
+                        rate: parseFloat(item.rate) || 0,
+                        size: {
+                            width: parseFloat(item['size.width']) || 0,
+                            height: parseFloat(item['size.height']) || 0,
+                        },
+                        totalSqft: parseFloat(item.totalSqft) || 0,
+                        size2: multiface ? {
+                            width: parseFloat(item['size2.width']) || 0,
+                            height: parseFloat(item['size2.height']) || 0,
+                        } : undefined,
+                        totalSqft2: multiface ? parseFloat(item.totalSqft2) || 0 : undefined,
+                    };
+                    batch.set(docRef, newAsset);
+                    successCount++;
+                }
+                await batch.commit();
+                toast({ title: `Batch ${Math.ceil(i / batchSize) + 1} imported`, description: `Processed ${successCount} of ${json.length} assets.` });
             }
-            toast({ title: 'Import Complete!', description: `${successCount} assets were imported.`});
+
+            toast({ title: 'Import Complete!', description: `${successCount} assets were imported successfully.` });
             await getMediaAssets();
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Import error:", error);
-            toast({ variant: 'destructive', title: 'Import Failed', description: 'Could not import assets. Please check file format.'});
+            toast({ 
+                variant: 'destructive', 
+                title: 'Import Failed', 
+                description: `Could not import assets. Error: ${error.message}. Please check the file format and data.`
+            });
         } finally {
             setIsSaving(false);
             if (importInputRef.current) {
@@ -539,7 +571,7 @@ export function MediaManager() {
         }
     };
     reader.readAsBinaryString(file);
-  };
+};
   
   const openMapDialog = (asset: Asset) => {
     setMapAsset(asset);
@@ -575,7 +607,7 @@ export function MediaManager() {
     <TooltipProvider>
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-semibold flex items-center gap-2">
-            Media Assets
+            Media Manager
         </h1>
       </div>
       <div className="flex justify-between items-center mb-6 gap-4">
@@ -639,14 +671,14 @@ export function MediaManager() {
             <TableRow>
               {columnVisibility.image && <TableHead>Image</TableHead>}
               {columnVisibility.iid && renderSortableHeader('MEDIA ID', 'iid')}
-              {columnVisibility.name && renderSortableHeader('Asset Name', 'name')}
+              {columnVisibility.name && renderSortableHeader('Name', 'name')}
               {columnVisibility.state && renderSortableHeader('State', 'state')}
               {columnVisibility.district && renderSortableHeader('District', 'district')}
               {columnVisibility.area && renderSortableHeader('Area', 'area')}
               {columnVisibility.location && <TableHead>Location</TableHead>}
               {columnVisibility.direction && <TableHead>Direction</TableHead>}
-              {columnVisibility.media && renderSortableHeader('Media type', 'media')}
-              {columnVisibility.lightType && renderSortableHeader('Light type', 'lightType')}
+              {columnVisibility.media && renderSortableHeader('Media Type', 'media')}
+              {columnVisibility.lightType && renderSortableHeader('Light Type', 'lightType')}
               {columnVisibility.dimensions && <TableHead>Dimension</TableHead>}
               {columnVisibility.totalSqft && renderSortableHeader('SQFT', 'totalSqft')}
               {columnVisibility.cardRate && renderSortableHeader('Card Rate', 'cardRate')}
