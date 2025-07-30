@@ -166,7 +166,7 @@ export function SelectAssetsDialog({
                     </TableCell>
                     <TableCell className="font-medium">{asset.location}</TableCell>
                     <TableCell>{asset.media}</TableCell>
-                    <TableCell>{asset.rate?.toLocaleString('en-IN')}</TableCell>
+                    <TableCell>₹{asset.rate?.toLocaleString('en-IN')}</TableCell>
                     <TableCell>{asset.status}</TableCell>
                   </TableRow>
                 ))}

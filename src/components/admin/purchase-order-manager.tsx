@@ -92,7 +92,7 @@ export function PurchaseOrderManager() {
             <TableRow key={po.id}>
               <TableCell className="font-medium">{po.poNumber || 'N/A'}</TableCell>
               <TableCell>{po.customerId}</TableCell>
-              <TableCell>{po.poAmount?.toLocaleString('en-IN')}</TableCell>
+              <TableCell>₹{po.poAmount?.toLocaleString('en-IN')}</TableCell>
               <TableCell>{po.createdAt ? format(new Date((po.createdAt as any).seconds * 1000), 'dd MMM yyyy') : 'N/A'}</TableCell>
               <TableCell>
                 <Badge variant={po.poStatus === 'approved' ? 'default' : 'secondary'} className="capitalize">

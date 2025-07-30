@@ -110,7 +110,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
 
   const formatCurrency = (value?: number) => {
     if (value === undefined || value === null) return 'N/A';
-    return value.toLocaleString('en-IN');
+    return `₹${value.toLocaleString('en-IN')}`;
   };
   
   // Helper to fetch an image and convert it to a base64 data URI
@@ -313,7 +313,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
       autoTable(pdf, {
         startY: 70,
         head: [[
-          "S.No", "Location", "Rate", "Printing", "Mounting", "Total", "GST", "Grand Total"
+          "S.No", "Location", "Rate", "Printing", "Mounting", "Total", "GST (18%)", "Grand Total"
         ]],
         body,
         theme: templateStyle === 'modern' ? 'grid' : 'striped',

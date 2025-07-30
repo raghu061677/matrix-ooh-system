@@ -392,6 +392,7 @@ export function MediaManager() {
       const assetDoc = doc(db, 'mediaAssets', assetToDeleteId);
       await deleteDoc(assetDoc);
       await getMediaAssets();
+      setSelectedAssets(prev => prev.filter(id => id !== assetToDeleteId));
       toast({ title: 'Asset Deleted', description: `The asset has been removed.` });
     } catch (error) {
       console.error("Error deleting asset:", error);
@@ -599,10 +600,9 @@ export function MediaManager() {
 
   return (
     <TooltipProvider>
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-semibold flex items-center gap-2">
-          Media Manager
-        </h1>
+      <div className="flex items-center justify-between pb-4">
+        <h1 className="text-2xl font-semibold text-foreground">Media Assets</h1>
+        <div />
       </div>
       <div className="flex items-center justify-between mb-4">
          <div className="flex items-center gap-2">
@@ -735,7 +735,7 @@ export function MediaManager() {
                 {columnVisibility.lightType && <TableCell>{asset.lightType}</TableCell>}
                 {columnVisibility.dimensions && <TableCell>{asset.dimensions}</TableCell>}
                 {columnVisibility.totalSqft && <TableCell>{getAssetTotalSqft(asset)}</TableCell>}
-                {columnVisibility.cardRate && <TableCell>{asset.cardRate?.toLocaleString('en-IN')}</TableCell>}
+                {columnVisibility.cardRate && <TableCell>₹{asset.cardRate?.toLocaleString('en-IN')}</TableCell>}
                 {columnVisibility.status && <TableCell>{asset.status}</TableCell>}
                 {columnVisibility.map && <TableCell>
                   {asset.latitude && asset.longitude && (
@@ -759,7 +759,7 @@ export function MediaManager() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
-                      <DropdownMenuItem onClick={() => openDialog(asset)}>
+                      <DropdownMenuItem onSelect={() => openDialog(asset)}>
                         <Edit className="mr-2 h-4 w-4" />
                         Edit
                       </DropdownMenuItem>

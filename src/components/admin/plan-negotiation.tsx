@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -65,7 +64,7 @@ export function PlanNegotiation({ plan: initialPlan }: PlanNegotiationProps) {
     
     const formatCurrency = (value?: number) => {
         if (value === undefined || value === null) return 'N/A';
-        return value.toLocaleString('en-IN');
+        return `₹${value.toLocaleString('en-IN')}`;
     };
     
     const openMapDialog = (asset: Asset) => {
@@ -215,7 +214,7 @@ export function PlanNegotiation({ plan: initialPlan }: PlanNegotiationProps) {
                                             <TableCell><Checkbox /></TableCell>
                                             <TableCell>{asset.area}</TableCell>
                                             <TableCell className="max-w-[200px] truncate">{asset.location}</TableCell>
-                                            <TableCell>{asset.rate}</TableCell>
+                                            <TableCell>{formatCurrency(asset.rate)}</TableCell>
                                             <TableCell>{plan.startDate ? format(new Date(plan.startDate as any), 'dd/MM/yy') : 'N/A'}</TableCell>
                                             <TableCell>{plan.endDate ? format(new Date(plan.endDate as any), 'dd/MM/yy') : 'N/A'}</TableCell>
                                             <TableCell>{plan.days}</TableCell>

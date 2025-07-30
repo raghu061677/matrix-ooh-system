@@ -35,7 +35,8 @@ const recalculatePlanCostFlow = ai.defineFlow(
   },
   async ({ displayCost, printingCost, installationCost }) => {
     const totalBeforeTax = displayCost + printingCost + installationCost;
-    const gst = totalBeforeTax * 0.18;
+    // Standard Indian GST rate for advertising services
+    const gst = totalBeforeTax * 0.18; 
     const grandTotal = totalBeforeTax + gst;
     
     return {
@@ -55,5 +56,5 @@ const recalculatePlanCostFlow = ai.defineFlow(
  * For example, in your plan editing UI, when the user changes the 'displayCost',
  * you would call `recalculatePlanCostFlow` with the new values and then update
  * both the input values and the calculated totals in your component's state before saving
- * the entire plan document back to Firestore.
+ * the entire plan document back to the database.
  */
