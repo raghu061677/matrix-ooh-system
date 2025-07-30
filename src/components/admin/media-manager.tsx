@@ -43,7 +43,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2, Loader2, Image as ImageIcon, MoreHorizontal, X, Upload, ArrowUpDown, Settings, FileDown, MapPin } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, Image as ImageIcon, MoreHorizontal, X, Upload, ArrowUpDown, Settings, FileDown, MapPin, LayoutGrid } from 'lucide-react';
 import { Asset, AssetStatus, AssetOwnership, mediaTypes, lightTypes, AssetLightType } from './media-manager-types';
 import { ScrollArea } from '../ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
@@ -82,25 +82,19 @@ export function MediaManager() {
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const [columnVisibility, setColumnVisibility] = useState({
       image: true,
-      iid: true, // Media Code
+      iid: true,
       name: true,
       state: true,
       district: true,
       area: true,
       location: true,
       direction: true,
-      latitude: false,
-      longitude: false,
-      media: true, // Media Type
+      media: true,
       lightType: true,
-      status: true,
-      ownership: false,
-      dimensions: true, // Dimension
-      multiface: false,
+      dimensions: true,
+      totalSqft: true,
       cardRate: true,
-      baseRate: false,
-      rate: false,
-      totalSqft: true, // Sft
+      status: true,
       map: true,
   });
 
@@ -335,6 +329,7 @@ export function MediaManager() {
 
       // Step 2: Prepare asset data
       const { id: _, ...dataToSave} = formData;
+      const existingImageUrls = currentAsset?.imageUrls || [];
       let docRef;
 
       if (assetId) {
@@ -358,7 +353,6 @@ export function MediaManager() {
         const newImageUrls = await Promise.all(uploadPromises);
 
         // Step 4: Final update with combined image URLs
-        const existingImageUrls = formData.imageUrls || [];
         const finalImageUrls = [...existingImageUrls, ...newImageUrls];
         await updateDoc(docRef, { imageUrls: finalImageUrls });
         setFormData(prev => ({...prev, imageUrls: finalImageUrls}));
@@ -464,13 +458,17 @@ export function MediaManager() {
         }];
     } else {
         dataToExport = sortedAndFilteredAssets.map(asset => ({
-            ...asset,
+            iid: asset.iid, name: asset.name, state: asset.state, district: asset.district,
+            area: asset.area, location: asset.location, direction: asset.direction,
+            latitude: asset.latitude, longitude: asset.longitude, media: asset.media, lightType: asset.lightType,
+            status: asset.status, ownership: asset.ownership, dimensions: asset.dimensions, multiface: asset.multiface,
+            cardRate: asset.cardRate, baseRate: asset.baseRate, rate: asset.rate,
             'size.width': asset.size?.width,
             'size.height': asset.size?.height,
+            totalSqft: asset.totalSqft,
             'size2.width': asset.size2?.width,
             'size2.height': asset.size2?.height,
-            size: undefined, // Remove nested objects to avoid issues
-            size2: undefined
+            totalSqft2: asset.totalSqft2
         }));
     }
 
@@ -563,6 +561,12 @@ export function MediaManager() {
 
   return (
     <TooltipProvider>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-semibold flex items-center gap-2">
+          <LayoutGrid />
+          Media Manager
+        </h1>
+      </div>
       <div className="flex justify-between items-center mb-6 gap-4">
         <div className="flex items-center gap-2">
            <Input
@@ -623,17 +627,17 @@ export function MediaManager() {
           <TableHeader>
             <TableRow>
               {columnVisibility.image && <TableHead>Image</TableHead>}
-              {columnVisibility.iid && <TableHead>Media Code</TableHead>}
-              {columnVisibility.name && renderSortableHeader('Asset Name', 'name')}
-              {columnVisibility.state && <TableHead>State</TableHead>}
-              {columnVisibility.district && <TableHead>District</TableHead>}
+              {columnVisibility.iid && renderSortableHeader('Media ID', 'iid')}
+              {columnVisibility.name && renderSortableHeader('Name', 'name')}
+              {columnVisibility.state && renderSortableHeader('State', 'state')}
+              {columnVisibility.district && renderSortableHeader('District', 'district')}
               {columnVisibility.area && renderSortableHeader('Area', 'area')}
               {columnVisibility.location && <TableHead>Location</TableHead>}
               {columnVisibility.direction && <TableHead>Direction</TableHead>}
               {columnVisibility.media && renderSortableHeader('Media Type', 'media')}
               {columnVisibility.lightType && renderSortableHeader('Light Type', 'lightType')}
               {columnVisibility.dimensions && <TableHead>Dimension</TableHead>}
-              {columnVisibility.totalSqft && <TableHead>Sft</TableHead>}
+              {columnVisibility.totalSqft && renderSortableHeader('SQFT', 'totalSqft')}
               {columnVisibility.cardRate && renderSortableHeader('Card Rate', 'cardRate')}
               {columnVisibility.status && <TableHead>Status</TableHead>}
               {columnVisibility.map && <TableHead>Map</TableHead>}
