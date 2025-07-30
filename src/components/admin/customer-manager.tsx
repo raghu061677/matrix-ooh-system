@@ -48,7 +48,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2, Loader2, Search, SlidersHorizontal, ArrowUpDown, Upload, Download, Users, MoreHorizontal, UserPlus, X } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, Search, SlidersHorizontal, ArrowUpDown, Upload, Download, Users, MoreHorizontal, UserPlus, X, MapPin } from 'lucide-react';
 import { Customer, Address, ContactPerson } from '@/types/firestore';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -87,6 +87,9 @@ export function CustomerManager() {
   const [filter, setFilter] = useState('');
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [isImportWizardOpen, setIsImportWizardOpen] = useState(false);
+  
+  const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
+  const [mapAddress, setMapAddress] = useState('');
 
   const { toast } = useToast();
   const { user } = useAuth();
@@ -328,7 +331,6 @@ export function CustomerManager() {
           pptx.writeFile({ fileName: 'customers.pptx' });
       }
   };
-
   
   if (loading && !isDialogOpen && !isImportWizardOpen) {
     return (
@@ -506,7 +508,20 @@ export function CustomerManager() {
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="md:col-span-2">
                             <Label htmlFor="billing_street">Street</Label>
-                            <Input id="billing_street" name="street" value={formData.billingAddress?.street || ''} onChange={(e) => handleAddressChange(e, 'billingAddress')} />
+                            <div className="flex items-center gap-2">
+                                <Input id="billing_street" name="street" value={formData.billingAddress?.street || ''} onChange={(e) => handleAddressChange(e, 'billingAddress')} />
+                                <Button type="button" variant="outline" size="icon" onClick={() => {
+                                    const address = `${formData.billingAddress?.street || ''}, ${formData.billingAddress?.city || ''}`;
+                                    if (address.trim().length > 2) {
+                                        setMapAddress(address);
+                                        setIsMapDialogOpen(true);
+                                    } else {
+                                        toast({ variant: 'destructive', title: 'Address required', description: 'Please enter an address to view it on the map.' });
+                                    }
+                                }}>
+                                    <MapPin className="h-4 w-4" />
+                                </Button>
+                            </div>
                         </div>
                         <div>
                             <Label htmlFor="billing_city">City</Label>
@@ -519,7 +534,20 @@ export function CustomerManager() {
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="md:col-span-2">
                             <Label htmlFor="shipping_street">Street</Label>
-                            <Input id="shipping_street" name="street" value={formData.shippingAddress?.street || ''} onChange={(e) => handleAddressChange(e, 'shippingAddress')} />
+                             <div className="flex items-center gap-2">
+                                <Input id="shipping_street" name="street" value={formData.shippingAddress?.street || ''} onChange={(e) => handleAddressChange(e, 'shippingAddress')} />
+                                 <Button type="button" variant="outline" size="icon" onClick={() => {
+                                    const address = `${formData.shippingAddress?.street || ''}, ${formData.shippingAddress?.city || ''}`;
+                                    if (address.trim().length > 2) {
+                                        setMapAddress(address);
+                                        setIsMapDialogOpen(true);
+                                    } else {
+                                        toast({ variant: 'destructive', title: 'Address required', description: 'Please enter an address to view it on the map.' });
+                                    }
+                                }}>
+                                    <MapPin className="h-4 w-4" />
+                                </Button>
+                            </div>
                         </div>
                         <div>
                             <Label htmlFor="shipping_city">City</Label>
@@ -542,6 +570,25 @@ export function CustomerManager() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isMapDialogOpen} onOpenChange={setIsMapDialogOpen}>
+        <DialogContent className="sm:max-w-3xl">
+            <DialogHeader>
+                <DialogTitle>Customer Location</DialogTitle>
+                <DialogDescription>{mapAddress}</DialogDescription>
+            </DialogHeader>
+            <div className="aspect-video w-full rounded-md border overflow-hidden">
+                <iframe
+                    width="100%"
+                    height="100%"
+                    loading="lazy"
+                    allowFullScreen
+                    referrerPolicy="no-referrer-when-downgrade"
+                    src={`https://maps.google.com/maps?q=${encodeURIComponent(mapAddress)}&hl=en&z=14&output=embed`}
+                ></iframe>
+            </div>
         </DialogContent>
       </Dialog>
 
