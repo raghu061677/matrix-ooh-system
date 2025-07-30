@@ -112,16 +112,16 @@ export function MediaManager() {
         if (!data.empty) {
             setMediaAssets(data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Asset)));
         } else {
-             setMediaAssets(sampleAssets.filter(asset => asset.companyId === user?.companyId));
+             setMediaAssets([]);
         }
     } catch(e) {
          console.error("Error fetching media assets:", e);
          toast({
             variant: 'destructive',
             title: 'Error fetching assets',
-            description: 'Could not retrieve asset data. Using sample data.'
+            description: 'Could not retrieve asset data.'
         });
-        setMediaAssets(sampleAssets.filter(asset => asset.companyId === user?.companyId));
+        setMediaAssets([]);
     }
     setLoading(false);
   };
@@ -309,24 +309,32 @@ export function MediaManager() {
     }
     
     setIsSaving(true);
+    let assetId = currentAsset?.id;
 
     try {
         // Step 1: Prepare asset data and save/update text fields
         const dataToSave: Partial<Asset> = { ...formData, companyId: user.companyId };
-        let assetId = currentAsset?.id;
-        let finalImageUrls = currentAsset?.imageUrls || [];
+        
+        let existingImageUrls = currentAsset?.imageUrls || [];
 
-        // Uniqueness check for new assets
-        if (!assetId && (dataToSave.iid || dataToSave.location)) {
-            const iidQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("iid", "==", dataToSave.iid));
-            const locationQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("location", "==", dataToSave.location));
-            
-            const [iidSnapshot, locationSnapshot] = await Promise.all([getDocs(iidQuery), getDocs(locationQuery)]);
-            
-            if (!iidSnapshot.empty) throw new Error(`An asset with the code "${dataToSave.iid}" already exists.`);
-            if (!locationSnapshot.empty) throw new Error(`An asset with the location "${dataToSave.location}" already exists.`);
+        // Uniqueness check for new assets or when location/iid changes
+        if (!assetId || (assetId && (dataToSave.iid !== currentAsset?.iid || dataToSave.location !== currentAsset?.location))) {
+            if (dataToSave.iid) {
+                const iidQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("iid", "==", dataToSave.iid));
+                const iidSnapshot = await getDocs(iidQuery);
+                if (!iidSnapshot.empty && iidSnapshot.docs[0].id !== assetId) {
+                     throw new Error(`An asset with the code "${dataToSave.iid}" already exists.`);
+                }
+            }
+            if (dataToSave.location) {
+                const locationQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("location", "==", dataToSave.location));
+                const locationSnapshot = await getDocs(locationQuery);
+                 if (!locationSnapshot.empty && locationSnapshot.docs[0].id !== assetId) {
+                    throw new Error(`An asset with the location "${dataToSave.location}" already exists.`);
+                }
+            }
         }
-
+        
         if (assetId) {
             // Update existing asset
             await updateDoc(doc(db, 'mediaAssets', assetId), { ...dataToSave, updatedAt: serverTimestamp() });
@@ -334,23 +342,25 @@ export function MediaManager() {
             // Create new asset to get an ID
             const docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, imageUrls: [], createdAt: serverTimestamp() });
             assetId = docRef.id;
-            setCurrentAsset({ ...dataToSave, id: assetId }); // Update current asset for image upload step
         }
         
         // Step 2: Upload new images if any
         if (newImageFiles.length > 0) {
             toast({ title: `Uploading ${newImageFiles.length} image(s)...` });
             const uploadPromises = newImageFiles.map(file => {
-                const imageRef = ref(storage, `uploads/${user.uid}/${file.name}_${Date.now()}`);
+                const imageRef = ref(storage, `uploads/${user.uid}/${assetId}-${file.name}`);
                 return uploadBytes(imageRef, file).then(snapshot => getDownloadURL(snapshot.ref));
             });
             const newImageUrls = await Promise.all(uploadPromises);
-            finalImageUrls = [...finalImageUrls, ...newImageUrls];
+            
+            // Combine with existing URLs
+            const finalImageUrls = [...existingImageUrls, ...newImageUrls];
+
+            // Step 3: Final update with image URLs
+            await updateDoc(doc(db, 'mediaAssets', assetId), { imageUrls: finalImageUrls });
+
             toast({ title: 'Upload Complete!', description: 'All images uploaded successfully.' });
         }
-
-        // Step 3: Final update with image URLs
-        await updateDoc(doc(db, 'mediaAssets', assetId), { imageUrls: finalImageUrls });
 
         await getMediaAssets();
         toast({ title: 'Asset Saved!', description: 'The media asset has been successfully saved.' });
