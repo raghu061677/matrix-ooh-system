@@ -29,7 +29,7 @@ import { ScrollArea } from '../ui/scroll-area';
 import { db } from '@/lib/firebase';
 import { getDoc, doc } from 'firebase/firestore';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
-import { Tooltip, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '../ui/tooltip';
 
 interface PlanNegotiationProps {
   plan: MediaPlan;
