@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -21,7 +22,7 @@ import { MediaPlanFormDialog } from './media-plan-form-dialog';
 import { Customer, User } from '@/types/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { SelectAssetsDialog } from './select-assets-dialog';
-import { Asset, sampleAssets } from './media-manager-types';
+import { Asset } from './media-manager-types';
 import PptxGenJS from 'pptxgenjs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -32,6 +33,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { ExportDownloadLinks } from './export-download-links';
+import { convertPlanToCampaign } from '@/ai/flows/convert-plan-to-campaign';
 
 interface MediaPlanViewProps {
   plan: MediaPlan;
@@ -39,10 +41,10 @@ interface MediaPlanViewProps {
   employees: User[];
 }
 
-const InfoRow: React.FC<{ label: string; value?: string | number | null; children?: React.ReactNode; className?: string }> = ({ label, value, children, className }) => (
+const InfoRow: React.FC<{ label: string; value?: string | number | null; children?: React.ReactNode; className?: string; valueClassName?: string }> = ({ label, value, children, className, valueClassName }) => (
     <div className={cn("flex justify-between items-center text-sm py-2", className)}>
         <span className="text-muted-foreground">{label}</span>
-        {value !== undefined && value !== null ? <span className="font-medium">{value}</span> : children}
+        {value !== undefined && value !== null ? <span className={cn("font-medium", valueClassName)}>{value}</span> : children}
     </div>
 );
 
@@ -88,13 +90,32 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
     toast({ title: 'Plan Updated', description: 'The media plan has been successfully updated.' });
   };
   
-  const handleConvertToCampaign = () => {
-    // In a real app, this would involve creating a new campaign document in Firestore
-    console.log('Converting plan to campaign:', plan.id);
+  const handleConvertToCampaign = async () => {
     toast({
-        title: 'Plan Converted to Campaign',
-        description: `${plan.displayName} is now a campaign.`
+        title: 'Converting to Campaign...',
+        description: 'Please wait a moment.'
     });
+    try {
+        const result = await convertPlanToCampaign({ planId: plan.id });
+        toast({
+            title: 'Plan Converted!',
+            description: `A new campaign with ID ${result.campaignId} has been created.`
+        });
+        // Optionally, refetch the plan to update its status to 'Converted'
+        const planDocRef = doc(db, 'plans', plan.id);
+        const planDoc = await getDoc(planDocRef);
+        if (planDoc.exists()) {
+            const data = planDoc.data();
+            setPlan(prev => ({...prev, status: 'Converted'}));
+        }
+    } catch(error) {
+        console.error("Failed to convert plan to campaign:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Conversion Failed',
+            description: 'Could not convert the plan to a campaign.'
+        });
+    }
   };
 
   const handleInventoryUpdate = (selectedAssets: Asset[]) => {
@@ -142,7 +163,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
       return;
     }
     const planData = planSnap.data();
-    const assets = (planData as any).mediaAssets || sampleAssets.slice(0, 5);
+    const assets = (planData as any).mediaAssets || [];
 
     for (const asset of assets) {
         const slide = ppt.addSlide();
@@ -195,7 +216,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
         return;
       }
       const planData = planDoc.data();
-      const assets = (planData as any).mediaAssets || sampleAssets.slice(0, 5);
+      const assets = (planData as any).mediaAssets || [];
 
       const worksheetData: (string | number)[][] = [
         [
@@ -258,7 +279,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
         return;
      }
      const planData = planDocRef.data() as MediaPlan;
-     const assets = (planData as any).mediaAssets || sampleAssets.slice(0, 7);
+     const assets = (planData as any).mediaAssets || [];
      const customer = customers.find(c => c.id === plan.customerId);
 
      const pdf = new jsPDF();
@@ -383,7 +404,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                 <Link href="/admin/media-plans"><ChevronLeft /></Link>
             </Button>
             <h1 className="text-xl font-bold">
-                {plan.projectId} - {customers.find(c => c.id === plan.customerId)?.name} - {plan.displayName}
+                {plan.projectId} - {customers.find(c => c.id === plan.customerId)?.name}
             </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -408,10 +429,10 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
       </header>
       
       <main className="grid md:grid-cols-3 lg:grid-cols-4 gap-6">
-        <div className="md:col-span-2 lg:col-span-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="md:col-span-2 lg:col-span-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
             {/* Business Card */}
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-base">Business</CardTitle>
                     <Button variant="ghost" size="icon" onClick={() => setIsDialogOpen(true)}><Edit className="h-4 w-4" /></Button>
                 </CardHeader>
@@ -426,19 +447,19 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                             <p className="text-sm font-semibold">{plan.employee?.name}</p>
                         </div>
                     </div>
-                    <InfoRow label="Start Date" value={plan.startDate ? format(new Date(plan.startDate as any), 'dd MMM yy') : ''} />
-                    <InfoRow label="End Date" value={plan.endDate ? format(new Date(plan.endDate as any), 'dd MMM yy') : ''} />
+                    <InfoRow label="Start Date" value={plan.startDate ? format(new Date(plan.startDate as any), 'dd MMM yyyy') : ''} />
+                    <InfoRow label="End Date" value={plan.endDate ? format(new Date(plan.endDate as any), 'dd MMM yyyy') : ''} />
                     <InfoRow label="Days" value={plan.days} />
                 </CardContent>
             </Card>
 
             {/* Statistics Card */}
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-base">Statistics</CardTitle>
                 </CardHeader>
                 <CardContent>
-                     <InfoRow label="Asset Markup">
+                     <InfoRow label="HA Markup">
                         <span className="font-medium text-green-600">
                            {formatCurrency(plan.statistics?.haMarkup)} ({plan.statistics?.haMarkupPercentage}%)
                         </span>
@@ -452,11 +473,11 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                     <InfoRow label="ROI on Expense" value="-" />
                 </CardContent>
             </Card>
-
-            {/* Media Assets Card */}
+            
+            {/* Inventory Card */}
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="text-base">Media Assets</CardTitle>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-base">Inventory</CardTitle>
                     <Button variant="ghost" size="icon" asChild>
                       <Link href={`/admin/media-plans/${plan.id}/negotiation`}>
                         <Edit className="h-4 w-4" />
@@ -466,11 +487,24 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                 <CardContent>
                     <InfoRow label="Home Inventory" value={plan.inventorySummary?.homeCount} />
                     <InfoRow label="Traded Inventory" value={plan.inventorySummary?.rentedCount} />
-                    <InfoRow label="Total Sites" value={`${plan.inventorySummary?.totalSites} (${plan.inventorySummary?.totalSites} Units)`} />
+                    <InfoRow label="Total Sites" value={`${plan.inventorySummary?.totalSites || 0} (${plan.inventorySummary?.totalSites || 0} Units)`} />
                     <InfoRow label="Price / SQFT" value={plan.inventorySummary?.pricePerSqft} />
-                    <InfoRow label="Price / SQFT / Month" value={plan.inventorySummary?.pricePerSqftPerMonth} />
+                    <InfoRow label="Price/SQFT/Month" value={plan.inventorySummary?.pricePerSqftPerMonth} />
                     <Separator className="my-2" />
                     <InfoRow label="Total SQFT" value={plan.inventorySummary?.totalSqft} className="font-bold" />
+                </CardContent>
+            </Card>
+
+             {/* Client Grade Card */}
+            <Card>
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Client Grade A</CardTitle>
+                </CardHeader>
+                <CardContent>
+                     <InfoRow label="Unbilled Sales" value={formatCurrency(plan.clientGrade?.unbilledSales)} />
+                     <InfoRow label="Effective Sales" value={formatCurrency(plan.clientGrade?.effectiveSales)} />
+                     <InfoRow label="Payment Received" value={formatCurrency(plan.clientGrade?.paymentReceived)} />
+                     <InfoRow label="Outstanding" value={formatCurrency(plan.clientGrade?.outstandingSales)} />
                 </CardContent>
             </Card>
         </div>
@@ -479,7 +513,7 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
         <div className="lg:col-span-1 space-y-6">
              {/* Summary Card */}
             <Card>
-                <CardHeader>
+                <CardHeader className="pb-2">
                     <CardTitle className="text-base">Summary</CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -494,38 +528,18 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
                 </CardContent>
             </Card>
 
-            {/* Export Card */}
-             <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">Export Plan Options</CardTitle>
+            {/* Documents Card */}
+            <Card>
+                 <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-base">Documents</CardTitle>
+                    <Button variant="ghost" size="icon"><Edit className="h-4 w-4" /></Button>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                    <div>
-                        <Label>PDF Template Style</Label>
-                        <Select value={pdfTemplate} onValueChange={setPdfTemplate}>
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="classic">Classic (B&W)</SelectItem>
-                                <SelectItem value="modern">Modern (Blue)</SelectItem>
-                                <SelectItem value="bold">Bold (Future template)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="flex flex-col space-y-2">
-                        <Button onClick={handleSendToClient} variant="default">
-                            <Send className="mr-2 h-4 w-4" />
-                            Send to Client
-                        </Button>
-                        <Separator />
-                        <Button onClick={exportPlanToPPT} variant="outline">Generate PPT</Button>
-                        <Button onClick={exportPlanToExcel} variant="outline">Generate Excel</Button>
-                        <Button onClick={() => exportPlanToPDF(pdfTemplate)} variant="outline">Generate PDF (Work Order)</Button>
-                    </div>
+                <CardContent>
+                     <InfoRow label="Email Confirmation" value={plan.documents?.emailConfirmations || 0} />
+                     <InfoRow label="Purchase Orders" value={plan.documents?.purchaseOrders || 0} />
+                     <InfoRow label="Others" value={plan.documents?.others || 0} />
                 </CardContent>
             </Card>
-            <ExportDownloadLinks planId={plan.id} />
         </div>
       </main>
       
@@ -551,3 +565,5 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   );
 
 }
+
+    
