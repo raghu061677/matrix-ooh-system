@@ -48,8 +48,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2, Loader2, Search, SlidersHorizontal, ArrowUpDown, Upload, Download, Users, MoreHorizontal } from 'lucide-react';
-import { Customer, Address } from '@/types/firestore';
+import { PlusCircle, Edit, Trash2, Loader2, Search, SlidersHorizontal, ArrowUpDown, Upload, Download, Users, MoreHorizontal, UserPlus, X } from 'lucide-react';
+import { Customer, Address, ContactPerson } from '@/types/firestore';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -58,6 +58,7 @@ import { fetchGstDetails } from '@/ai/flows/fetch-gst-details';
 import { ScrollArea } from '../ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
 import { ImportWizard } from './import-wizard';
+import { Textarea } from '../ui/textarea';
 
 type SortConfig = {
   key: keyof Customer;
@@ -117,10 +118,37 @@ export function CustomerManager() {
     getCustomers();
   }, [user]);
 
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
+
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+  }
+  
+  const handleContactPersonChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    const updatedContacts = [...(formData.contactPersons || [])];
+    updatedContacts[index] = { ...updatedContacts[index], [name]: value };
+    setFormData(prev => ({ ...prev, contactPersons: updatedContacts }));
+  };
+
+  const addContactPerson = () => {
+      const newContact: ContactPerson = { name: '', email: '', phone: '' };
+      setFormData(prev => ({
+          ...prev,
+          contactPersons: [...(prev.contactPersons || []), newContact]
+      }));
+  };
+  
+  const removeContactPerson = (index: number) => {
+      setFormData(prev => ({
+          ...prev,
+          contactPersons: prev.contactPersons?.filter((_, i) => i !== index)
+      }));
+  };
+
 
   const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>, addressType: 'billingAddress' | 'shippingAddress') => {
     const { name, value } = e.target;
@@ -147,7 +175,7 @@ export function CustomerManager() {
         try {
             const result = await fetchGstDetails({ gstNumber });
             if (result) {
-                const { legalName, address, city, state, pincode } = result;
+                const { legalName, tradeName, address, city, state, pincode } = result;
                 setFormData(prev => ({
                     ...prev,
                     name: legalName,
@@ -196,8 +224,10 @@ export function CustomerManager() {
   const openDialog = (customer: Customer | null = null) => {
     setCurrentCustomer(customer);
     const initialFormData = customer || { 
+      paymentTerms: 'Net 30',
       billingAddress: { street: '', city: ''}, 
-      shippingAddress: { street: '', city: ''}
+      shippingAddress: { street: '', city: ''},
+      contactPersons: [{ name: '', email: '', phone: '' }]
     };
     setFormData(initialFormData);
     setIsDialogOpen(true);
@@ -415,11 +445,26 @@ export function CustomerManager() {
           <form onSubmit={handleSave} className="flex-grow overflow-hidden flex flex-col">
             <ScrollArea className="flex-grow pr-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 py-4">
-                  
-                  <div className="md:col-span-2">
-                    <Label htmlFor="name">Business Name</Label>
-                    <Input id="name" name="name" value={formData.name || ''} onChange={handleFormChange} required />
-                  </div>
+                    <div className="md:col-span-2">
+                        <Label htmlFor="name">Business Name</Label>
+                        <Input id="name" name="name" value={formData.name || ''} onChange={handleFormChange} required />
+                    </div>
+                     <div>
+                        <Label htmlFor="paymentTerms">Payment Terms</Label>
+                        <Select onValueChange={(value) => handleSelectChange('paymentTerms', value)} value={formData.paymentTerms}>
+                            <SelectTrigger><SelectValue/></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Net 15">Net 15</SelectItem>
+                                <SelectItem value="Net 30">Net 30</SelectItem>
+                                <SelectItem value="Net 60">Net 60</SelectItem>
+                                <SelectItem value="Due on receipt">Due on receipt</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                     <div>
+                        <Label htmlFor="website">Website</Label>
+                        <Input id="website" name="website" value={formData.website || ''} onChange={handleFormChange} />
+                    </div>
                   <div>
                     <Label htmlFor="gst">GST Number</Label>
                     <div className="flex items-center gap-2">
@@ -433,13 +478,27 @@ export function CustomerManager() {
                     <Label htmlFor="pan">PAN Number</Label>
                     <Input id="pan" name="pan" value={formData.pan || ''} onChange={handleFormChange} />
                   </div>
-                   <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" name="email" value={formData.email || ''} onChange={handleFormChange} />
-                  </div>
-                  <div>
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input id="phone" name="phone" value={formData.phone || ''} onChange={handleFormChange} />
+                  
+                  <div className="md:col-span-2">
+                     <h3 className="text-lg font-medium border-b pb-2 my-4">Contact Persons</h3>
+                     {formData.contactPersons?.map((contact, index) => (
+                         <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4 p-4 border rounded-md relative">
+                            <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1" onClick={() => removeContactPerson(index)}><X className="w-4 h-4"/></Button>
+                            <div>
+                                <Label>Name</Label>
+                                <Input name="name" value={contact.name} onChange={(e) => handleContactPersonChange(index, e)} />
+                            </div>
+                             <div>
+                                <Label>Email</Label>
+                                <Input name="email" value={contact.email} onChange={(e) => handleContactPersonChange(index, e)} />
+                            </div>
+                             <div>
+                                <Label>Phone</Label>
+                                <Input name="phone" value={contact.phone} onChange={(e) => handleContactPersonChange(index, e)} />
+                            </div>
+                         </div>
+                     ))}
+                     <Button type="button" variant="outline" size="sm" onClick={addContactPerson}><UserPlus className="mr-2" /> Add Contact</Button>
                   </div>
 
                   <div className="md:col-span-2">
@@ -468,7 +527,10 @@ export function CustomerManager() {
                         </div>
                      </div>
                   </div>
-                  
+                   <div className="md:col-span-2">
+                     <Label htmlFor="notes">Notes</Label>
+                     <Textarea id="notes" name="notes" value={formData.notes || ''} onChange={handleFormChange} />
+                   </div>
                 </div>
             </ScrollArea>
             <DialogFooter className="flex-shrink-0 pt-4">
