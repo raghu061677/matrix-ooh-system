@@ -329,7 +329,7 @@ export function MediaManager() {
       }
 
       // Step 2: Prepare asset data
-      const dataToSave: Partial<Asset> = { ...formData, companyId: user.companyId, imageUrls: formData.imageUrls || [] };
+      let dataToSave: Partial<Asset> = { ...formData, companyId: user.companyId, imageUrls: formData.imageUrls || [] };
       let docRef;
 
       if (assetId) {
@@ -343,7 +343,7 @@ export function MediaManager() {
       }
       
       // Step 3: Upload new images if any
-      if (newImageFiles.length > 0) {
+      if (newImageFiles.length > 0 && assetId) {
         toast({ title: `Uploading ${newImageFiles.length} image(s)...` });
         const uploadPromises = newImageFiles.map(file => {
           const imageRef = ref(storage, `mediaAssets/${assetId}/${file.name}`);
@@ -696,7 +696,7 @@ export function MediaManager() {
                          <Edit className="mr-2 h-4 w-4" />
                          Edit
                        </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => handleDelete(asset)} className="text-destructive">
+                      <DropdownMenuItem onClick={() => handleDelete(asset)} className="text-destructive">
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete
                       </DropdownMenuItem>
