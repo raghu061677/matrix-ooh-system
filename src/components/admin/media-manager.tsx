@@ -81,22 +81,27 @@ export function MediaManager() {
   const [filter, setFilter] = useState('');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   const [columnVisibility, setColumnVisibility] = useState({
+      image: true,
       iid: true, // Media Code
-      media: true, // Media Type
-      latitude: false,
-      longitude: false,
+      name: true,
+      state: true,
       district: true,
       area: true,
       location: true,
       direction: true,
-      dimensions: true, // Dimension
-      width: false,
-      height: false,
-      totalSqft: true, // Sft
+      latitude: false,
+      longitude: false,
+      media: true, // Media Type
       lightType: true,
-      baseRate: false,
-      cardRate: true,
       status: true,
+      ownership: false,
+      dimensions: true, // Dimension
+      multiface: false,
+      cardRate: true,
+      baseRate: false,
+      rate: false,
+      totalSqft: true, // Sft
+      map: true,
   });
 
 
@@ -313,17 +318,17 @@ export function MediaManager() {
     
     try {
       // Step 1: Uniqueness check
-      if (formData.iid) {
+      if (formData.iid && formData.iid !== currentAsset?.iid) {
           const iidQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("iid", "==", formData.iid));
           const iidSnapshot = await getDocs(iidQuery);
-          if (!iidSnapshot.empty && iidSnapshot.docs[0].id !== assetId) {
+          if (!iidSnapshot.empty) {
                 throw new Error(`An asset with the code "${formData.iid}" already exists.`);
           }
       }
-      if (formData.location) {
+      if (formData.location && formData.location !== currentAsset?.location) {
           const locationQuery = query(mediaAssetsCollectionRef, where("companyId", "==", user.companyId), where("location", "==", formData.location));
           const locationSnapshot = await getDocs(locationQuery);
-          if (!locationSnapshot.empty && locationSnapshot.docs[0].id !== assetId) {
+          if (!locationSnapshot.empty) {
             throw new Error(`An asset with the location "${formData.location}" already exists.`);
           }
       }
@@ -338,7 +343,7 @@ export function MediaManager() {
         await updateDoc(docRef, { ...dataToSave, updatedAt: serverTimestamp(), companyId: user.companyId });
       } else {
         // Create new asset to get an ID
-        docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, createdAt: serverTimestamp(), companyId: user.companyId });
+        docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, createdAt: serverTimestamp(), companyId: user.companyId, imageUrls: [] });
         assetId = docRef.id;
       }
       
@@ -356,6 +361,7 @@ export function MediaManager() {
         const existingImageUrls = formData.imageUrls || [];
         const finalImageUrls = [...existingImageUrls, ...newImageUrls];
         await updateDoc(docRef, { imageUrls: finalImageUrls });
+        setFormData(prev => ({...prev, imageUrls: finalImageUrls}));
       }
 
       await getMediaAssets();
@@ -386,12 +392,12 @@ export function MediaManager() {
     setIsSaving(false);
   };
   
-  const handleDelete = async (asset: Asset) => {
-     if(!confirm(`Are you sure you want to delete asset ${asset.location}?`)) return;
-     const assetDoc = doc(db, 'mediaAssets', asset.id);
+  const handleDelete = async (assetToDelete: Asset) => {
+     if(!confirm(`Are you sure you want to delete asset ${assetToDelete.location}?`)) return;
+     const assetDoc = doc(db, 'mediaAssets', assetToDelete.id);
      await deleteDoc(assetDoc);
      await getMediaAssets();
-     toast({ title: 'Asset Deleted', description: `${asset.location} has been removed.` });
+     toast({ title: 'Asset Deleted', description: `${assetToDelete.location} has been removed.` });
   };
   
   const sortedAndFilteredAssets = useMemo(() => {
@@ -436,49 +442,43 @@ export function MediaManager() {
   }, [formData.totalSqft, formData.totalSqft2, formData.multiface]);
 
   const handleExport = (sample = false) => {
-    const dataToExport = sample 
-      ? [{ 
-          iid: 'HYD-001',
-          name: 'Sample Location',
-          state: 'Telangana',
-          district: 'Hyderabad',
-          area: 'Sample Area',
-          location: 'Sample Location Description',
-          direction: 'Towards X',
-          latitude: 17.3850,
-          longitude: 78.4867,
-          media: 'Hoarding',
-          lightType: 'Front Lit',
-          status: 'active',
-          ownership: 'own',
-          dimensions: '40x30-20x10',
-          multiface: true,
-          cardRate: 50000,
-          baseRate: 40000,
-          rate: 45000,
-          'size.width': 40,
-          'size.height': 30,
-          totalSqft: 1200,
-          'size2.width': 20,
-          'size2.height': 10,
-          totalSqft2: 200,
-        }]
-      : sortedAndFilteredAssets.map(asset => ({
-        ...asset, 
-        'size.width': asset.size?.width, 
-        'size.height': asset.size?.height,
-        'size2.width': asset.size2?.width,
-        'size2.height': asset.size2?.height,
-        // Remove nested objects to avoid issues
-        size: undefined,
-        size2: undefined
-      }));
+    const headers = [
+        "iid", "name", "state", "district", "area", "location", "direction",
+        "latitude", "longitude", "media", "lightType", "status", "ownership",
+        "dimensions", "multiface", "cardRate", "baseRate", "rate",
+        "size.width", "size.height", "totalSqft",
+        "size2.width", "size2.height", "totalSqft2"
+    ];
 
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    let dataToExport;
+
+    if (sample) {
+        dataToExport = [{
+            iid: 'HYD-001', name: 'Sample Location', state: 'Telangana', district: 'Hyderabad',
+            area: 'Sample Area', location: 'Sample Location Description', direction: 'Towards X',
+            latitude: 17.3850, longitude: 78.4867, media: 'Hoarding', lightType: 'Front Lit',
+            status: 'active', ownership: 'own', dimensions: '40x30-20x10', multiface: true,
+            cardRate: 50000, baseRate: 40000, rate: 45000,
+            'size.width': 40, 'size.height': 30, totalSqft: 1200,
+            'size2.width': 20, 'size2.height': 10, totalSqft2: 200,
+        }];
+    } else {
+        dataToExport = sortedAndFilteredAssets.map(asset => ({
+            ...asset,
+            'size.width': asset.size?.width,
+            'size.height': asset.size?.height,
+            'size2.width': asset.size2?.width,
+            'size2.height': asset.size2?.height,
+            size: undefined, // Remove nested objects to avoid issues
+            size2: undefined
+        }));
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport, { header: headers });
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Media Assets');
     XLSX.writeFile(workbook, sample ? 'sample-media-assets.xlsx' : 'media-assets-export.xlsx');
-  };
+};
   
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -622,29 +622,28 @@ export function MediaManager() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Image</TableHead>
+              {columnVisibility.image && <TableHead>Image</TableHead>}
               {columnVisibility.iid && <TableHead>Media Code</TableHead>}
-              {columnVisibility.media && renderSortableHeader('Media Type', 'media')}
+              {columnVisibility.name && renderSortableHeader('Asset Name', 'name')}
+              {columnVisibility.state && <TableHead>State</TableHead>}
               {columnVisibility.district && <TableHead>District</TableHead>}
               {columnVisibility.area && renderSortableHeader('Area', 'area')}
               {columnVisibility.location && <TableHead>Location</TableHead>}
               {columnVisibility.direction && <TableHead>Direction</TableHead>}
-              {columnVisibility.dimensions && <TableHead>Dimension</TableHead>}
-              {columnVisibility.width && <TableHead>Width</TableHead>}
-              {columnVisibility.height && <TableHead>Height</TableHead>}
-              {columnVisibility.totalSqft && <TableHead>Sft</TableHead>}
+              {columnVisibility.media && renderSortableHeader('Media Type', 'media')}
               {columnVisibility.lightType && renderSortableHeader('Light Type', 'lightType')}
-              {columnVisibility.baseRate && renderSortableHeader('Base Rate', 'baseRate')}
+              {columnVisibility.dimensions && <TableHead>Dimension</TableHead>}
+              {columnVisibility.totalSqft && <TableHead>Sft</TableHead>}
               {columnVisibility.cardRate && renderSortableHeader('Card Rate', 'cardRate')}
               {columnVisibility.status && <TableHead>Status</TableHead>}
-              <TableHead>Map</TableHead>
+              {columnVisibility.map && <TableHead>Map</TableHead>}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {sortedAndFilteredAssets.map(asset => (
               <TableRow key={asset.id}>
-                 <TableCell>
+                 {columnVisibility.image && <TableCell>
                   {asset.imageUrls?.[0] ? (
                     <Image
                       src={asset.imageUrls[0]}
@@ -658,22 +657,21 @@ export function MediaManager() {
                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
                     </div>
                   )}
-                </TableCell>
+                </TableCell>}
                 {columnVisibility.iid && <TableCell>{asset.iid}</TableCell>}
-                {columnVisibility.media && <TableCell>{asset.media}</TableCell>}
+                {columnVisibility.name && <TableCell>{asset.name}</TableCell>}
+                {columnVisibility.state && <TableCell>{asset.state}</TableCell>}
                 {columnVisibility.district && <TableCell>{asset.district}</TableCell>}
                 {columnVisibility.area && <TableCell>{asset.area}</TableCell>}
                 {columnVisibility.location && <TableCell className="max-w-[200px] truncate">{asset.location}</TableCell>}
                 {columnVisibility.direction && <TableCell>{asset.direction}</TableCell>}
-                {columnVisibility.dimensions && <TableCell>{asset.dimensions}</TableCell>}
-                {columnVisibility.width && <TableCell>{asset.size?.width}</TableCell>}
-                {columnVisibility.height && <TableCell>{asset.size?.height}</TableCell>}
-                {columnVisibility.totalSqft && <TableCell>{getAssetTotalSqft(asset)}</TableCell>}
+                {columnVisibility.media && <TableCell>{asset.media}</TableCell>}
                 {columnVisibility.lightType && <TableCell>{asset.lightType}</TableCell>}
-                {columnVisibility.baseRate && <TableCell>{asset.baseRate?.toLocaleString('en-IN')}</TableCell>}
+                {columnVisibility.dimensions && <TableCell>{asset.dimensions}</TableCell>}
+                {columnVisibility.totalSqft && <TableCell>{getAssetTotalSqft(asset)}</TableCell>}
                 {columnVisibility.cardRate && <TableCell>{asset.cardRate?.toLocaleString('en-IN')}</TableCell>}
                 {columnVisibility.status && <TableCell>{asset.status}</TableCell>}
-                 <TableCell>
+                 {columnVisibility.map && <TableCell>
                   {asset.latitude && asset.longitude && (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -686,7 +684,7 @@ export function MediaManager() {
                       </TooltipContent>
                     </Tooltip>
                   )}
-                </TableCell>
+                </TableCell>}
                 <TableCell className="text-right">
                    <DropdownMenu>
                     <DropdownMenuTrigger asChild>
