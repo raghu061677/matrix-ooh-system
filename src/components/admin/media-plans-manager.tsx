@@ -35,9 +35,11 @@ import { SelectAssetsDialog } from './select-assets-dialog';
 import { Asset } from './media-manager-types';
 
 const sampleData: MediaPlan[] = [
-    { id: '1', customerId: 'customer-1', displayName: 'City Bus Shelter Campaign', createdAt: new Date('2024-07-01'), startDate: new Date('2024-08-01'), endDate: new Date('2024-08-30'), status: 'Draft', costSummary: { displayCost: 380000, printingCost: 0, installationCost: 0, totalBeforeTax: 380000, gst: 68400, grandTotal: 448400 } },
-    { id: '2', customerId: 'customer-2', displayName: 'Tech Park Launch', createdAt: new Date('2024-07-15'), startDate: new Date('2024-09-01'), endDate: new Date('2024-09-30'), status: 'Approved', costSummary: { displayCost: 500000, printingCost: 25000, installationCost: 10000, totalBeforeTax: 535000, gst: 96300, grandTotal: 631300 } },
+    { id: '1', projectId: 'P00109', employee: { id: 'user-001', name: 'Raghu Gajula' }, customerId: 'customer-1', customerName: 'Matrix Network Solutions', displayName: 'CRI', startDate: new Date('2025-07-26'), endDate: new Date('2025-08-24'), days: 30, inventorySummary: { totalSqft: 1048.5 }, costSummary: { grandTotal: 460790 }, statistics: { haMarkupPercentage: 10.14 }, status: 'Draft' },
+    { id: '2', projectId: 'P00108', employee: { id: 'user-001', name: 'Raghu Gajula' }, customerId: 'customer-2', customerName: 'Matrix', displayName: 'Matrix ®', startDate: new Date('2025-07-24'), endDate: new Date('2025-08-22'), days: 30, inventorySummary: { totalSqft: 1936.5 }, costSummary: { grandTotal: 800040 }, statistics: { haMarkupPercentage: 10 }, status: 'Draft' },
+    { id: '3', projectId: 'P00107', employee: { id: 'user-001', name: 'Raghu Gajula' }, customerId: 'customer-3', customerName: 'Founding Years Learning Solutions Pvt Ltd', displayName: 'Education', startDate: new Date('2025-07-25'), endDate: new Date('2025-10-22'), days: 90, inventorySummary: { totalSqft: 161 }, costSummary: { grandTotal: 194700 }, statistics: { haMarkupPercentage: 10 }, status: 'Confirmed' },
 ];
+
 
 const mockEmployees: User[] = [
     { id: 'user-001', uid: 'user-001', name: 'Raghu Gajula', email: 'raghu@example.com', role: 'admin' },
@@ -51,6 +53,8 @@ export function MediaPlansManager() {
   const [employees, setEmployees] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAssetSelectorOpen, setIsAssetSelectorOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [selectedAssets, setSelectedAssets] = useState<Asset[]>([]);
   const { user } = useAuth();
   const router = useRouter();
   
@@ -104,41 +108,36 @@ export function MediaPlansManager() {
     fetchData();
   }, [user]);
 
-  const handleCreatePlanFromAssets = async (selectedAssets: Asset[]) => {
+  const handleCreatePlanFromAssets = (assets: Asset[]) => {
+    if (assets.length === 0) {
+      toast({ variant: 'destructive', title: 'No assets selected' });
+      return;
+    }
+    setSelectedAssets(assets);
     setIsAssetSelectorOpen(false);
+    setIsFormOpen(true);
+  };
+
+  const handleSavePlan = async (planData: Partial<MediaPlan>) => {
     setLoading(true);
-    if (!user?.companyId || !selectedAssets || selectedAssets.length === 0) {
-      toast({ variant: 'destructive', title: 'Error', description: 'No assets selected or user not identified.' });
+    if (!user?.companyId) {
+      toast({ variant: 'destructive', title: 'Error', description: 'User not identified.' });
       setLoading(false);
       return;
     }
 
     try {
-      // Calculate initial costs from selected assets
-      const initialCostSummary = selectedAssets.reduce((acc, asset) => {
-          acc.displayCost += asset.cardRate || 0;
-          return acc;
-      }, { displayCost: 0, printingCost: 0, installationCost: 0, totalBeforeTax: 0, gst: 0, grandTotal: 0});
-
-      initialCostSummary.totalBeforeTax = initialCostSummary.displayCost;
-      initialCostSummary.gst = initialCostSummary.totalBeforeTax * 0.18;
-      initialCostSummary.grandTotal = initialCostSummary.totalBeforeTax + initialCostSummary.gst;
-
-
       const newPlanData = {
+        ...planData,
         companyId: user.companyId,
         createdAt: serverTimestamp(),
-        status: 'Draft',
-        displayName: 'New Media Plan',
         mediaAssetIds: selectedAssets.map(asset => asset.id),
         mediaAssets: selectedAssets, // Storing full asset data for negotiation page
-        costSummary: initialCostSummary
       };
 
       const docRef = await addDoc(collection(db, 'plans'), newPlanData);
       toast({ title: 'Plan Created!', description: 'Redirecting to the new plan details...' });
       
-      // Redirect to the new plan's negotiation page to continue editing
       router.push(`/admin/media-plans/${docRef.id}`);
 
     } catch (error) {
@@ -146,6 +145,7 @@ export function MediaPlansManager() {
       toast({ variant: 'destructive', title: 'Creation failed', description: 'Could not create the new plan.' });
       setLoading(false);
     }
+    setIsFormOpen(false);
   };
   
   const handleDelete = async (plan: MediaPlan) => {
@@ -165,7 +165,7 @@ export function MediaPlansManager() {
   }, [mediaPlans, filter, customers]);
 
   
-  if (loading && !isAssetSelectorOpen) {
+  if (loading && !isAssetSelectorOpen && !isFormOpen) {
     return (
         <div className="flex items-center justify-center h-48">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -190,7 +190,7 @@ export function MediaPlansManager() {
           <Button variant="outline" asChild>
             <Link href="/admin/ai-planner">
               <Bot className="mr-2" />
-              AI Plan
+              Create With AI
             </Link>
           </Button>
           <Button onClick={() => setIsAssetSelectorOpen(true)}>
@@ -203,9 +203,16 @@ export function MediaPlansManager() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Customer</TableHead>
-              <TableHead>Display Name</TableHead>
-              <TableHead>Value</TableHead>
+              <TableHead>Project ID</TableHead>
+              <TableHead>Employee</TableHead>
+              <TableHead>Customer Name</TableHead>
+              <TableHead>Display</TableHead>
+              <TableHead>From</TableHead>
+              <TableHead>To</TableHead>
+              <TableHead>Days</TableHead>
+              <TableHead>SQFT</TableHead>
+              <TableHead>Amount</TableHead>
+              <TableHead>QoS</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -213,20 +220,23 @@ export function MediaPlansManager() {
           <TableBody>
             {filteredPlans.map(plan => {
                const customer = customers.find(c => c.id === plan.customerId);
+               const employee = employees.find(e => e.id === plan.employeeId);
                return (
                   <TableRow key={plan.id}>
                     <TableCell>
                       <Link href={`/admin/media-plans/${plan.id}`} className="font-medium text-blue-600 hover:underline">
-                        {customer?.name || plan.customerId || 'N/A'}
+                        {plan.projectId}
                       </Link>
-                      <div className="text-xs text-muted-foreground">
-                        {plan.createdAt ? format(new Date(plan.createdAt as any), 'dd MMM yyyy') : 'N/A'}
-                      </div>
                     </TableCell>
+                    <TableCell>{employee?.name || plan.employee?.name}</TableCell>
+                    <TableCell>{customer?.name || plan.customerName}</TableCell>
                     <TableCell>{plan.displayName}</TableCell>
-                    <TableCell>
-                        {plan.costSummary?.grandTotal ? `₹${plan.costSummary.grandTotal.toLocaleString('en-IN')}` : 'N/A'}
-                    </TableCell>
+                    <TableCell>{plan.startDate ? format(new Date(plan.startDate as any), 'dd MMM yy') : 'N/A'}</TableCell>
+                    <TableCell>{plan.endDate ? format(new Date(plan.endDate as any), 'dd MMM yy') : 'N/A'}</TableCell>
+                    <TableCell>{plan.days}</TableCell>
+                    <TableCell>{plan.inventorySummary?.totalSqft}</TableCell>
+                    <TableCell>{plan.costSummary?.grandTotal ? `₹${plan.costSummary.grandTotal.toLocaleString('en-IN')}` : 'N/A'}</TableCell>
+                    <TableCell>{plan.statistics?.haMarkupPercentage ? `${plan.statistics.haMarkupPercentage.toFixed(2)}%` : '-'}</TableCell>
                     <TableCell>
                         <Badge variant={plan.status === 'Approved' ? 'default' : 'secondary'} className="capitalize">{plan.status}</Badge>
                     </TableCell>
@@ -256,7 +266,7 @@ export function MediaPlansManager() {
             })}
              {filteredPlans.length === 0 && (
                 <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">No plans found.</TableCell>
+                    <TableCell colSpan={12} className="text-center text-muted-foreground">No plans found.</TableCell>
                 </TableRow>
             )}
           </TableBody>
@@ -268,6 +278,17 @@ export function MediaPlansManager() {
         onOpenChange={setIsAssetSelectorOpen}
         onAddToPlan={handleCreatePlanFromAssets}
       />
+
+      <MediaPlanFormDialog
+        isOpen={isFormOpen}
+        onOpenChange={setIsFormOpen}
+        plan={null}
+        customers={customers}
+        employees={employees}
+        onSave={handleSavePlan}
+        loading={loading}
+      />
     </>
   );
 }
+

@@ -29,7 +29,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Loader2, CalendarIcon } from 'lucide-react';
 import { MediaPlan, PlanStatus } from '@/types/media-plan';
 import { Customer, User } from '@/types/firestore';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { ScrollArea } from '../ui/scroll-area';
 
@@ -74,6 +74,13 @@ export function MediaPlanFormDialog({
     }
   }, [plan, isOpen]);
 
+  React.useEffect(() => {
+    if (dateRange?.from && dateRange?.to) {
+        const days = differenceInDays(dateRange.to, dateRange.from) + 1;
+        setFormData(prev => ({...prev, days}));
+    }
+  }, [dateRange]);
+
   const handleFormChange = (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -108,7 +115,7 @@ export function MediaPlanFormDialog({
                   <div className="space-y-4 py-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                        <div>
-                        <Label htmlFor="displayName">Display Name</Label>
+                        <Label htmlFor="displayName">Campaign Display Name</Label>
                         <Input id="displayName" name="displayName" value={formData.displayName || ''} onChange={handleFormChange} />
                       </div>
                        <div>
@@ -132,7 +139,7 @@ export function MediaPlanFormDialog({
                           </Select>
                       </div>
                       <div className="md:col-span-2">
-                        <Label htmlFor="customerId">Customer</Label>
+                        <Label htmlFor="customerId">Client</Label>
                           <Select
                             onValueChange={(value) =>
                               handleSelectChange('customerId', value)
@@ -154,7 +161,7 @@ export function MediaPlanFormDialog({
                       
                       <div className="grid grid-cols-1 items-center gap-2 md:col-span-2">
                         <Label htmlFor="dates">
-                          Dates
+                          Campaign Duration
                         </Label>
                         <Popover>
                           <PopoverTrigger asChild>
@@ -190,7 +197,10 @@ export function MediaPlanFormDialog({
                           </PopoverContent>
                         </Popover>
                       </div>
-
+                       <div>
+                         <Label htmlFor="days">Days</Label>
+                         <Input id="days" name="days" type="number" value={formData.days || ''} readOnly />
+                       </div>
                        <div>
                         <Label htmlFor="status">Status</Label>
                           <Select
@@ -222,10 +232,8 @@ export function MediaPlanFormDialog({
                 <Button type="submit" disabled={loading}>
                   {loading ? (
                     <Loader2 className="animate-spin" />
-                  ) : plan?.id ? (
-                    'Save Changes'
                   ) : (
-                    'Create Plan'
+                    'Save Plan'
                   )}
                 </Button>
               </DialogFooter>

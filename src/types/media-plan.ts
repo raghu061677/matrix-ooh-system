@@ -17,6 +17,7 @@ export interface MediaPlan {
   employeeId?: string;
   employee?: Partial<User>;
 
+  name?: string;
   displayName?: string;
   
   // Dates
