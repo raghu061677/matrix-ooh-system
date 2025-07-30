@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -33,6 +34,7 @@ const sampleData: MediaPlan[] = [
 
 export default function NegotiationPage() {
   const [plan, setPlan] = React.useState<MediaPlan | null>(null);
+  const [customers, setCustomers] = React.useState<Customer[]>([]);
   const [loading, setLoading] = React.useState(true);
   const params = useParams();
 
@@ -60,6 +62,11 @@ export default function NegotiationPage() {
         }
         
         if (foundPlan) {
+            const customerDocRef = doc(db, 'customers', foundPlan.customerId);
+            const customerDoc = await getDoc(customerDocRef);
+            if (customerDoc.exists()) {
+                foundPlan.customerName = customerDoc.data().name;
+            }
             setPlan(foundPlan);
         }
         

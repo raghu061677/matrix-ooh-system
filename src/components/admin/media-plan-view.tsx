@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -565,5 +566,3 @@ export function MediaPlanView({ plan: initialPlan, customers, employees }: Media
   );
 
 }
-
-    

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -98,8 +99,8 @@ export function PlanNegotiation({ plan: initialPlan }: PlanNegotiationProps) {
                     </div>
                 </header>
 
-                <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                         <Card>
                             <CardHeader className="flex-row items-center justify-between">
                                 <CardTitle className="text-base">Inventories</CardTitle>
@@ -153,7 +154,7 @@ export function PlanNegotiation({ plan: initialPlan }: PlanNegotiationProps) {
                             </CardContent>
                         </Card>
                     </div>
-                    <Card className="row-span-2">
+                    <Card className="lg:row-span-2">
                         <CardHeader>
                             <CardTitle className="text-base">Summary</CardTitle>
                         </CardHeader>
@@ -199,12 +200,23 @@ export function PlanNegotiation({ plan: initialPlan }: PlanNegotiationProps) {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead><Checkbox /></TableHead>
-                                        <TableHead>Area</TableHead>
                                         <TableHead>Location</TableHead>
-                                        <TableHead>Rate</TableHead>
+                                        <TableHead>Size</TableHead>
+                                        <TableHead>SQFT</TableHead>
+                                        <TableHead>Light</TableHead>
+                                        <TableHead>Qty</TableHead>
+                                        <TableHead>Photo</TableHead>
+                                        <TableHead>Booking Status</TableHead>
+                                        <TableHead>Display</TableHead>
+                                        <TableHead>Employee</TableHead>
+                                        <TableHead>Available From</TableHead>
                                         <TableHead>Start Date</TableHead>
                                         <TableHead>End Date</TableHead>
                                         <TableHead>Days</TableHead>
+                                        <TableHead>Card Rate</TableHead>
+                                        <TableHead>Base Rate</TableHead>
+                                        <TableHead>Monthly Cost</TableHead>
+                                        <TableHead>Cost</TableHead>
                                         <TableHead>Map</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -212,12 +224,25 @@ export function PlanNegotiation({ plan: initialPlan }: PlanNegotiationProps) {
                                     {assets.map(asset => (
                                         <TableRow key={asset.id}>
                                             <TableCell><Checkbox /></TableCell>
-                                            <TableCell>{asset.area}</TableCell>
                                             <TableCell className="max-w-[200px] truncate">{asset.location}</TableCell>
-                                            <TableCell>{formatCurrency(asset.rate)}</TableCell>
-                                            <TableCell>{plan.startDate ? format(new Date(plan.startDate as any), 'dd/MM/yy') : 'N/A'}</TableCell>
-                                            <TableCell>{plan.endDate ? format(new Date(plan.endDate as any), 'dd/MM/yy') : 'N/A'}</TableCell>
+                                            <TableCell>{asset.dimensions}</TableCell>
+                                            <TableCell>{getAssetTotalSqft(asset)}</TableCell>
+                                            <TableCell>{asset.lightType}</TableCell>
+                                            <TableCell>1</TableCell>
+                                            <TableCell>
+                                                <Button variant="ghost" size="icon">📄</Button>
+                                            </TableCell>
+                                            <TableCell>Available</TableCell>
+                                            <TableCell>{plan.displayName}</TableCell>
+                                            <TableCell>{plan.employee?.name}</TableCell>
+                                            <TableCell>Available</TableCell>
+                                            <TableCell>{plan.startDate ? format(new Date(plan.startDate as any), 'dd MMM') : 'N/A'}</TableCell>
+                                            <TableCell>{plan.endDate ? format(new Date(plan.endDate as any), 'dd MMM') : 'N/A'}</TableCell>
                                             <TableCell>{plan.days}</TableCell>
+                                            <TableCell>{formatCurrency(asset.cardRate)}</TableCell>
+                                            <TableCell>{formatCurrency(asset.baseRate)}</TableCell>
+                                            <TableCell>{formatCurrency(asset.rate)}</TableCell>
+                                            <TableCell>{formatCurrency(asset.rate)}</TableCell>
                                             <TableCell>
                                                 {asset.latitude && asset.longitude && (
                                                     <Tooltip>
