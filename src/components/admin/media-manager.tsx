@@ -329,7 +329,7 @@ export function MediaManager() {
       }
 
       // Step 2: Prepare asset data
-      const dataToSave: Partial<Asset> = { ...formData, companyId: user.companyId };
+      const dataToSave: Partial<Asset> = { ...formData, companyId: user.companyId, imageUrls: formData.imageUrls || [] };
       let docRef;
 
       if (assetId) {
@@ -337,8 +337,8 @@ export function MediaManager() {
         docRef = doc(db, 'mediaAssets', assetId);
         await updateDoc(docRef, { ...dataToSave, updatedAt: serverTimestamp() });
       } else {
-        // Create new asset to get an ID, initially with no images
-        docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, imageUrls: [], createdAt: serverTimestamp() });
+        // Create new asset to get an ID
+        docRef = await addDoc(mediaAssetsCollectionRef, { ...dataToSave, createdAt: serverTimestamp() });
         assetId = docRef.id;
       }
       
@@ -353,11 +353,9 @@ export function MediaManager() {
         const newImageUrls = await Promise.all(uploadPromises);
 
         // Step 4: Final update with combined image URLs
-        const existingImageUrls = currentAsset?.imageUrls || [];
+        const existingImageUrls = dataToSave.imageUrls || [];
         const finalImageUrls = [...existingImageUrls, ...newImageUrls];
         await updateDoc(docRef, { imageUrls: finalImageUrls });
-
-        toast({ title: 'Upload Complete!', description: 'All images uploaded successfully.' });
       }
 
       await getMediaAssets();
@@ -698,7 +696,7 @@ export function MediaManager() {
                          <Edit className="mr-2 h-4 w-4" />
                          Edit
                        </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(asset)} className="text-destructive">
+                      <DropdownMenuItem onSelect={() => handleDelete(asset)} className="text-destructive">
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete
                       </DropdownMenuItem>
