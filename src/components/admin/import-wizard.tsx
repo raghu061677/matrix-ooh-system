@@ -14,7 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, FileUp, Check, X, ArrowRight, Table as TableIcon } from 'lucide-react';
-import { Stepper, Step, useStepper } from '@/components/ui/stepper';
+import { Stepper, useStepper } from '@/components/ui/stepper';
 import * as XLSX from 'xlsx';
 import { useAuth } from '@/hooks/use-auth';
 import { collection, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
@@ -48,7 +48,7 @@ export function ImportWizard({
   onOpenChange,
   onImportComplete,
 }: ImportWizardProps) {
-    const { stepper, ...stepperProps } = useStepper({
+    const { activeStep, goToNextStep, goToPreviousStep, resetSteps, setStep, ...stepperProps } = useStepper({
         initialStep: 0,
         steps: [
             { label: 'Upload File' },
@@ -65,7 +65,7 @@ export function ImportWizard({
     const { toast } = useToast();
 
     const resetWizard = () => {
-        stepper.resetSteps();
+        resetSteps();
         setParsedData(null);
         setFieldMapping({});
         setImportResult({success: 0, failed: 0, errors: []});
@@ -108,7 +108,7 @@ export function ImportWizard({
                 });
                 setFieldMapping(newMapping);
                 
-                stepper.goToNextStep();
+                goToNextStep();
             } catch (error) {
                 toast({ variant: 'destructive', title: 'File Read Error', description: 'Could not parse the Excel file.' });
             } finally {
@@ -127,18 +127,22 @@ export function ImportWizard({
 
         setIsProcessing(true);
         setImportResult({success: 0, failed: 0, errors: []});
+        
+        const BATCH_SIZE = 400; // Firestore batch limit is 500
+        const batches: any[] = [];
+        let currentBatch = writeBatch(db);
+        let currentBatchSize = 0;
 
-        const batch = writeBatch(db);
         const mediaAssetsCollection = collection(db, 'mediaAssets');
         let successCount = 0;
         const localErrors: string[] = [];
 
         parsedData.rows.forEach((row, index) => {
-            const assetData: Partial<Asset> = {};
+            const assetData: Partial<Asset> & { [key: string]: any } = {};
             
             allAssetFields.forEach(field => {
                 const mappedHeader = fieldMapping[field];
-                if (mappedHeader) {
+                if (mappedHeader && mappedHeader !== '--skip--') {
                     const headerIndex = parsedData.headers.indexOf(mappedHeader);
                     if (headerIndex > -1) {
                          const value = row[headerIndex];
@@ -148,6 +152,16 @@ export function ImportWizard({
                     }
                 }
             });
+            
+            // Reconstruct nested objects
+            assetData.size = {
+                width: Number(assetData['size.width']) || 0,
+                height: Number(assetData['size.height']) || 0,
+            };
+            assetData.size2 = {
+                width: Number(assetData['size2.width']) || 0,
+                height: Number(assetData['size2.height']) || 0,
+            };
 
             // Basic validation
             const missingFields = requiredAssetFields.filter(field => !assetData[field]);
@@ -173,12 +187,23 @@ export function ImportWizard({
             };
 
             const docRef = doc(mediaAssetsCollection);
-            batch.set(docRef, finalAssetData);
+            currentBatch.set(docRef, finalAssetData);
+            currentBatchSize++;
             successCount++;
+
+            if(currentBatchSize === BATCH_SIZE) {
+                batches.push(currentBatch);
+                currentBatch = writeBatch(db);
+                currentBatchSize = 0;
+            }
         });
+
+        if (currentBatchSize > 0) {
+            batches.push(currentBatch);
+        }
         
         try {
-            await batch.commit();
+            await Promise.all(batches.map(batch => batch.commit()));
             setImportResult({ success: successCount, failed: localErrors.length, errors: localErrors });
             toast({ title: 'Import Complete!', description: `${successCount} records imported.` });
             onImportComplete();
@@ -186,13 +211,13 @@ export function ImportWizard({
             toast({ variant: 'destructive', title: 'Import Failed', description: `Could not commit changes to the database. ${error.message}` });
         } finally {
             setIsProcessing(false);
-            stepper.goToNextStep();
+            goToNextStep();
         }
     };
 
 
     const renderStepContent = () => {
-        switch(stepper.activeStep) {
+        switch(activeStep) {
             case 0:
                 return (
                     <div className="flex flex-col items-center justify-center h-full text-center border-2 border-dashed rounded-lg p-12">
@@ -326,11 +351,11 @@ export function ImportWizard({
             {renderStepContent()}
         </div>
         <DialogFooter>
-            {stepper.activeStep === 0 && <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>}
-            {stepper.activeStep > 0 && stepper.activeStep < 3 && <Button variant="outline" onClick={stepper.goToPreviousStep} disabled={isProcessing}>Back</Button>}
-            {stepper.activeStep === 1 && <Button onClick={stepper.goToNextStep} disabled={Object.keys(fieldMapping).length === 0}>Preview Data <ArrowRight className="ml-2 w-4 h-4"/></Button>}
-            {stepper.activeStep === 2 && <Button onClick={handleImport} disabled={isProcessing}>Start Import <TableIcon className="ml-2 w-4 h-4" /></Button>}
-            {stepper.activeStep === 3 && <DialogClose asChild><Button>Done</Button></DialogClose>}
+            {activeStep === 0 && <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>}
+            {activeStep > 0 && activeStep < 3 && <Button variant="outline" onClick={goToPreviousStep} disabled={isProcessing}>Back</Button>}
+            {activeStep === 1 && <Button onClick={goToNextStep} disabled={Object.keys(fieldMapping).length === 0}>Preview Data <ArrowRight className="ml-2 w-4 h-4"/></Button>}
+            {activeStep === 2 && <Button onClick={handleImport} disabled={isProcessing}>Start Import <TableIcon className="ml-2 w-4 h-4" /></Button>}
+            {activeStep === 3 && <DialogClose asChild><Button>Done</Button></DialogClose>}
         </DialogFooter>
       </DialogContent>
     </Dialog>
