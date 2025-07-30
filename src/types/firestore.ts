@@ -24,6 +24,7 @@ export interface Customer {
   companyId: string; // Reference to companies collection
   name: string;
   gst?: string;
+  pan?: string;
   email?: string;
   phone?: string;
   billingAddress?: Address;

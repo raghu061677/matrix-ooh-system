@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo, useTransition, useRef } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, writeBatch } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/tooltip"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -47,7 +48,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2, Loader2, Search, SlidersHorizontal, ArrowUpDown, Upload, Download } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, Search, SlidersHorizontal, ArrowUpDown, Upload, Download, Users, MoreHorizontal } from 'lucide-react';
 import { Customer, Address } from '@/types/firestore';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -56,6 +57,7 @@ import PptxGenJS from 'pptxgenjs';
 import { fetchGstDetails } from '@/ai/flows/fetch-gst-details';
 import { ScrollArea } from '../ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
+import { ImportWizard } from './import-wizard';
 
 type SortConfig = {
   key: keyof Customer;
@@ -82,11 +84,11 @@ export function CustomerManager() {
   const [isFetchingGst, startGstTransition] = useTransition();
 
   const [filter, setFilter] = useState('');
-  const [searchField, setSearchField] = useState<SearchableField>('name');
-  const [sortConfig, setSortConfig] = useState<SortConfig>(null);
+  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
+  const [isImportWizardOpen, setIsImportWizardOpen] = useState(false);
+
   const { toast } = useToast();
   const { user } = useAuth();
-  const customersCollectionRef = collection(db, 'customers');
   
   const getCustomers = async () => {
     if (!user?.companyId) return;
@@ -183,7 +185,7 @@ export function CustomerManager() {
       await updateDoc(customerDoc, dataToSave);
       toast({ title: 'Customer Updated!', description: 'The customer has been successfully updated.' });
     } else {
-      await addDoc(customersCollectionRef, dataToSave);
+      await addDoc(collection(db, 'customers'), dataToSave);
       toast({ title: 'Customer Added!', description: 'The new customer has been added.' });
     }
     await getCustomers();
@@ -208,6 +210,7 @@ export function CustomerManager() {
   };
   
   const handleDelete = async (customer: Customer) => {
+     if (!confirm(`Are you sure you want to delete ${customer.name}? This cannot be undone.`)) return;
      const customerDoc = doc(db, 'customers', customer.id);
      await deleteDoc(customerDoc);
      await getCustomers();
@@ -221,6 +224,7 @@ export function CustomerManager() {
         const searchTerm = filter.toLowerCase();
         return customer.name?.toLowerCase().includes(searchTerm) ||
                customer.gst?.toLowerCase().includes(searchTerm) ||
+               customer.pan?.toLowerCase().includes(searchTerm) ||
                customer.email?.toLowerCase().includes(searchTerm) ||
                customer.phone?.toLowerCase().includes(searchTerm);
       });
@@ -228,8 +232,75 @@ export function CustomerManager() {
     return sortableCustomers;
   }, [customers, filter]);
 
+  const handleSelectCustomer = (customerId: string, isSelected: boolean) => {
+    if (isSelected) {
+        setSelectedCustomers(prev => [...prev, customerId]);
+    } else {
+        setSelectedCustomers(prev => prev.filter(id => id !== customerId));
+    }
+  };
+
+  const handleSelectAll = (isSelected: boolean) => {
+    if (isSelected) {
+        setSelectedCustomers(sortedAndFilteredCustomers.map(c => c.id));
+    } else {
+        setSelectedCustomers([]);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedCustomers.length === 0 || !confirm(`Are you sure you want to delete ${selectedCustomers.length} selected customers?`)) return;
+    
+    setLoading(true);
+    const batch = writeBatch(db);
+    selectedCustomers.forEach(id => {
+        batch.delete(doc(db, 'customers', id));
+    });
+    
+    await batch.commit();
+    await getCustomers();
+    setSelectedCustomers([]);
+    setLoading(false);
+    toast({ title: `${selectedCustomers.length} Customers Deleted` });
+  };
   
-  if (loading && !isDialogOpen) {
+  const handleExport = (format: 'xlsx' | 'pdf' | 'pptx') => {
+      const exportData = sortedAndFilteredCustomers.map(c => ({
+          Name: c.name,
+          GST: c.gst,
+          PAN: c.pan,
+          Email: c.email,
+          Phone: c.phone,
+          'Billing Address': `${c.billingAddress?.street || ''}, ${c.billingAddress?.city || ''}`,
+          'Shipping Address': `${c.shippingAddress?.street || ''}, ${c.shippingAddress?.city || ''}`
+      }));
+      
+      if (format === 'xlsx') {
+          const ws = XLSX.utils.json_to_sheet(exportData);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, "Customers");
+          XLSX.writeFile(wb, "customers.xlsx");
+      } else if (format === 'pdf') {
+          const doc = new jsPDF();
+          doc.text("Customer List", 14, 16);
+          autoTable(doc, {
+              head: [['Name', 'GST', 'PAN', 'Email', 'Phone']],
+              body: exportData.map(c => [c.Name, c.GST, c.PAN, c.Email, c.Phone]),
+              startY: 20
+          });
+          doc.save('customers.pdf');
+      } else if (format === 'pptx') {
+          const pptx = new PptxGenJS();
+          const slide = pptx.addSlide();
+          slide.addText("Customer List", { x:1, y:1, w:'80%', h:1, fontSize:24 });
+          const tableData = exportData.map(c => [c.Name, c.GST, c.Email]);
+          slide.addTable([['Name', 'GST', 'Email'], ...tableData], { x:1, y:2, w:'80%' });
+          pptx.writeFile({ fileName: 'customers.pptx' });
+      }
+  };
+
+  
+  if (loading && !isDialogOpen && !isImportWizardOpen) {
     return (
         <div className="flex items-center justify-center h-48">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -239,6 +310,9 @@ export function CustomerManager() {
 
   return (
     <TooltipProvider>
+       <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-semibold flex items-center gap-2"><Users />Customer Portal</h1>
+       </div>
       <div className="flex justify-between items-center mb-6 gap-4">
         <div className="flex items-center gap-2">
            <Input
@@ -247,9 +321,25 @@ export function CustomerManager() {
             onChange={(e) => setFilter(e.target.value)}
             className="max-w-sm"
           />
+           {selectedCustomers.length > 0 && (
+               <Button variant="destructive" onClick={handleDeleteSelected} disabled={loading}>
+                   <Trash2 className="mr-2 h-4 w-4" /> Delete ({selectedCustomers.length})
+               </Button>
+           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={() => openDialog()}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline"><Download className="mr-2" /> Export</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onSelect={() => handleExport('xlsx')}>Export to Excel (.xlsx)</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleExport('pdf')}>Export to PDF</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleExport('pptx')}>Export to PowerPoint</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button onClick={() => setIsImportWizardOpen(true)} variant="outline"><Upload className="mr-2" /> Import</Button>
+            <Button onClick={() => openDialog()}>
             <PlusCircle className="mr-2" />
             Add New Customer
           </Button>
@@ -259,8 +349,15 @@ export function CustomerManager() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>
+                 <Checkbox
+                    checked={selectedCustomers.length > 0 && selectedCustomers.length === sortedAndFilteredCustomers.length}
+                    onCheckedChange={(checked) => handleSelectAll(Boolean(checked))}
+                  />
+              </TableHead>
               <TableHead>Name</TableHead>
               <TableHead>GST</TableHead>
+              <TableHead>PAN</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -269,20 +366,43 @@ export function CustomerManager() {
           <TableBody>
             {sortedAndFilteredCustomers.map(customer => (
               <TableRow key={customer.id}>
+                <TableCell>
+                  <Checkbox 
+                    checked={selectedCustomers.includes(customer.id)}
+                    onCheckedChange={(checked) => handleSelectCustomer(customer.id, Boolean(checked))}
+                  />
+                </TableCell>
                 <TableCell className="font-medium">{customer.name}</TableCell>
                 <TableCell>{customer.gst}</TableCell>
+                <TableCell>{customer.pan}</TableCell>
                 <TableCell>{customer.email}</TableCell>
                 <TableCell>{customer.phone}</TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" onClick={() => openDialog(customer)}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDelete(customer)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                   <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <DropdownMenuItem onSelect={() => openDialog(customer)}>
+                                <Edit className="mr-2 h-4 w-4" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleDelete(customer)} className="text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                     </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))}
+             {sortedAndFilteredCustomers.length === 0 && (
+                <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                        No customers found.
+                    </TableCell>
+                </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>
@@ -308,6 +428,10 @@ export function CustomerManager() {
                             {isFetchingGst ? <Loader2 className="animate-spin" /> : <Search />}
                         </Button>
                     </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="pan">PAN Number</Label>
+                    <Input id="pan" name="pan" value={formData.pan || ''} onChange={handleFormChange} />
                   </div>
                    <div>
                     <Label htmlFor="email">Email</Label>
@@ -358,6 +482,12 @@ export function CustomerManager() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ImportWizard 
+        isOpen={isImportWizardOpen}
+        onOpenChange={setIsImportWizardOpen}
+        onImportComplete={getCustomers}
+      />
     </TooltipProvider>
   );
 }
