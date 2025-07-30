@@ -74,6 +74,7 @@ export function MediaManager() {
   const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
 
   const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
+  const [isMultiMapDialogOpen, setIsMultiMapDialogOpen] = useState(false);
   const [mapAsset, setMapAsset] = useState<Asset | null>(null);
   const [isImportWizardOpen, setIsImportWizardOpen] = useState(false);
 
@@ -478,6 +479,37 @@ export function MediaManager() {
     }
     setLoading(false);
   };
+  
+   const multiMapUrl = useMemo(() => {
+    if (selectedAssets.length === 0) return '';
+    const assetsWithCoords = mediaAssets.filter(
+      (asset) => selectedAssets.includes(asset.id) && asset.latitude && asset.longitude
+    );
+
+    if (assetsWithCoords.length === 0) return '';
+    if (assetsWithCoords.length === 1) {
+       return `https://maps.google.com/maps?q=${assetsWithCoords[0].latitude},${assetsWithCoords[0].longitude}&hl=es&z=14&output=embed`;
+    }
+
+    const bounds = assetsWithCoords.reduce(
+      (acc, asset) => {
+        return {
+          minLat: Math.min(acc.minLat, asset.latitude!),
+          maxLat: Math.max(acc.maxLat, asset.latitude!),
+          minLng: Math.min(acc.minLng, asset.longitude!),
+          maxLng: Math.max(acc.maxLng, asset.longitude!),
+        };
+      },
+      { minLat: 90, maxLat: -90, minLng: 180, maxLng: -180 }
+    );
+    
+    // The google maps URL can get too long, so we only include a subset of markers if too many are selected.
+    const markers = assetsWithCoords.slice(0, 30).map(asset => `&q=${asset.latitude},${asset.longitude}(${encodeURIComponent(asset.name || '')})`).join('');
+    
+    return `https://maps.google.com/maps?f=q&source=s_q&hl=en&geocode=&sll=${(bounds.minLat + bounds.maxLat)/2},${(bounds.minLng + bounds.maxLng)/2}${markers}&output=embed`;
+
+  }, [selectedAssets, mediaAssets]);
+
 
   const combinedSqft = useMemo(() => {
     const sqft1 = formData.totalSqft || 0;
@@ -586,9 +618,14 @@ export function MediaManager() {
           </div>
           <div className="flex items-center gap-2">
           {selectedAssets.length > 0 && (
-            <Button variant="destructive" onClick={handleDeleteSelected}>
-              Delete Selected ({selectedAssets.length})
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => setIsMultiMapDialogOpen(true)}>
+                View on Map ({selectedAssets.length})
+              </Button>
+              <Button variant="destructive" onClick={handleDeleteSelected}>
+                Delete Selected ({selectedAssets.length})
+              </Button>
+            </>
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -1050,6 +1087,31 @@ export function MediaManager() {
               <span><strong>Area:</strong> {mapAsset?.area || 'N/A'}</span>
             </div>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+       <Dialog open={isMultiMapDialogOpen} onOpenChange={setIsMultiMapDialogOpen}>
+        <DialogContent className="sm:max-w-5xl h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Map of Selected Assets ({selectedAssets.length})</DialogTitle>
+            <DialogDescription>Showing all selected assets with valid coordinates.</DialogDescription>
+          </DialogHeader>
+          <div className="h-full w-full rounded-md border overflow-hidden">
+            {multiMapUrl ? (
+              <iframe
+                width="100%"
+                height="100%"
+                loading="lazy"
+                allowFullScreen
+                referrerPolicy="no-referrer-when-downgrade"
+                src={multiMapUrl}
+              ></iframe>
+            ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                    No selected assets have coordinates to display.
+                </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
