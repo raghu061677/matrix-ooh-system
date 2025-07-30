@@ -346,7 +346,7 @@ export function MediaManager() {
       if (newImageFiles.length > 0) {
         toast({ title: `Uploading ${newImageFiles.length} image(s)...` });
         const uploadPromises = newImageFiles.map(file => {
-          const imageRef = ref(storage, `uploads/${user.uid}/${assetId}-${file.name}`);
+          const imageRef = ref(storage, `mediaAssets/${assetId}/${file.name}`);
           return uploadBytes(imageRef, file).then(snapshot => getDownloadURL(snapshot.ref));
         });
 
