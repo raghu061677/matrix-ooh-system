@@ -96,6 +96,9 @@ export function ImportWizard({
         setFieldMapping({});
         setImportResult({success: 0, failed: 0, errors: []});
         setIsProcessing(false);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
     };
 
     const handleClose = (open: boolean) => {
@@ -398,13 +401,15 @@ export function ImportWizard({
             {renderStepContent()}
         </div>
         <DialogFooter>
-            {activeStep === 0 && <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>}
+            {activeStep === 0 && <DialogClose asChild><Button variant="outline" onClick={resetWizard}>Cancel</Button></DialogClose>}
             {activeStep > 0 && activeStep < 3 && <Button variant="outline" onClick={goToPreviousStep} disabled={isProcessing}>Back</Button>}
             {activeStep === 1 && <Button onClick={() => goToNextStep()} disabled={isProcessing}>Preview Data <ArrowRight className="ml-2 w-4 h-4"/></Button>}
             {activeStep === 2 && <Button onClick={handleImport} disabled={isProcessing}>Start Import <TableIcon className="ml-2 w-4 h-4" /></Button>}
-            {activeStep === 3 && <DialogClose asChild><Button>Done</Button></DialogClose>}
+            {activeStep === 3 && <DialogClose asChild><Button onClick={resetWizard}>Done</Button></DialogClose>}
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
+    
