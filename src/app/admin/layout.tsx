@@ -32,8 +32,6 @@ import { ThemeProvider, useTheme } from '@/components/admin/theme-provider';
 import { ThemeToggle } from '@/components/admin/theme-toggle';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
-import { SheetTitle } from '@/components/ui/sheet';
-
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -61,7 +59,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
          <SidebarRail />
           <SidebarHeader>
             <div className="flex items-center gap-2">
-               <Image src="/logo.png" alt="Matrix-OOH Logo" width={140} height={40} />
+               <Image src="/logo.png" alt="Matrix-OOH Logo" width={140} height={40} className="dark:brightness-0 dark:invert" />
             </div>
           </SidebarHeader>
           <SidebarContent className="pt-4">
@@ -424,3 +422,5 @@ export default function AdminLayout({
     </ThemeProvider>
   );
 }
+
+    
