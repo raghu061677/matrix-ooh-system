@@ -82,6 +82,8 @@ export function ImportWizard({
     const [fieldMapping, setFieldMapping] = React.useState<Record<string, string>>({});
     const [importResult, setImportResult] = React.useState<{success: number, failed: number, errors: string[]}>({success: 0, failed: 0, errors: []});
     const [isProcessing, setIsProcessing] = React.useState(false);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
 
     const { user } = useAuth();
     const { toast } = useToast();
@@ -259,12 +261,15 @@ export function ImportWizard({
                         <FileUp className="w-16 h-16 text-muted-foreground mb-4" />
                         <h3 className="text-xl font-semibold mb-2">Upload your Excel File</h3>
                         <p className="text-muted-foreground mb-4">Drag and drop your file here or click to browse.</p>
-                        <Button asChild>
-                            <label htmlFor="import-file">
-                                Browse Files
-                                <input id="import-file" type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleFileUpload} />
-                            </label>
-                        </Button>
+                        <Button type="button" onClick={() => fileInputRef.current?.click()}>Browse Files</Button>
+                        <input
+                          ref={fileInputRef}
+                          id="import-file"
+                          type="file"
+                          className="hidden"
+                          accept=".xlsx, .xls, .csv"
+                          onChange={handleFileUpload}
+                        />
                     </div>
                 );
             case 1:
