@@ -362,16 +362,6 @@ export function CustomerManager() {
            )}
         </div>
         <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline"><Download className="mr-2" /> Export</Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onSelect={() => handleExport('xlsx')}>Export to Excel (.xlsx)</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => handleExport('pdf')}>Export to PDF</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => handleExport('pptx')}>Export to PowerPoint</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
             <Button onClick={() => setIsImportWizardOpen(true)} variant="outline"><Upload className="mr-2" /> Import</Button>
             <Button onClick={() => openDialog()}>
             <PlusCircle className="mr-2" />
@@ -603,3 +593,5 @@ export function CustomerManager() {
     </TooltipProvider>
   );
 }
+
+    

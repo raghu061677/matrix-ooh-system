@@ -54,7 +54,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <div className={cn('flex min-h-screen', theme !== 'light' && theme)}>
+      <div className={cn('flex min-h-screen w-full', theme !== 'light' && theme)}>
         <Sidebar collapsible="icon">
          <SidebarRail />
           <SidebarHeader>
@@ -393,17 +393,17 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
              </div>
           </SidebarFooter>
         </Sidebar>
-        <SidebarInset>
+        <div className="flex flex-col w-full">
           <header className="flex items-center justify-between p-4 border-b">
              <SidebarTrigger />
              <h1 className="text-xl font-semibold capitalize">
                 {pathname.split('/').pop()?.replace(/-/g, ' ')}
              </h1>
           </header>
-          <main className="p-4 md:p-6">
+          <main className="p-4 md:p-6 flex-grow">
             {children}
           </main>
-        </SidebarInset>
+        </div>
       </div>
     </SidebarProvider>
   );
