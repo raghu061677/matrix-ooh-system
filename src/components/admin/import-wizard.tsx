@@ -90,7 +90,7 @@ export function ImportWizard({
     
     const config = importConfig[importType];
 
-    const resetWizard = () => {
+    const resetWizard = React.useCallback(() => {
         resetSteps();
         setParsedData(null);
         setFieldMapping({});
@@ -99,14 +99,14 @@ export function ImportWizard({
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
-    };
+    }, [resetSteps]);
 
-    const handleClose = (open: boolean) => {
+    const handleClose = React.useCallback((open: boolean) => {
         if (!open) {
             resetWizard();
         }
         onOpenChange(open);
-    }
+    }, [onOpenChange, resetWizard]);
 
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -260,11 +260,13 @@ export function ImportWizard({
         switch(activeStep) {
             case 0:
                 return (
-                    <div className="flex flex-col items-center justify-center h-full text-center border-2 border-dashed rounded-lg p-12">
+                    <div 
+                        className="flex flex-col items-center justify-center h-full text-center border-2 border-dashed rounded-lg p-12 cursor-pointer"
+                        onClick={() => fileInputRef.current?.click()}
+                    >
                         <FileUp className="w-16 h-16 text-muted-foreground mb-4" />
-                        <h3 className="text-xl font-semibold mb-2">Upload your Excel File</h3>
-                        <p className="text-muted-foreground mb-4">Drag and drop your file here or click to browse.</p>
-                        <Button type="button" onClick={() => fileInputRef.current?.click()}>Browse Files</Button>
+                        <h3 className="text-xl font-semibold mb-2">Click to Upload your Excel File</h3>
+                        <p className="text-muted-foreground mb-4">Or drag and drop your file here.</p>
                         <input
                           ref={fileInputRef}
                           id="import-file"
