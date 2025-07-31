@@ -118,7 +118,9 @@ export function CustomerManager() {
   };
 
   useEffect(() => {
-    getCustomers();
+    if (user?.companyId) {
+        getCustomers();
+    }
   }, [user]);
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
