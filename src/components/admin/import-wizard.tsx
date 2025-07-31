@@ -260,14 +260,8 @@ export function ImportWizard({
         switch(activeStep) {
             case 0:
                 return (
-                    <div 
-                        className="flex flex-col items-center justify-center h-full text-center border-2 border-dashed rounded-lg p-12 cursor-pointer"
-                        onClick={() => fileInputRef.current?.click()}
-                    >
-                        <FileUp className="w-16 h-16 text-muted-foreground mb-4" />
-                        <h3 className="text-xl font-semibold mb-2">Click to Upload your Excel File</h3>
-                        <p className="text-muted-foreground mb-4">Or drag and drop your file here.</p>
-                        <input
+                    <>
+                         <input
                           ref={fileInputRef}
                           id="import-file"
                           type="file"
@@ -275,7 +269,15 @@ export function ImportWizard({
                           accept=".xlsx, .xls, .csv"
                           onChange={handleFileUpload}
                         />
-                    </div>
+                        <div 
+                            className="flex flex-col items-center justify-center h-full text-center border-2 border-dashed rounded-lg p-12 cursor-pointer"
+                            onClick={() => fileInputRef.current?.click()}
+                        >
+                            <FileUp className="w-16 h-16 text-muted-foreground mb-4" />
+                            <h3 className="text-xl font-semibold mb-2">Click to Upload your Excel File</h3>
+                            <p className="text-muted-foreground mb-4">Or drag and drop your file here.</p>
+                        </div>
+                    </>
                 );
             case 1:
                 return (
@@ -413,5 +415,7 @@ export function ImportWizard({
     </Dialog>
   );
 }
+
+    
 
     
